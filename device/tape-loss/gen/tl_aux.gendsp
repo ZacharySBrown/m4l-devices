@@ -1,0 +1,374 @@
+// =====================================================================
+// tl_aux.gendsp — gen~ DSL source for the AUX module of tape-loss
+// =====================================================================
+//
+// Module       : tl_aux (Generation Loss MKII "AUX footswitch")
+// Authored     : 2026-04-27 (Phase 2.5 — gen~ translation)
+// Author       : pedal-engineer (auto-authored from numpy reference)
+// SANDBOX      : LOCAL-ONLY  (STOP mode requires Max IDE for buffer-init
+//                verification per pitfall #19; the FILTER and FAIL modes
+//                are individually SANDBOX-OK but the unit ships as one
+//                gen~ object so the strictest mode classifies the whole)
+//
+// Source files :
+//   design-doc        : docs/design-docs/dsp/tl-aux-design.md
+//                       sha256: e37f4fe1993bf2036f6393e1a266edc1628017dd
+//                               2c3b90a29c0903dc2695f3e8
+//   numpy reference   : dsp/reference/tl_aux.py
+//                       sha256: 02f4837686fc9b18af36cedcbab6662742b27a7e
+//                               0b52f74f927a63ba4b2767c6
+//   parent maxpat stub: device/tape-loss/tl_aux.maxpat
+//                       (5-inlet / 3-outlet contract; Phase 1.5)
+//
+// Inlets  (5 in maxpat, 4 used here):
+//   in1 = signal L
+//   in2 = signal R
+//   in3 = aux_active        (control signal, 0 or 1, footswitch state)
+//   in4 = aux_onset_ms      (control signal, 10..3000 ms, log-tapered)
+//   in5 = reserved          (parent maxpat allocates 5 inlets to leave
+//                            headroom for a future failure_knob input;
+//                            unread here — FAIL override uses a 0-knob
+//                            baseline so override = e[n] cleanly)
+//
+// Outlets (3) — Phase 1.5 contract:
+//   out1 = signal L          (mode-dispatched output, audio rate)
+//   out2 = signal R          (mode-dispatched output, audio rate)
+//   out3 = failure_override  (signal-rate sidechain to tl_failure inlet 4;
+//                             0 unless aux_mode = FAIL, else = e[n] in
+//                             [0, 1])
+//
+// Param   (1):
+//   aux_mode   ∈ {0, 1, 2}    (0 = STOP, 1 = FILTER, 2 = FAIL; default 0)
+//
+// ---------------------------------------------------------------------
+// Algorithm summary (translated 1:1 from dsp/reference/tl_aux.py):
+//
+//   Shared onset envelope (all three modes consume the same e[n]):
+//
+//     onset_ms ← clamp(in4, 10, 3000)
+//     α        = 1 - exp(-1 / (onset_ms · samplerate / 1000))
+//     target   = in3                                  // 0 or 1
+//     e[n]     = e[n-1] + α · (target - e[n-1])       // exp 1-pole
+//
+//   Mode A — STOP (tape-stop deceleration):
+//
+//     rate[n]  = clamp((1 - e[n])^2.5, 0, 1)          // γ = 2.5
+//     gain[n]  = sqrt(max(0, 1 - e[n]))               // √-taper
+//     read_pos = read_pos_prev + (1 - rate[n])        // delay grows when
+//                                                      // rate < 1
+//     y_stop_L = stopbuf_L.read(read_pos, "linear") * gain
+//     y_stop_R = stopbuf_R.read(read_pos, "linear") * gain
+//
+//     The buffers are 262144 samples (~5.46 s @ 48k). They are written
+//     EVERY sample regardless of aux_mode — this guarantees STOP state
+//     stays warm across mode switches and that read-on-press always has
+//     fresh history. See "Mode coexistence" note below.
+//
+//   Mode B — FILTER (TPT-SVF low-pass, log sweep):
+//
+//     fc(e)    = 18000 · (200 / 18000)^e              // log sweep
+//     fc       = clamp(fc, 20, 0.45 · samplerate)     // SVF Nyquist guard
+//     Q(e)     = 0.707 + e · (4.0 - 0.707)
+//     k        = 1 / Q
+//     g        = tan(π · fc / samplerate)             // freq warp
+//     a1       = 1 / (1 + g·(g + k))
+//     a2       = g · a1
+//     a3       = g · a2
+//
+//     Per-sample TPT-SVF step (Andrew Simper / Vadim Zavalishin form),
+//     two independent state pairs (L, R):
+//
+//       v3      = x - ic2eq
+//       v1      = a1·ic1eq + a2·v3
+//       v2      = ic2eq + a2·ic1eq + a3·v3
+//       ic1eq  ← 2·v1 - ic1eq
+//       ic2eq  ← 2·v2 - ic2eq
+//       y_lpf   = v2
+//
+//   Mode C — FAIL (sidechain control output):
+//
+//     Audio path: bit-identical passthrough (out1 = in1, out2 = in2).
+//     out3 (failure_override) = e[n]   (in [0, 1]; 0 when aux_active=0).
+//
+//     Per design-doc §3.2 the full mapping is `knob + e·(1-knob)`. Since
+//     gen~ has no separate failure_knob inlet wired in this round, we
+//     emit just `e[n]` — equivalent to a knob of 0.0 (the default). The
+//     downstream tl_failure performs the additive-toward-max merge with
+//     its own knob value. (When the future failure_knob input lands on
+//     in5, swap the out3 expression to `knob + e_curr * (1 - knob)`.)
+//
+// ---------------------------------------------------------------------
+// Mode coexistence (state preservation across mode switches):
+//
+//   The STOP delay buffers `stopbuf_L`/`stopbuf_R` are written every
+//   sample irrespective of aux_mode (see "delbuf_L.write(in1)" below).
+//   This costs ~free CPU but means: switching FILTER → STOP mid-press
+//   finds the buffer ALREADY pre-filled with up-to-262144 samples of
+//   live audio history, exactly as the numpy ref's stateful processor
+//   would have it after a continuous stream.
+//
+//   The SVF state (svf_ic1_*, svf_ic2_*) is NOT advanced in non-FILTER
+//   modes, so first-press in FILTER mode starts from zeroed state — the
+//   intended behavior (numpy ref `_process_filter` initializes
+//   `state = [0.0, 0.0]` per call).
+//
+//   The read_pos History (`stop_read_pos`) is NOT advanced in non-STOP
+//   modes; it sits at whatever value it last held. On a fresh STOP press
+//   we DO want read_pos to start at 0 (read = current write = identity)
+//   — so we gate the position advance with `aux_active` and reset to 0
+//   the moment aux_active is 0 (release), matching the numpy ref's
+//   read_head=0 invariant when env=0.
+//
+//   Per design-doc §0.1 ("Mode-switching strategy"), `aux_mode` should
+//   ideally only change while `e[n] < 0.01`. The engineer's parent
+//   patch is responsible for queuing mode changes; this DSP block
+//   honors whatever value is live.
+//
+// ---------------------------------------------------------------------
+// Sample-rate dependence:
+//
+//   * Onset α and SVF g recompute every sample using `samplerate` →
+//     SR-agnostic by construction.
+//   * STOP buffer length is 262144 SAMPLES (not seconds). At 48 kHz
+//     that's ~5.46 s of headroom (covers the spec's max 3000 ms onset
+//     at 1.5× headroom — see design-doc §1.4). At 96 kHz the same
+//     buffer holds ~2.73 s, which is STILL above the 3000 ms × 1.0
+//     bare minimum but BELOW the recommended 1.5× headroom.
+//
+//     Verdict: at 96 kHz the read-head's "underflow guard" (clamping
+//     read_pos ≤ buf_len - 256) may engage during onset = 3000 ms
+//     pathological-press scenarios. This is acceptable: the buffer
+//     freezes at the oldest sample, gain has long since faded to ≈ 0,
+//     and the audible result is silence regardless. Documented.
+//
+// ---------------------------------------------------------------------
+// Sanity-check expectations (matches numpy ref verification §12):
+//
+//   ALL modes, aux_active = 0:
+//     env_e  → 0
+//     out1   = in1   (STOP: read_pos=0, gain=1; FILTER: fc=18 kHz wide-
+//                     open, near-pass; FAIL: explicit pass)
+//     out2   = in2   (same as L)
+//     out3   = 0     (override is 0 unless mode = FAIL; FAIL with e=0
+//                     emits 0 anyway)
+//
+//   STOP mode, aux_active = 1, plateau (e ≈ 1):
+//     rate   → 0     (read head freezes)
+//     gain   → 0     (√(1-e) → 0)
+//     out1, out2 ≈ silence (verified ratio ≈ 0 to 6 sig figs in numpy)
+//     out3   = 0     (override only emitted in FAIL mode)
+//
+//   FILTER mode, aux_active = 1, plateau (e ≈ 1):
+//     fc     = 200 Hz    (sweep close)
+//     Q      = 4.0       (mild resonance bump)
+//     out1, out2 = audibly low-passed; spectral centroid ≈ 257 Hz vs.
+//                  ≈ 6128 Hz dry (numpy verification result)
+//     out3   = 0
+//
+//   FAIL mode, aux_active = 1, plateau (e ≈ 1):
+//     out1   = in1       (bit-identical, max diff = 0)
+//     out2   = in2       (bit-identical, max diff = 0)
+//     out3   = 1.0       (full failure override)
+//
+// ---------------------------------------------------------------------
+// References:
+//   * Andrew Simper, "Linear Trapezoidal Integrated State Variable
+//     Filter", Cytomic 2014:
+//     https://cytomic.com/files/dsp/SvfLinearTrapOptimised2.pdf
+//   * Vadim Zavalishin, "The Art of VA Filter Design", §3.10
+//     (Trapezoidal SVF) — free PDF.
+//   * JOS PASP, "Wow and Flutter Modeling" — justifies (1-e)^2.5 curve.
+//   * Smith, DSP Guide Ch. 19 — exponential envelope follower.
+//   * Project design-doc tradeoff log #2, #3, #7 — curve / topology /
+//     gain compensation choices encoded here verbatim.
+// =====================================================================
+
+Param aux_mode 0;
+
+// --- Constants -------------------------------------------------------
+
+// STOP deceleration curve exponent (design-doc §1.2, tradeoff #2).
+GAMMA_STOP = 2.5;
+
+// FILTER sweep endpoints (design-doc §2.4, tradeoff #10).
+FC_MAX_HZ = 18000.0;
+FC_MIN_HZ = 200.0;
+
+// FILTER resonance endpoints (design-doc §2.4, tradeoff #11).
+Q_BASE = 0.707;
+Q_MAX  = 4.0;
+
+// SVF defensive clamps (design-doc §2.5, §8 numerical-stability).
+FC_MIN_CLAMP = 20.0;
+FC_NYQUIST_FRACTION = 0.45;
+Q_MIN_CLAMP = 0.5;
+Q_MAX_CLAMP = 10.0;
+
+// Onset envelope clamps (design-doc spec §"aux_onset_ms" 10..3000 ms).
+ONSET_MS_MIN = 10.0;
+ONSET_MS_MAX = 3000.0;
+
+// STOP buffer underflow guard headroom (design-doc §1.4).
+STOP_BUF_GUARD = 256.0;
+
+// Math constants.
+PI       = 3.14159265358979323846;
+LOG_FC_RATIO = -4.49980967033;   // = log(200 / 18000), precomputed.
+
+// Mode dispatch IDs (mirror numpy MODE_STOP/MODE_FILTER/MODE_FAIL).
+MODE_STOP_ID   = 0;
+MODE_FILTER_ID = 1;
+MODE_FAIL_ID   = 2;
+
+// --- State (History + Delay) -----------------------------------------
+
+// Shared onset envelope state — single e[n] consumed by all three modes.
+History env_e;
+
+// STOP mode: stereo circular buffers (262144 samples each ≈ 5.46 s @ 48k,
+// covers max 3000 ms onset × 1.5 headroom per design-doc §1.4 / tradeoff
+// #6). Power of 2 for clean wraparound.
+Delay stopbuf_L(262144);
+Delay stopbuf_R(262144);
+
+// STOP mode: fractional read-head delay (samples behind the writer).
+// 0 = read = current write = identity passthrough.
+History stop_read_pos;
+
+// FILTER mode: TPT-SVF integrator state, separate per channel
+// (Simper/Zavalishin "ic1eq, ic2eq").
+History svf_ic1_L, svf_ic2_L;
+History svf_ic1_R, svf_ic2_R;
+
+// =====================================================================
+// Per-sample DSP
+// =====================================================================
+
+// ----- Onset envelope (shared across modes) --------------------------
+//
+// Single 1-pole exponential smoother. α recomputed per sample so the
+// engineer can sweep aux_onset_ms without zipper noise.
+onset_ms_in = clamp(in4, ONSET_MS_MIN, ONSET_MS_MAX);
+onset_samples = onset_ms_in * 0.001 * samplerate;
+onset_samples = max(onset_samples, 1.0);
+alpha = 1.0 - exp(-1.0 / onset_samples);
+
+target = in3;                      // 0 or 1, footswitch state
+env_e = env_e + alpha * (target - env_e);
+e_curr = env_e;
+
+// ----- STOP mode (Mode A) --------------------------------------------
+//
+// IMPORTANT: the delay buffers are written EVERY sample regardless of
+// aux_mode (see "Mode coexistence" in header). This is what keeps the
+// STOP buffer warm across mode switches and matches the numpy ref's
+// continuously-stateful processor.
+
+stopbuf_L.write(in1);
+stopbuf_R.write(in2);
+
+// Read-rate (γ = 2.5) and √-taper output gain, both clamped.
+one_minus_e = max(0.0, 1.0 - e_curr);
+rate_stop   = pow(one_minus_e, GAMMA_STOP);
+rate_stop   = clamp(rate_stop, 0.0, 1.0);
+gain_stop   = sqrt(one_minus_e);
+
+// Advance read-head position (delay-behind-writer in samples). When
+// aux_active = 0 we hard-reset the read pos to 0 so a fresh press starts
+// at identity. When aux_active = 1, the delay grows by (1 - rate) each
+// sample — exactly mirrors numpy ref `_process_stop`.
+//
+// `target` is the live aux_active value (0 or 1); it provides the gate
+// without an extra History.
+stop_pos_advance = 1.0 - rate_stop;
+stop_read_pos_next = (target > 0.5)
+    ? (stop_read_pos + stop_pos_advance)
+    : 0.0;
+
+// Underflow guard: clamp to buffer length - 256 samples (defensive;
+// covers the > buffer pathological-press case from design-doc §1.4).
+stop_read_pos_next = clamp(stop_read_pos_next, 0.0, 262144.0 - STOP_BUF_GUARD);
+stop_read_pos = stop_read_pos_next;
+
+// Read with linear interpolation. gen~'s `Delay.read(d, "linear")` reads
+// `d` fractional samples behind the current write — exactly the
+// `(write_head - read_head) % buf_n` operation in numpy with built-in
+// linear-interp between adjacent samples (matches numpy ref's manual
+// `a + frac * (b - a)`).
+stop_read_L = stopbuf_L.read(stop_read_pos, "linear");
+stop_read_R = stopbuf_R.read(stop_read_pos, "linear");
+
+y_stop_L = stop_read_L * gain_stop;
+y_stop_R = stop_read_R * gain_stop;
+
+// ----- FILTER mode (Mode B) ------------------------------------------
+//
+// Log-sweep cutoff: fc = FC_MAX · (FC_MIN / FC_MAX)^e
+//                 = FC_MAX · exp(log(FC_MIN/FC_MAX) · e)
+fc_filter = FC_MAX_HZ * exp(LOG_FC_RATIO * e_curr);
+fc_filter = clamp(fc_filter, FC_MIN_CLAMP, FC_NYQUIST_FRACTION * samplerate);
+
+// Linear resonance ramp 0.707 → 4.0.
+q_filter = Q_BASE + e_curr * (Q_MAX - Q_BASE);
+q_filter = clamp(q_filter, Q_MIN_CLAMP, Q_MAX_CLAMP);
+
+// TPT-SVF coefficients (recomputed per sample — Simper §"per-sample"
+// form; cost is one tan() call which dominates the module's CPU).
+g_svf  = tan(PI * fc_filter / samplerate);
+k_svf  = 1.0 / q_filter;
+a1_svf = 1.0 / (1.0 + g_svf * (g_svf + k_svf));
+a2_svf = g_svf * a1_svf;
+a3_svf = g_svf * a2_svf;
+
+// Channel L step.
+v3_L = in1 - svf_ic2_L;
+v1_L = a1_svf * svf_ic1_L + a2_svf * v3_L;
+v2_L = svf_ic2_L + a2_svf * svf_ic1_L + a3_svf * v3_L;
+svf_ic1_L = 2.0 * v1_L - svf_ic1_L;
+svf_ic2_L = 2.0 * v2_L - svf_ic2_L;
+y_filter_L = v2_L;     // low-pass output
+
+// Channel R step.
+v3_R = in2 - svf_ic2_R;
+v1_R = a1_svf * svf_ic1_R + a2_svf * v3_R;
+v2_R = svf_ic2_R + a2_svf * svf_ic1_R + a3_svf * v3_R;
+svf_ic1_R = 2.0 * v1_R - svf_ic1_R;
+svf_ic2_R = 2.0 * v2_R - svf_ic2_R;
+y_filter_R = v2_R;
+
+// ----- FAIL mode (Mode C) --------------------------------------------
+//
+// Audio: bit-identical passthrough.
+// Sidechain: failure_override = e[n] (knob = 0 baseline; downstream
+// tl_failure adds the live FAILURE knob via additive-toward-max).
+y_fail_L = in1;
+y_fail_R = in2;
+failure_override_fail = e_curr;
+
+// ----- Mode dispatch --------------------------------------------------
+//
+// Nested conditional dispatch on aux_mode. Note: gen~ executes ALL three
+// branches every sample (no short-circuit) — this is by design for
+// state preservation (see "Mode coexistence" in header). The selector
+// only chooses which precomputed result to emit.
+
+is_stop   = (aux_mode == MODE_STOP_ID);
+is_filter = (aux_mode == MODE_FILTER_ID);
+is_fail   = (aux_mode == MODE_FAIL_ID);
+
+out1 = (is_stop != 0)   ? y_stop_L
+     : (is_filter != 0) ? y_filter_L
+     : y_fail_L;
+
+out2 = (is_stop != 0)   ? y_stop_R
+     : (is_filter != 0) ? y_filter_R
+     : y_fail_R;
+
+// Outlet 3 — failure_override. Non-zero ONLY in FAIL mode (Phase 1.5
+// contract: tl_failure inlet 4 reads this signal; 0 means "use my own
+// knob"). In STOP / FILTER modes we explicitly emit 0.
+out3 = (is_fail != 0) ? failure_override_fail : 0.0;
+
+// =====================================================================
+// END tl_aux.gendsp
+// =====================================================================

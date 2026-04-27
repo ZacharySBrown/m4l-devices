@@ -1,0 +1,240 @@
+# tape-loss.pedal.yaml
+#
+# Structured DSL extracted from tape-loss-spec.md by the pedal-architect
+# persona. Conformant to harness/quickstarts/max-plugin/specs/templates/pedal.schema.yaml
+#
+# Run:  python -m forge_device analyze specs/tape-loss.pedal.yaml --repo-root .
+
+device:
+  name: tape-loss
+  display_name: Tape Loss MKII
+  class: audio_effect
+  io: stereo
+  size: { width: 600, height: 220 }
+  emulates:
+    brand: Chase Bliss
+    model: Generation Loss MKII
+    year: 2022
+    reference_links:
+      - https://www.chasebliss.com/generation-loss-mkii
+
+# ──────────────────────────────────────────────────────────────────────────
+# Parameters — 22 total. Maps to live.dial / live.tab / live.toggle.
+
+parameters:
+  # Main knobs (6)
+  - { name: saturate,         type: float, range: [0.0, 1.0],   default: 0.0, unit: null, taper: linear, short_name: SAT,    description: "Tape magnetic hysteresis drive" }
+  - { name: model,            type: int,   range: [0, 12],      default: 1,   unit: null, taper: linear, short_name: MODEL,  description: "EQ profile selector (0=OFF, 1-12=models)" }
+  - { name: failure,          type: float, range: [0.0, 1.0],   default: 0.0, unit: null, taper: linear, short_name: FAIL,   description: "Tape dropout/snag/crinkle multi-engine" }
+  - { name: wow,              type: float, range: [0.0, 1.0],   default: 0.0, unit: null, taper: linear, short_name: WOW,    description: "Slow random pitch drift via variable delay" }
+  - { name: flutter,          type: float, range: [0.0, 1.0],   default: 0.0, unit: null, taper: linear, short_name: FLUT,   description: "Fast pitch + AM modulation texture" }
+  - { name: volume,           type: float, range: [0.0, 2.0],   default: 1.0, unit: null, taper: linear, short_name: VOL,    description: "Wet output level (1.0=unity)" }
+
+  # 3-position toggles (3) — implemented as live.tab
+  - { name: aux_mode,         type: enum,  range: [0, 2], default: 0, enum_values: ["STOP", "FILTER", "FAIL"], short_name: AUX,   description: "AUX footswitch effect" }
+  - { name: dry_mode,         type: enum,  range: [0, 2], default: 0, enum_values: ["NONE", "SMALL", "UNITY"], short_name: DRY,   description: "Dry signal mix amount" }
+  - { name: noise_mode,       type: enum,  range: [0, 2], default: 0, enum_values: ["OFF", "HISS", "BOTH"],    short_name: NOISE, description: "Noise generator mode" }
+
+  # Footswitch / button (2)
+  - { name: aux_active,       type: bool, range: [0, 1], default: 0, short_name: AUX_FS, description: "AUX footswitch trigger" }
+  - { name: bypass,           type: bool, range: [0, 1], default: 0, short_name: BYP,    description: "True bypass" }
+
+  # Dip switches (8) — live.toggle
+  - { name: drop_bypass,      type: bool, range: [0, 1], default: 0, description: "Disable FAILURE drop sub-engine" }
+  - { name: snag_bypass,      type: bool, range: [0, 1], default: 0, description: "Disable FAILURE snag sub-engine" }
+  - { name: hum_bypass,       type: bool, range: [0, 1], default: 0, description: "Disable mechanical hum noise" }
+  - { name: spread,           type: bool, range: [0, 1], default: 0, description: "Stereo decorrelation of failure events" }
+  - { name: classic_mode,     type: bool, range: [0, 1], default: 0, description: "Switch SAT/MODEL/FAIL to GEN/LP/HP DSP" }
+  - { name: miso,             type: bool, range: [0, 1], default: 0, description: "Mono-in stereo-out duplication" }
+  - { name: filter_bypass,    type: bool, range: [0, 1], default: 0, description: "Bypass MODEL EQ chain" }
+  - { name: input_gain,       type: enum, range: [0, 2], default: 0, enum_values: ["LINE", "INSTRUMENT", "HIGH_GAIN"], description: "Input pre-gain" }
+
+  # Hidden options (3)
+  - { name: crinkle_level,    type: float, range: [0.0, 1.0],     default: 0.5,   description: "Crinkle/pop sub-engine output level" }
+  - { name: hiss_level,       type: float, range: [0.0, 1.0],     default: 0.5,   description: "Hiss noise output level" }
+  - { name: mechanical_level, type: float, range: [0.0, 1.0],     default: 0.5,   description: "Mechanical noise output level (CCW=VCR, CW=hum)" }
+  - { name: aux_onset_ms,     type: float, range: [10.0, 3000.0], default: 200.0, unit: "ms", taper: log, description: "AUX effect ramp time" }
+
+# ──────────────────────────────────────────────────────────────────────────
+# Signal chain — canonical order from spec §"Signal Flow"
+
+signal_chain:
+  - tl_saturate
+  - tl_model_eq
+  - tl_failure
+  - tl_wow
+  - tl_flutter
+  - tl_aux
+  - tl_volume_mix
+  - tl_dry_mix
+  - tl_noise
+
+# ──────────────────────────────────────────────────────────────────────────
+# Modules — all type=dsp for v0; tl_classic deferred to v1
+
+modules:
+  tl_saturate:
+    type: dsp
+    references_params: [saturate, input_gain]
+    sandbox_status: SANDBOX-PARTIAL
+    dsp:
+      kind: waveshaper
+      reference_doc: docs/design-docs/dsp/tl-saturate-design.md
+      python_reference: dsp/reference/tl_saturate.py
+      coefficient_source: data/tl_saturate_coefficients.json
+      sample_rate_dependent: true
+
+  tl_model_eq:
+    type: dsp
+    references_params: [model, filter_bypass]
+    sandbox_status: SANDBOX-OK
+    dsp:
+      kind: biquad_chain
+      reference_doc: docs/design-docs/dsp/tl-model-eq-design.md
+      python_reference: dsp/reference/tl_model_eq.py
+      coefficient_source: data/model_eq_coefficients.json
+      sample_rate_dependent: true
+
+  tl_failure:
+    type: dsp
+    references_params: [failure, drop_bypass, snag_bypass, spread, crinkle_level]
+    sandbox_status: SANDBOX-PARTIAL
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/tl-failure-design.md
+      python_reference: dsp/reference/tl_failure.py
+      sample_rate_dependent: true
+
+  tl_wow:
+    type: dsp
+    references_params: [wow]
+    sandbox_status: SANDBOX-PARTIAL
+    dsp:
+      kind: variable_delay
+      reference_doc: docs/design-docs/dsp/tl-wow-design.md
+      python_reference: dsp/reference/tl_wow.py
+      sample_rate_dependent: true
+
+  tl_flutter:
+    type: dsp
+    references_params: [flutter, classic_mode]
+    sandbox_status: SANDBOX-PARTIAL
+    dsp:
+      kind: variable_delay
+      reference_doc: docs/design-docs/dsp/tl-flutter-design.md
+      python_reference: dsp/reference/tl_flutter.py
+      sample_rate_dependent: true
+
+  tl_aux:
+    type: dsp
+    references_params: [aux_mode, aux_active, aux_onset_ms]
+    sandbox_status: LOCAL-ONLY
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/tl-aux-design.md
+      python_reference: dsp/reference/tl_aux.py
+      sample_rate_dependent: false
+
+  tl_volume_mix:
+    type: dsp
+    references_params: [volume, miso]
+    sandbox_status: SANDBOX-OK
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/tl-volume-mix-design.md
+      python_reference: dsp/reference/tl_volume_mix.py
+      sample_rate_dependent: false
+
+  tl_dry_mix:
+    type: dsp
+    references_params: [dry_mode]
+    sandbox_status: SANDBOX-OK
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/tl-dry-mix-design.md
+      python_reference: dsp/reference/tl_dry_mix.py
+      sample_rate_dependent: false
+
+  tl_noise:
+    type: dsp
+    references_params: [noise_mode, hiss_level, mechanical_level, hum_bypass]
+    sandbox_status: SANDBOX-OK
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/tl-noise-design.md
+      python_reference: dsp/reference/tl_noise.py
+      sample_rate_dependent: true
+
+# ──────────────────────────────────────────────────────────────────────────
+# Reference behavior
+
+reference:
+  description: |
+    Lo-fi tape degradation: wow (slow random pitch drift), flutter (fast
+    twitchy texture), magnetic-hysteresis saturation, 12 EQ models
+    (VHS/cassette/dictaphone/toy/reel-to-reel), tape dropouts/snags/crinkles.
+    Should sound musical at noon-noon settings; "struggling machinery" at
+    extremes. WOW + DRY UNITY produces classic chorus naturally. CPU < 8%
+    on M1 at 44.1kHz/64-sample vector.
+  audio_examples: []
+  measurement_data: []
+
+# ──────────────────────────────────────────────────────────────────────────
+# Distribution
+
+distribution:
+  format: amxd                       # v0 ships .amxd directly; .pkg later
+  package_id: com.zacharysbrown.m4l-devices.tape-loss
+
+# ──────────────────────────────────────────────────────────────────────────
+# Manual steps — what genuinely needs a human per build cycle
+
+manual_steps:
+  - step: Drop tape-loss.amxd onto an audio track in Ableton
+    estimate_seconds: 10
+    why_manual: "LiveAPI cannot programmatically add a M4L device to a chain"
+    automate_when: null
+    blocks_phase: build
+
+  - step: Open standalone debug.maxpat in Max IDE; verify zero console errors
+    estimate_seconds: 10
+    why_manual: "Max IDE required to verify subpatch wiring before Ableton load"
+    automate_when: "When forge-telemetry render lands and obviates manual loading"
+    blocks_phase: build
+
+  - step: Play test audio through device; confirm no crashes / clicks
+    estimate_seconds: 30
+    why_manual: "Audio quality requires human ear (oracle) for tuning"
+    automate_when: "Partially: golden-render regression catches silence/crashes; ear remains for character"
+    blocks_phase: test
+
+  - step: Calibrate WOW depth (~±15 cents at noon, ~±70 cents at max)
+    estimate_seconds: 60
+    why_manual: "Subjective tuning — depth feel"
+    automate_when: "Pitch detector + headless render closes most of the gap; final feel still ear"
+    blocks_phase: test
+
+  - step: (Phase 5 only) IR capture session — REW + reamp + sine sweep
+    estimate_seconds: 7200
+    why_manual: "Hardware-in-the-loop capture; cannot be automated"
+    automate_when: null
+    blocks_phase: release
+
+# ──────────────────────────────────────────────────────────────────────────
+# Verifiers — full default set; nothing disabled
+
+verifiers:
+  enabled: all
+
+# ──────────────────────────────────────────────────────────────────────────
+# Telemetry
+
+telemetry:
+  udp_bus_port: 7430
+  udp_dump_port: 7431
+  log_path: ~/m4l-devices/tape-loss/logs/tape-loss_debug.log
+  canned_states:
+    idle:    { kind: idle }
+    active:  { kind: active }
+    bypass:  { kind: bypass }
+    aux_fs:  { kind: aux_active }

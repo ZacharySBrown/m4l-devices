@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3:*)",
+      "Bash(uv:*)",
+      "Bash(uv run *)",
+      "Bash(PYTHONPATH=* python3 *)",
+      "Bash(PYTHONPATH=* python *)",
+      "Bash(pytest:*)",
+      "Bash(ruff:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(jq:*)",
+      "Bash(git:*)",
+      "Bash(gh pr:*)",
+      "Bash(gh issue:*)",
+      "Bash(open:*)",
+      "Bash(mkdir:*)",
+      "Bash(cp:*)",
+      "Bash(mv:*)",
+      "Bash(ln -sf *)",
+      "Bash(sha256sum:*)",
+      "Bash(shasum:*)",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep"
+    ]
+  },
+  "env": {
+    "HARNESS_TOOLS": "/Users/zak/raindog/harness/quickstarts/max-plugin/tools"
+  }
+}

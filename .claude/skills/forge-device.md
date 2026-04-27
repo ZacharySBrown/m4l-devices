@@ -1,0 +1,1 @@
+/Users/zak/raindog/harness/quickstarts/max-plugin/.claude/skills/forge-device.md

@@ -1,0 +1,287 @@
+// =====================================================================
+// tl_wow.gendsp — gen~ DSL source for the WOW module of tape-loss
+// =====================================================================
+//
+// Module       : tl_wow (Generation Loss MKII "WOW" knob)
+// Authored     : 2026-04-27 (Phase 2.5 — gen~ translation)
+// Author       : pedal-engineer (auto-authored from numpy reference)
+// Source files :
+//   design-doc        : docs/design-docs/dsp/tl-wow-design.md
+//                       sha256: b8c61c53822509337cafb95b9b406d730f5a64c
+//                               cddfa0fb2619898e0f850c44ea
+//   numpy reference   : dsp/reference/tl_wow.py
+//                       sha256: d38076e8ebbbb1bb53e276129f6d764002e02396
+//                               d3828d7e4aa2a7ea117f62f9
+//   parent maxpat stub: device/tape-loss/tl_wow.maxpat (3-inlet contract)
+//
+// Inlets  (3): in1 = signal L, in2 = signal R, in3 = pitch_floor_cents
+//                                                   (control rate, cents)
+// Outlets (2): out1 = signal L, out2 = signal R
+// Params  (1): wow ∈ [0, 1]    (default 0.0)
+//
+// ---------------------------------------------------------------------
+// Algorithm summary (translated 1:1 from dsp/reference/tl_wow.py):
+//
+//   Per channel:
+//     n1  = noise()                           // independent stream / chan
+//     n2  = noise()                           // second cutoff stream
+//     m_a = onepole_lpf(onepole_lpf(n1, fc=0.5 Hz))   // 12 dB/oct
+//     m_b = onepole_lpf(onepole_lpf(n2, fc=0.7 Hz))   // 12 dB/oct
+//     m_main = (m_a + m_b) * 0.5 * UNIT_PEAK_GAIN     // ≈ ±1
+//
+//     // Phase 1.5 floor LFO (independent — different cutoff & noise()):
+//     n_f   = noise()
+//     m_flr = onepole_lpf(onepole_lpf(n_f, fc=0.4 Hz))  // 12 dB/oct
+//     m_flr = m_flr * UNIT_PEAK_GAIN                    // ≈ ±1
+//
+//     // Depth tapers
+//     A_main  = A_MAX_SECONDS * (0.30*w² + 0.70*w³)        // seconds
+//     A_floor = pitch_floor_cents / (1731.234 * 4.39)      // seconds
+//
+//     // Combined delay-time signal (seconds → samples)
+//     D(t) = (BASE_DELAY_S + A_main*m_main + A_floor*m_flr) * samplerate
+//
+//     // Variable delay read: 4-point cubic Hermite (Catmull-Rom form)
+//     write delbuf[n] = x[n]
+//     read  y[n]      = hermite_4pt(delbuf, write_idx - D, frac)
+//
+//     // Short-circuit: bit-identical passthrough when both paths are
+//     // off; preserves the round-1 wow=0 invariant when floor=0 too.
+//     short = (wow <= EPS) && (pitch_floor_cents <= EPS)
+//     out   = if short then x else y
+//
+// ---------------------------------------------------------------------
+// Sanity-check expectations (matches design-doc §5 + §13.5 calibration):
+//
+//   wow=0.0, pitch_floor=0.0  →  bit-identical passthrough (SHORT path)
+//   wow=0.5, pitch_floor=0.0  →  ≈ ±13 c peak  (spec target ~±15 c)
+//   wow=1.0, pitch_floor=0.0  →  ≈ ±70 c peak  (spec target ~±70 c)
+//   wow=0.0, pitch_floor=0.3  →  ≈ ±0.3 c peak (independent floor only)
+//
+// ---------------------------------------------------------------------
+// Hermite kernel (Catmull-Rom form) — matches numpy ref _hermite_4pt():
+//
+//   c0 = x0
+//   c1 = 0.5 * (x1 - xm1)
+//   c2 = xm1 - 2.5*x0 + 2.0*x1 - 0.5*x2
+//   c3 = 0.5 * (x2 - xm1) + 1.5 * (x0 - x1)
+//   y  = ((c3*frac + c2)*frac + c1)*frac + c0
+//
+// Reference: Niemitalo, "Polynomial Interpolators for High-Quality
+// Resampling of Oversampled Audio" (yehar.com, 2001); JOS PASP
+// "Interpolation" appendix. Frequency loss at fc=0.5·Nyquist ≈ -0.01 dB.
+//
+// ---------------------------------------------------------------------
+// Notes on divergences from the spec sketch (signed-off in design-doc):
+//   * BASE_DELAY = 25 ms (NOT 5 ms). Required headroom for A_max=6 ms
+//     so D(t) stays > 0 across all wow values.
+//   * Per-vector LFO peak normalization (numpy) is replaced by a fixed
+//     gain of 1.0 / 0.95 ≈ 1.0526 (UNIT_PEAK_GAIN). Realtime-safe; see
+//     design-doc §9 ("Per-vector LFO peak-normalize in Python only").
+// =====================================================================
+
+Param wow 0.0;
+
+// --- Constants -------------------------------------------------------
+
+// Base mean delay (seconds). Spec divergence #4: 25 ms (not 5 ms).
+BASE_DELAY_S = 0.025;
+
+// Peak modulation amplitude (seconds) at wow=1.0. Calibrated against
+// the multi-seed Hilbert-IF measurement to land at ~±70 c (spec target).
+A_MAX_SECONDS = 0.006;
+
+// LFO cutoffs.
+LFO_FC1_HZ = 0.5;
+LFO_FC2_HZ = 0.7;
+PITCH_FLOOR_LFO_FC_HZ = 0.4;
+
+// Cents-to-delay-derivative conversion: 1200 / ln(2).
+CENTS_PER_DD_DT = 1731.234;
+
+// Empirical |dm/dt|_peak for the floor LFO topology (mean of 20 seeds,
+// 6 s windows). Used to invert the small-shift Doppler relation:
+//     A_floor = pitch_floor_cents / (CENTS_PER_DD_DT · this).
+PITCH_FLOOR_DM_DT_PEAK_PER_S = 4.39;
+
+// LFO peak compensation factor — fixed gain replacing the numpy ref's
+// per-vector peak-normalize. Mean peak ≈ 0.95 → scale ≈ 1.0526.
+UNIT_PEAK_GAIN = 1.0526;
+
+// Short-circuit epsilon — guard against denormal-tier residuals.
+EPS = 1e-6;
+
+// --- LFO state (History) ---------------------------------------------
+//
+// Per-channel decorrelation strategy: each `noise()` call site in gen~
+// produces an INDEPENDENT pseudo-random stream. So separate History
+// chains driving separate `noise()` reads is sufficient to guarantee
+// uncorrelated L/R LFOs without any seed plumbing.
+
+// Main wow path, channel L — two cascaded 1-pole stages × two cutoffs.
+History lp1L_a, lp1L_b;   // 0.5 Hz cascade (stages a, b)
+History lp2L_a, lp2L_b;   // 0.7 Hz cascade
+
+// Main wow path, channel R.
+History lp1R_a, lp1R_b;
+History lp2R_a, lp2R_b;
+
+// Floor (pitch_floor) path, channel L — single cascaded 1-pole at 0.4 Hz.
+History lpFL_a, lpFL_b;
+
+// Floor path, channel R.
+History lpFR_a, lpFR_b;
+
+// --- Delay buffers ---------------------------------------------------
+//
+// Sized for worst-case at 96 kHz: ceil((25 + 6 + ~0.05) ms · 96000) + 16
+// ≈ 2982 samples. We round up generously to 8192 for headroom and to
+// fit any future depth bump cleanly.
+
+Delay delbuf_L(8192);
+Delay delbuf_R(8192);
+
+// =====================================================================
+// Per-sample DSP
+// =====================================================================
+
+// ----- LFO coefficients (recomputed per sample; samplerate-aware) -----
+//
+// 1-pole LPF coefficient: a = 1 - exp(-2*pi*fc/sr).
+// `samplerate` is a gen DSL keyword; this stays correct across SR changes.
+two_pi = 2.0 * 3.14159265358979323846;
+a_fc1   = 1.0 - exp(-two_pi * LFO_FC1_HZ            / samplerate);
+a_fc2   = 1.0 - exp(-two_pi * LFO_FC2_HZ            / samplerate);
+a_floor = 1.0 - exp(-two_pi * PITCH_FLOOR_LFO_FC_HZ / samplerate);
+
+// ----- Channel L main LFO --------------------------------------------
+nL1 = noise();                                  // independent stream
+lp1L_a = lp1L_a + a_fc1 * (nL1    - lp1L_a);
+lp1L_b = lp1L_b + a_fc1 * (lp1L_a - lp1L_b);    // cascade → 12 dB/oct
+mL_a = lp1L_b;
+
+nL2 = noise();
+lp2L_a = lp2L_a + a_fc2 * (nL2    - lp2L_a);
+lp2L_b = lp2L_b + a_fc2 * (lp2L_a - lp2L_b);
+mL_b = lp2L_b;
+
+m_main_L = 0.5 * (mL_a + mL_b) * UNIT_PEAK_GAIN;
+
+// ----- Channel R main LFO --------------------------------------------
+nR1 = noise();
+lp1R_a = lp1R_a + a_fc1 * (nR1    - lp1R_a);
+lp1R_b = lp1R_b + a_fc1 * (lp1R_a - lp1R_b);
+mR_a = lp1R_b;
+
+nR2 = noise();
+lp2R_a = lp2R_a + a_fc2 * (nR2    - lp2R_a);
+lp2R_b = lp2R_b + a_fc2 * (lp2R_a - lp2R_b);
+mR_b = lp2R_b;
+
+m_main_R = 0.5 * (mR_a + mR_b) * UNIT_PEAK_GAIN;
+
+// ----- Floor (pitch_floor_cents) LFO, both channels -------------------
+nFL = noise();                                  // independent of main
+lpFL_a = lpFL_a + a_floor * (nFL    - lpFL_a);
+lpFL_b = lpFL_b + a_floor * (lpFL_a - lpFL_b);
+m_floor_L = lpFL_b * UNIT_PEAK_GAIN;
+
+nFR = noise();
+lpFR_a = lpFR_a + a_floor * (nFR    - lpFR_a);
+lpFR_b = lpFR_b + a_floor * (lpFR_a - lpFR_b);
+m_floor_R = lpFR_b * UNIT_PEAK_GAIN;
+
+// ----- Depth tapers ---------------------------------------------------
+//
+// Main wow:  A(w) = A_MAX_SECONDS · (0.30·w² + 0.70·w³)
+w  = clamp(wow, 0.0, 1.0);
+w2 = w * w;
+w3 = w2 * w;
+A_main_sec = A_MAX_SECONDS * (0.30 * w2 + 0.70 * w3);
+
+// Floor: A_floor = pitch_floor_cents / (1731.234 · 4.39) [seconds]
+// in3 carries pitch_floor_cents (control rate; treated as signal here).
+pfc = max(in3, 0.0);
+A_floor_sec = pfc / (CENTS_PER_DD_DT * PITCH_FLOOR_DM_DT_PEAK_PER_S);
+
+// Convert seconds → samples (samplerate-aware).
+base_samp    = BASE_DELAY_S * samplerate;
+a_main_samp  = A_main_sec   * samplerate;
+a_floor_samp = A_floor_sec  * samplerate;
+
+// Total delay-time signal (samples). Note: floor & main are SUMMED into
+// the SAME delay-time signal (one delay read per channel), per the
+// numpy ref's _process_channel logic — NOT a separate read.
+D_L = base_samp + a_main_samp * m_main_L + a_floor_samp * m_floor_L;
+D_R = base_samp + a_main_samp * m_main_R + a_floor_samp * m_floor_R;
+
+// Clamp delay to safe Hermite range: need ≥ 1 sample history (xm1) and
+// ≤ buf_len - 4 (so x2 stays inside the buffer).
+D_L = clamp(D_L, 1.0, 8192.0 - 4.0);
+D_R = clamp(D_R, 1.0, 8192.0 - 4.0);
+
+// ----- Variable-delay write/read with 4-point Hermite ----------------
+//
+// gen~'s Delay primitive writes the inlet value automatically each
+// sample; reads via `delbuf.read(d, kind)` where `d` is a fractional
+// number of samples behind the current write position. We do four
+// reads at d-1, d, d+1, d+2 (drop-sample interpolation inside each
+// read), then apply the Catmull-Rom Hermite kernel for the fractional
+// position.
+
+// Write current input.
+delbuf_L.write(in1);
+delbuf_R.write(in2);
+
+// Integer & fractional split of the requested delay.
+iD_L  = floor(D_L);
+fD_L  = D_L - iD_L;
+iD_R  = floor(D_R);
+fD_R  = D_R - iD_R;
+
+// Four-tap reads (drop-sample inside the .read call — the Hermite
+// kernel handles the fractional interpolation across these samples).
+xm1_L = delbuf_L.read(iD_L - 1.0, "step");
+x0_L  = delbuf_L.read(iD_L,        "step");
+x1_L  = delbuf_L.read(iD_L + 1.0,  "step");
+x2_L  = delbuf_L.read(iD_L + 2.0,  "step");
+
+xm1_R = delbuf_R.read(iD_R - 1.0, "step");
+x0_R  = delbuf_R.read(iD_R,        "step");
+x1_R  = delbuf_R.read(iD_R + 1.0,  "step");
+x2_R  = delbuf_R.read(iD_R + 2.0,  "step");
+
+// Hermite-4 (Catmull-Rom) — bit-for-bit equivalent to numpy ref
+// _hermite_4pt(). Position frac is the fractional part of the read
+// offset between samples x0 and x1.
+//
+// NOTE: numpy ref uses read_pos_f = write_idx - D, so x0 sits at
+// read_pos_f, and the kernel's frac is read_pos_f - floor(read_pos_f).
+// gen~ Delay.read(d, ...) reads `d` samples behind write, so x0 sits
+// at offset iD_L (= floor(D_L)) and frac is fD_L. Same orientation.
+c0_L = x0_L;
+c1_L = 0.5 * (x1_L - xm1_L);
+c2_L = xm1_L - 2.5 * x0_L + 2.0 * x1_L - 0.5 * x2_L;
+c3_L = 0.5 * (x2_L - xm1_L) + 1.5 * (x0_L - x1_L);
+y_L  = ((c3_L * fD_L + c2_L) * fD_L + c1_L) * fD_L + c0_L;
+
+c0_R = x0_R;
+c1_R = 0.5 * (x1_R - xm1_R);
+c2_R = xm1_R - 2.5 * x0_R + 2.0 * x1_R - 0.5 * x2_R;
+c3_R = 0.5 * (x2_R - xm1_R) + 1.5 * (x0_R - x1_R);
+y_R  = ((c3_R * fD_R + c2_R) * fD_R + c1_R) * fD_R + c0_R;
+
+// ----- Short-circuit (bit-identical bypass) ---------------------------
+//
+// When wow == 0 AND pitch_floor_cents == 0, we MUST emit the input
+// unchanged — the round-1 invariant. Both flags off → bypass the
+// delay-line read entirely (the delay buffer keeps writing, which is
+// fine; only the OUTPUT mux is short-circuited).
+short = (w <= EPS) && (pfc <= EPS);
+
+out1 = (short != 0) ? in1 : y_L;
+out2 = (short != 0) ? in2 : y_R;
+
+// =====================================================================
+// END tl_wow.gendsp
+// =====================================================================

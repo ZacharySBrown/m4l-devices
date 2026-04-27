@@ -1,0 +1,201 @@
+{
+  "schema_version": "1.0",
+  "generated_by": "pedal-dsp persona, tape-loss tl_model_eq",
+  "spec_source": "specs/tape-loss-spec.md §MODULE 2",
+  "biquad_math_source": "RBJ Audio EQ Cookbook (https://www.w3.org/TR/audio-eq-cookbook/)",
+  "sample_rate_anchor": 44100,
+  "notes": [
+    "Stages are stored as parameters (type, fc, Q, gain_db). Coefficients are computed at runtime from the live sample rate using RBJ Cookbook formulas in dsp/reference/tl_model_eq.py and the engineer's [js] companion.",
+    "Order of stages matters: HPF → low shelf → peaks → high shelf → LPF. The reference impl applies them strictly in this order to match Module 2 of the prose spec.",
+    "All gain values are in dB. Linear gain = 10^(dB/20) is computed inside the biquad solver.",
+    "Q values follow the Cookbook Q-form: alpha = sin(w0) / (2*Q). For shelves, Q is interpreted as the standard biquad Q (S=1 equivalent at Q=1/sqrt(2)) to keep one parameter taxonomy.",
+    "Profile 0 is OFF (passthrough). Profile names follow the prose spec.",
+    "fc must be < sr/2; the runtime clamps fc to 0.45*sr for safety.",
+    "filter_bypass=true short-circuits this entire block regardless of profile."
+  ],
+  "transitions": {
+    "model_change_strategy": "equal_power_crossfade",
+    "crossfade_ms": 12.0,
+    "filter_bypass_strategy": "equal_power_crossfade",
+    "rationale": "Switching biquad coefficients mid-stream causes audible clicks because the IIR state is wrong for the new transfer function. Crossfading two parallel chains (old vs new) over ~12 ms is inaudible to humans and absorbs the transient. See pitfall catalog §click-on-coeff-change."
+  },
+  "profiles": {
+    "0": {
+      "name": "OFF",
+      "kind": "bypass",
+      "description": "Passthrough. No filtering applied.",
+      "stages": []
+    },
+    "1": {
+      "name": "CPR-3300 Gen 1",
+      "kind": "VHS",
+      "description": "First-generation VHS CPR-3300. Subsonic-cleaned, mild bass shelf, midrange color, presence dip, distinctive HF rolloff (the VHS hallmark) and soft brick wall.",
+      "physical_justification": "VHS linear audio tracks have ~80 Hz–10 kHz bandwidth with audible pre-emphasis recovery losses around 6 kHz. The high-shelf cut at 8 kHz captures bias-induced HF loss; the LPF at 10 kHz models the head-gap rolloff.",
+      "stages": [
+        {"type": "hpf",       "fc": 40,    "q": 0.7, "gain_db": 0,  "comment": "subsonic"},
+        {"type": "lowshelf",  "fc": 200,   "q": 0.7, "gain_db": -2, "comment": "VHS bass rolloff"},
+        {"type": "peak",      "fc": 800,   "q": 1.5, "gain_db": 1,  "comment": "midrange color"},
+        {"type": "peak",      "fc": 6000,  "q": 0.8, "gain_db": -3, "comment": "presence cut"},
+        {"type": "highshelf", "fc": 8000,  "q": 0.7, "gain_db": -8, "comment": "VHS HF rolloff (signature)"},
+        {"type": "lpf",       "fc": 10000, "q": 0.6, "gain_db": 0,  "comment": "soft brick wall"}
+      ]
+    },
+    "2": {
+      "name": "CPR-3300 Gen 2",
+      "kind": "VHS",
+      "description": "Second-generation copy: more HF loss, lower brick wall.",
+      "physical_justification": "VHS dub-down generation loss compounds HF rolloff. Each generation typically loses ~3-4 dB more above 8 kHz and tightens the LPF corner.",
+      "stages": [
+        {"type": "hpf",       "fc": 40,    "q": 0.7, "gain_db": 0},
+        {"type": "lowshelf",  "fc": 200,   "q": 0.7, "gain_db": -2},
+        {"type": "peak",      "fc": 800,   "q": 1.5, "gain_db": 1},
+        {"type": "peak",      "fc": 6000,  "q": 0.8, "gain_db": -3},
+        {"type": "highshelf", "fc": 8000,  "q": 0.7, "gain_db": -12, "comment": "more HF loss than Gen 1"},
+        {"type": "lpf",       "fc": 8000,  "q": 0.6, "gain_db": 0,   "comment": "tighter brick wall"}
+      ]
+    },
+    "3": {
+      "name": "CPR-3300 Gen 3",
+      "kind": "VHS",
+      "description": "Third-generation copy: severely degraded; mud accumulates around 500 Hz, high end nearly gone.",
+      "physical_justification": "Repeated copies build cumulative low-mid mud (additive harmonic distortion + low-rate FM modulation that gathers around tape-bias resonances) and lose nearly all HF detail.",
+      "stages": [
+        {"type": "hpf",       "fc": 40,    "q": 0.7, "gain_db": 0},
+        {"type": "lowshelf",  "fc": 200,   "q": 0.7, "gain_db": -2},
+        {"type": "peak",      "fc": 500,   "q": 1.0, "gain_db": 2,  "comment": "muddy copy buildup"},
+        {"type": "peak",      "fc": 800,   "q": 1.5, "gain_db": 1},
+        {"type": "peak",      "fc": 6000,  "q": 0.8, "gain_db": -3},
+        {"type": "highshelf", "fc": 8000,  "q": 0.7, "gain_db": -16, "comment": "severe HF loss"},
+        {"type": "lpf",       "fc": 6000,  "q": 0.6, "gain_db": 0}
+      ]
+    },
+    "4": {
+      "name": "Portamax-RT",
+      "kind": "Cassette",
+      "description": "Cassette 4-track at standard speed. Slight bass cut, midrange presence bump, gentle HF rolloff.",
+      "physical_justification": "Type-I cassette tape at 1-7/8 ips has ~13-15 kHz upper limit (Dolby B/C-dependent) and a head-bump near 1-2 kHz from the playback EQ curve (NAB/IEC).",
+      "stages": [
+        {"type": "hpf",       "fc": 60,    "q": 0.7, "gain_db": 0},
+        {"type": "lowshelf",  "fc": 300,   "q": 0.7, "gain_db": -1},
+        {"type": "peak",      "fc": 1200,  "q": 1.2, "gain_db": 2,  "comment": "cassette midrange presence (head-bump)"},
+        {"type": "highshelf", "fc": 10000, "q": 0.7, "gain_db": -5},
+        {"type": "lpf",       "fc": 13000, "q": 0.7, "gain_db": 0}
+      ]
+    },
+    "5": {
+      "name": "Portamax-HT",
+      "kind": "Cassette",
+      "description": "Cassette 4-track at half-speed (15/16 ips). Slower transport halves available bandwidth and emphasizes mid losses.",
+      "physical_justification": "Halving tape speed halves the upper-frequency response (Nyquist-style proportional to head-gap-vs-wavelength). Detail above ~7-8 kHz is essentially lost; midrange becomes more prominent.",
+      "stages": [
+        {"type": "hpf",       "fc": 60,    "q": 0.7, "gain_db": 0},
+        {"type": "lowshelf",  "fc": 300,   "q": 0.7, "gain_db": -1},
+        {"type": "peak",      "fc": 1200,  "q": 1.2, "gain_db": 2},
+        {"type": "peak",      "fc": 4000,  "q": 0.6, "gain_db": -4, "comment": "half-speed mid-HF loss"},
+        {"type": "highshelf", "fc": 8000,  "q": 0.7, "gain_db": -8},
+        {"type": "lpf",       "fc": 9000,  "q": 0.5, "gain_db": 0}
+      ]
+    },
+    "6": {
+      "name": "CAM-8",
+      "kind": "Camcorder",
+      "description": "8mm camcorder built-in mic. Boxy, no lows, prominent boxy-mic resonance, narrow band.",
+      "physical_justification": "Tiny built-in electret mic inside a plastic camcorder body has a HPF-like proximity rolloff below 150 Hz, an enclosure resonance around 1.8-2 kHz, and AGC-induced softness above ~9 kHz.",
+      "stages": [
+        {"type": "hpf",       "fc": 120,   "q": 1.2, "gain_db": 0,  "comment": "mic proximity rolloff"},
+        {"type": "lowshelf",  "fc": 200,   "q": 0.7, "gain_db": -6, "comment": "boxy, no low end"},
+        {"type": "peak",      "fc": 1800,  "q": 1.5, "gain_db": 4,  "comment": "mic body resonance"},
+        {"type": "peak",      "fc": 7000,  "q": 1.0, "gain_db": -3},
+        {"type": "highshelf", "fc": 9000,  "q": 0.7, "gain_db": -10},
+        {"type": "lpf",       "fc": 11000, "q": 0.5, "gain_db": 0}
+      ]
+    },
+    "7": {
+      "name": "DICTATRON",
+      "kind": "Dictaphone",
+      "description": "Cassette dictaphone via line in. Telephone-band character: cut all bass, narrow midrange, hard HF brick wall.",
+      "physical_justification": "Dictaphones speech-optimize via aggressive HPF (300 Hz) and LPF (3-4 kHz) to maximize speech intelligibility per square millimeter of tape. Mimics ITU-T G.711 telephone bandwidth (300-3400 Hz).",
+      "stages": [
+        {"type": "hpf",       "fc": 300,   "q": 1.5, "gain_db": 0,  "comment": "telephone band lower edge"},
+        {"type": "lowshelf",  "fc": 400,   "q": 0.7, "gain_db": -10},
+        {"type": "peak",      "fc": 2000,  "q": 0.8, "gain_db": 3,  "comment": "telephone midrange peak"},
+        {"type": "peak",      "fc": 3000,  "q": 1.2, "gain_db": -5},
+        {"type": "highshelf", "fc": 4000,  "q": 0.7, "gain_db": -15},
+        {"type": "lpf",       "fc": 4000,  "q": 1.2, "gain_db": 0,  "comment": "hard telephone band brick wall"}
+      ]
+    },
+    "8": {
+      "name": "DICTATRON Mic",
+      "kind": "Dictaphone",
+      "description": "Dictaphone built-in mic. Same telephone character but with more pronounced enclosure resonance.",
+      "physical_justification": "Built-in mic adds a tiny plastic-shell resonance and a sharper proximity HPF, otherwise identical to Model 7.",
+      "stages": [
+        {"type": "hpf",       "fc": 300,   "q": 2.0, "gain_db": 0,  "comment": "more resonant box HPF"},
+        {"type": "lowshelf",  "fc": 400,   "q": 0.7, "gain_db": -10},
+        {"type": "peak",      "fc": 2000,  "q": 0.8, "gain_db": 5,  "comment": "more resonant box"},
+        {"type": "peak",      "fc": 3000,  "q": 1.2, "gain_db": -5},
+        {"type": "highshelf", "fc": 4000,  "q": 0.7, "gain_db": -15},
+        {"type": "lpf",       "fc": 4000,  "q": 1.2, "gain_db": 0}
+      ]
+    },
+    "9": {
+      "name": "FISHY 60",
+      "kind": "Toy",
+      "description": "Toy recorder (Fisher-Price-style 1980s plastic). Honky tiny-speaker resonance, almost no bass, sharp brick wall.",
+      "physical_justification": "Small plastic toy speaker (~2-3 cm cone) has a primary resonance near 1.5 kHz, no bass response below ~500 Hz, and aliased sample-and-hold playback above ~3.5 kHz from cheap circuitry.",
+      "stages": [
+        {"type": "hpf",       "fc": 500,   "q": 2.0, "gain_db": 0,  "comment": "cheap speaker — no bass"},
+        {"type": "lowshelf",  "fc": 600,   "q": 0.7, "gain_db": -15},
+        {"type": "peak",      "fc": 1500,  "q": 2.0, "gain_db": 6,  "comment": "toy speaker resonance"},
+        {"type": "peak",      "fc": 5000,  "q": 1.5, "gain_db": -8},
+        {"type": "highshelf", "fc": 4000,  "q": 0.7, "gain_db": -20},
+        {"type": "lpf",       "fc": 3500,  "q": 2.0, "gain_db": 0}
+      ]
+    },
+    "10": {
+      "name": "MS-WALKER",
+      "kind": "Walkman",
+      "description": "Consumer Walkman-style cassette portable. Slight smile-curve EQ from consumer-target playback chain. The most hi-fi-sounding profile after M-PEX.",
+      "physical_justification": "Walkman playback EQ deliberately bumps bass (~100 Hz) and presence (~3 kHz) to compensate for cheap earbuds. Also has a soft HF rolloff above 12 kHz from the cassette + small-amp combo.",
+      "stages": [
+        {"type": "hpf",       "fc": 50,    "q": 0.7, "gain_db": 0},
+        {"type": "peak",      "fc": 100,   "q": 0.8, "gain_db": 3,  "comment": "consumer bass boost"},
+        {"type": "peak",      "fc": 3000,  "q": 1.0, "gain_db": 2,  "comment": "presence/clarity boost"},
+        {"type": "highshelf", "fc": 12000, "q": 0.7, "gain_db": -4},
+        {"type": "lpf",       "fc": 15000, "q": 0.6, "gain_db": 0}
+      ]
+    },
+    "11": {
+      "name": "AMU-2",
+      "kind": "Imaginary",
+      "description": "Imaginary deteriorated machine. Scooped mids, weird HF resonance peak that shouldn't be there, severe HF rolloff. Always slightly off-pitch.",
+      "physical_justification": "Models a partly-broken transport: misaligned head causes the scooped midrange (Q=0.7 wide cut at 1 kHz), oxide buildup creates a phantom resonance around 3 kHz, and worn out HF response collapses everything above 5 kHz. Pitch wobble is handled by the tl_wow / tl_flutter modules; this profile only contributes the EQ.",
+      "stages": [
+        {"type": "hpf",       "fc": 200,   "q": 1.5, "gain_db": 0},
+        {"type": "lowshelf",  "fc": 300,   "q": 0.7, "gain_db": -8},
+        {"type": "peak",      "fc": 1000,  "q": 0.7, "gain_db": -4, "comment": "scooped mids — broken machine"},
+        {"type": "peak",      "fc": 3000,  "q": 2.0, "gain_db": 3,  "comment": "weird oxide-buildup resonance"},
+        {"type": "highshelf", "fc": 5000,  "q": 0.7, "gain_db": -18},
+        {"type": "lpf",       "fc": 5500,  "q": 1.5, "gain_db": 0}
+      ],
+      "extra_behavior": {
+        "pitch_drift_cents": 0.3,
+        "pitch_drift_handled_by": "tl_wow",
+        "note": "tl_model_eq does not emit pitch drift; the architect should ensure tl_wow honors a per-model floor when model=11."
+      }
+    },
+    "12": {
+      "name": "M-PEX",
+      "kind": "Reel-to-reel",
+      "description": "Reel-to-reel master. Flattest of all profiles — only subtle warmth and very gentle air rolloff. Reference 'open' tape sound.",
+      "physical_justification": "Professional reel-to-reel at 15 ips with a brand new tape has near-flat response 30 Hz to 18 kHz. The slight 600 Hz bump captures NAB-curve playback warmth; the -3 dB at 14 kHz captures the gentle HF rolloff inherent to tape vs digital.",
+      "stages": [
+        {"type": "hpf",       "fc": 30,    "q": 0.7, "gain_db": 0},
+        {"type": "lowshelf",  "fc": 100,   "q": 0.7, "gain_db": -1, "comment": "slight bass loss"},
+        {"type": "peak",      "fc": 600,   "q": 1.5, "gain_db": 1,  "comment": "NAB-curve warmth"},
+        {"type": "highshelf", "fc": 14000, "q": 0.7, "gain_db": -3, "comment": "tape air"},
+        {"type": "lpf",       "fc": 16000, "q": 0.7, "gain_db": 0}
+      ]
+    }
+  }
+}

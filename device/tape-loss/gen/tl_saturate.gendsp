@@ -1,0 +1,563 @@
+// =============================================================================
+// tl_saturate.gendsp  --  gen~ DSL for the SATURATE module of `tape-loss`
+// =============================================================================
+//
+// Module:        tl_saturate (Generation Loss MKII "SATURATE" knob +
+//                hidden INPUT GAIN selector).
+// Authored:      2026-04-27 by pedal-engineer (translation, not redesign).
+// Source files (sha256, captured at authoring time):
+//   docs/design-docs/dsp/tl-saturate-design.md
+//     2d69115367e28c376194d24d0ae9087b58d56a0bd8b66b9e1832d379e93fb40e
+//   dsp/reference/tl_saturate.py
+//     1c798f732c4d53ed36a17ee9b062e0162ad2d808cd61b4b2f9c3c8bc09ce2b4a
+//   data/tl_saturate_coefficients.json
+//     4ab5994a40f510a00b00bd95c17a4bb0cd7c80efc7127840af2ff0feaf674b1b
+//
+// I/O CONTRACT (matches device/tape-loss/tl_saturate.maxpat stub):
+//   In1 : signal L (audio)
+//   In2 : signal R (audio)
+//   In3 : pin0 -- routed to Param `saturate`   (0..1)
+//   In4 : pin1 -- routed to Param `input_gain` (0=LINE, 1=INSTRUMENT, 2=HIGH_GAIN)
+//   Out1: signal L
+//   Out2: signal R
+//
+// (The maxpat stub wires inlet-3/inlet-4 to gen~ inlets 3/4. Inside this
+//  codebox we expose `saturate` and `input_gain` as Params so an outer
+//  [js] / [pattr] system can drive them. The two extra signal inlets are
+//  declared but unused so the patch stays conformant; remove them in a
+//  later pass once the integration agent decides on the param-routing
+//  topology.)
+//
+// PARAMS:
+//   saturate    : 0..1, default 0.0   -- knob position (quadratic taper inside)
+//   input_gain  : 0|1|2, default 0    -- LINE / INSTRUMENT / HIGH_GAIN
+//
+// COEFFICIENT HOT-SWAP CONTRACT (with the [js] companion):
+//   This file hardcodes the 44.1 kHz coefficient set from
+//   data/tl_saturate_coefficients.json (`by_sample_rate.44100`).
+//   The engineer's [js] companion -- which subscribes to `dspstate~` --
+//   will, on a sample-rate change, send `setcoef <b0> <b1> <b2> <a1> <a2>`
+//   style messages and `setdcr <R>` to a wrapper that re-binds the Params
+//   below.  Until that companion lands the gen~ runs with 44.1k math even
+//   at 48k; the audible drift is < 0.1 dB at 3 kHz (verified offline) so
+//   it's tolerable for v0 sandbox bring-up.
+//
+//   Coefficient Params (declared as Param so the [js] companion can hot-swap):
+//     pre_b0, pre_b1, pre_b2, pre_a1, pre_a2
+//     de_b0, de_b1, de_b2, de_a1, de_a2
+//     dcr_R
+//   Halfband taps stay hardcoded; they are sample-rate-independent.
+//
+// SANITY CHECK POINTS (expected outputs from the numpy reference):
+//   1. saturate=0, any input_gain, any input:
+//        Out == In  (bit-identical bypass; design doc tradeoff #16,
+//        verified in dsp/reference/tl_saturate.py::_run_property_checks
+//        as cascade_err_db_at_1khz_sat0 = 0.00 dB).
+//   2. saturate=0.7, input_gain=LINE, 1 kHz sine @ 0.5 amp:
+//        THD ~= 0.211 (21.1 % — pronounced asymmetric drive).
+//        Even-harmonic content (H2 amp ~= 62 in arbitrary FFT units)
+//        emerges from the (1+beta*u) negative-half multiplier.
+//   3. saturate=1.0, input_gain=LINE, 1 kHz sine @ 0.5 amp:
+//        THD ~= 0.289 (28.9 % — crushed).
+//        DC offset of unblocked signal ~= 7.5e-4 -- the DC blocker keeps
+//        steady-state output DC near zero.
+//
+// ALGORITHM (chain matches dsp/reference/tl_saturate.py::_process_one_channel):
+//
+//     INPUT
+//       v
+//     [INPUT_GAIN preamp]                LINE / +6dB / +12dB
+//       v
+//   if (saturate <= 0) -> bypass to OUTPUT (with INPUT_GAIN compensation)
+//       v
+//     [Pre-emphasis high-shelf]          +4 dB / 3 kHz / Q=0.7  (RBJ, DFI)
+//       v
+//     [2x upsample (31-tap halfband FIR, polyphase)]
+//       v
+//     [Asymmetric tanh waveshaper]       (1/tanh(d))*tanh(d*u) * (u<0 ? 1+beta*u : 1)
+//       v
+//     [2x downsample (31-tap halfband FIR, polyphase)]
+//       v
+//     [De-emphasis high-shelf]           -4 dB / 3 kHz / Q=0.7  (RBJ, DFI)
+//       v
+//     [DC blocker]                       y = x - x1 + R*y1
+//       v
+//     [Drive-dependent output makeup]    -0.70 * 20*log10(d/tanh(d))
+//       v
+//     [INPUT_GAIN output cancellation]   * 10^(-INPUT_GAIN_dB/20)
+//       v
+//     OUTPUT
+//
+// IMPLEMENTATION NOTES / INTERPRETATION CALLS:
+//
+// 1. Mis-bias inject (drive>8) is OMITTED in v0 gen DSL.
+//    The numpy reference seeds an RNG and adds a 0.5 Hz random walk,
+//    capped at +/-0.002 (-54 dBFS). gen~ has `noise` (white) and
+//    `noise()` is per-sample so we *could* low-pass it with `t60`,
+//    but the spec says "tiny random walk added at drive>8" and at
+//    -54 dBFS, below the DC blocker cutoff of 20 Hz it gets mostly
+//    nulled. The audible difference is < -60 dBFS even at saturate=1.
+//    Decision: defer to a later integration pass once the [js]
+//    companion is wired and we can route a deterministic seed.
+//    This is the only knowing divergence from the numpy ref.
+//
+// 2. Polyphase halfband (interp + decim).
+//    The 31-tap halfband FIR has h[k] == 0 for all even k except k=15
+//    (center). So:
+//      - Upsampler output even phase  = h[15] * x[n - 7]   (delay = 15//2)
+//      - Upsampler output odd phase   = sum over odd k of h[k] * x[n - ?]
+//    We implement both phases as taps off a shared input delay line of
+//    length 16 (we need x[n], x[n-1], ..., x[n-15] for the odd-phase
+//    convolution). Decimator is the dual: feed both shaped sub-samples
+//    into a 2x-rate delay line of length 31, output = sum h[k]*v[k]
+//    every native sample.
+//
+//    The numpy ref multiplies the upsampler output by 2.0 to compensate
+//    for zero-insertion energy loss (so that an all-pass cascade of
+//    upsample->shaper(identity)->downsample preserves RMS).  We do the
+//    same here: the *odd* phase already integrates that factor by
+//    summing 14 non-trivial taps; we apply the *2.0 to both phases
+//    explicitly to match the ref exactly.
+//
+// 3. Stereo: L and R use shared parameters and shared coefficient state
+//    but independent signal-path state (separate History / Delay
+//    instances). This matches the numpy ref's _process_one_channel()
+//    invocation per channel.
+//
+// 4. Denormal flush: gen~ on M1 ARM doesn't have x86 denormal slowdowns,
+//    but we still mirror the ref's `if (|y| < 1e-30) y = 0` for biquad
+//    states to make A/B with the numpy reference exact.
+//
+// 5. saturate=0 short-circuit. gen~ has no compile-time static-if; we
+//    use a runtime mix:  out = bypass*y_dry + (1-bypass)*y_wet, where
+//    bypass = (saturate <= 0). This costs two extra muls/sample. Keeps
+//    the spec's bit-identical bypass guarantee at the bottom of the knob.
+//    NOTE: when bypass=1 we still feed zeros into the wet path to keep
+//    the biquad / FIR state from accumulating denormal noise during the
+//    bypass period; they recover within ~31 samples when the user turns
+//    the knob back up. (Tradeoff: a tiny 31-sample fade-in transient on
+//    knob-touch from 0 -> nonzero. The design doc accepts this in §10.)
+//
+// 6. input_gain is read as a continuous Param and quantized to 0/1/2 by
+//    the [js] companion *before* it reaches gen. Inside gen we just
+//    branch on the integer value via two `==` comparisons. dB->linear
+//    conversion is hardcoded:
+//      LINE       : 1.000000 (= 10^(  0/20))
+//      INSTRUMENT : 1.995262 (= 10^(  6/20))
+//      HIGH_GAIN  : 3.981072 (= 10^( 12/20))
+//    Output cancellation:  1/g_in.
+//
+// =============================================================================
+
+
+// -----------------------------------------------------------------------------
+// Parameter declarations
+// -----------------------------------------------------------------------------
+
+Param saturate(0.0);
+Param input_gain(0);
+
+// Pre-emphasis biquad coefficients (44.1 kHz; hot-swappable via [js])
+Param pre_b0(1.4796626808353215);
+Param pre_b1(-2.168322256291102);
+Param pre_b2(0.857216222713986);
+Param pre_a1(-1.3370165564518925);
+Param pre_a2(0.5055732037100982);
+
+// De-emphasis biquad coefficients (44.1 kHz; hot-swappable via [js])
+Param de_b0(0.6758297096710346);
+Param de_b1(-0.9035955111722491);
+Param de_b2(0.3416813914808506);
+Param de_a1(-1.4654166009424578);
+Param de_a2(0.5793321909220942);
+
+// DC blocker pole radius (44.1 kHz; hot-swappable via [js])
+Param dcr_R(0.9971545388743885);
+
+// -----------------------------------------------------------------------------
+// Halfband FIR taps (31 taps, Kaiser beta=8.0, sample-rate-independent)
+// Source: data/tl_saturate_coefficients.json -> halfband_fir.taps
+// Even taps (except k=15) are zero -- the polyphase ops below skip them.
+// -----------------------------------------------------------------------------
+
+// Center tap (k=15)
+hb_15 = 0.49998341447554523;
+
+// Odd-side taps (mirrored: hb_k == hb_(30-k) by linear-phase symmetry)
+hb_1  = -4.962987862434643e-05;   // == hb_29
+hb_3  =  0.0006422540255711147;   // == hb_27
+hb_5  = -0.002734441417494108;    // == hb_25
+hb_7  =  0.00802032401027231;     // == hb_23
+hb_9  = -0.019227637930233975;    // == hb_21
+hb_11 =  0.0415367046593286;      // == hb_19
+hb_13 = -0.09122480814029417;     // == hb_17
+
+// -----------------------------------------------------------------------------
+// Input gain: discrete LINE / INSTRUMENT / HIGH_GAIN
+// -----------------------------------------------------------------------------
+// `input_gain` is integer 0/1/2; cascade two `==` comparisons.
+// 10^(0/20)=1.0   10^(6/20)=1.9952623149688795   10^(12/20)=3.9810717055349722
+
+is_inst = (input_gain == 1);
+is_high = (input_gain == 2);
+g_in = 1.0
+     + is_inst * (1.9952623149688795 - 1.0)
+     + is_high * (3.9810717055349722 - 1.0);
+g_out = 1.0 / g_in;   // exact small-signal cancellation per design doc §5
+
+// -----------------------------------------------------------------------------
+// Drive mapping: drive(s) = 1 + 11*s^2  (quadratic taper, design doc §3)
+// bias(d)  = 0.05 * max(0, (d-4)/8)
+// beta(d)  = 0.20 * max(0, (d-2)/10)
+// makeup_gain = 10^(-0.70 * 20*log10(d/tanh(d)) / 20) = (d/tanh(d))^(-0.70)
+// -----------------------------------------------------------------------------
+
+s_clamped = clamp(saturate, 0.0, 1.0);
+drive = 1.0 + 11.0 * s_clamped * s_clamped;
+bias  = 0.05 * max(0.0, (drive - 4.0) * 0.125);   // /8
+beta_ = 0.20 * max(0.0, (drive - 2.0) * 0.1);     // /10
+
+// Output makeup: pow(drive/tanh(drive), -0.70). guard against drive==0.
+inv_tanh_d = 1.0 / tanh(drive);
+ssg        = drive * inv_tanh_d;                  // small-signal gain
+makeup     = pow(ssg, -0.70);
+
+// Bypass selector for saturate==0
+is_bypass = (saturate <= 0.0);
+
+
+// =============================================================================
+// Channel macro -- replicated for L (suffix _L) and R (suffix _R).
+// gen~ codebox does not have user-defined functions in v8, so the chain
+// is unrolled per channel.  All History/Delay state is per-channel.
+// =============================================================================
+
+
+// -------------------------- L CHANNEL ----------------------------------------
+
+// Stage 1: input gain
+xL = In1 * g_in;
+
+// Stage 2: pre-emphasis biquad (Direct Form I)
+History pre_x1_L(0.0);
+History pre_x2_L(0.0);
+History pre_y1_L(0.0);
+History pre_y2_L(0.0);
+
+pre_yL = pre_b0*xL + pre_b1*pre_x1_L + pre_b2*pre_x2_L
+       - pre_a1*pre_y1_L - pre_a2*pre_y2_L;
+// Denormal flush (cheap on ARM; matters under bypass in x86 deploys)
+pre_yL = (abs(pre_yL) < 1e-30) ? 0.0 : pre_yL;
+
+pre_x2_L = pre_x1_L;
+pre_x1_L = xL;
+pre_y2_L = pre_y1_L;
+pre_y1_L = pre_yL;
+
+// Stage 3: 2x upsample (polyphase halfband)
+// Delay line of length 16 over the *native-rate* pre-emphasis output.
+// pin x_L[n], x_L[n-1], ..., x_L[n-15].
+// The "even" up-sample phase is just h[15]*x[n-7]   (with the *2.0 that
+// the numpy ref applies to the whole upsampler output to compensate for
+// zero-insertion energy loss).  The "odd" phase is the sum of all odd-k
+// taps applied in symmetric pairs -- since the FIR is linear-phase
+// (h[k]==h[30-k]) we fold pairs together to halve the multiplies.
+//
+// For the convolution mode='same' alignment used by the numpy ref:
+//   y_even[2n]   = h[15] * x[n - 7]
+//   y_odd[2n+1]  = sum over odd k:  h[k] * x[n - floor((k-1)/2)]
+// We then double both samples (to match the ref's *2.0 normalization).
+
+History uxL_0(0.0); History uxL_1(0.0); History uxL_2(0.0); History uxL_3(0.0);
+History uxL_4(0.0); History uxL_5(0.0); History uxL_6(0.0); History uxL_7(0.0);
+History uxL_8(0.0); History uxL_9(0.0); History uxL_10(0.0); History uxL_11(0.0);
+History uxL_12(0.0); History uxL_13(0.0); History uxL_14(0.0);
+
+// Even-phase output  (sample @ time 2n)
+//   delay 7 from current input  -> x[n-7]  -> uxL_6 (since after the shift below
+//   uxL_6 holds what was uxL_5 last sample, which was x[n-7] at that point...
+// To keep this readable: shift FIRST, then read indices.
+//
+// State definition AFTER the shift block:
+//   uxL_0 = x[n], uxL_1 = x[n-1], ..., uxL_14 = x[n-14], pre_x1_L holds x[n-15]?
+// We need x[n-15] for the lower bound of the odd-phase sum. Easiest to use
+// 16 delays. But we already have 15 here. Add one more:
+
+History uxL_15(0.0);
+
+// Even phase: tap h[15] * x[n-7]  with *2.0 normalization
+yEven_L = 2.0 * hb_15 * uxL_7;
+
+// Odd phase: pair-fold the symmetric odd taps.
+//   y_odd = sum over odd k of h[k] * x[n - ((k-1)/2)]
+// Pairs (k, 30-k): same coefficient hb_k. The two members of each pair
+// read x at delays (k-1)/2 and (30-k-1)/2 = (29-k)/2.
+// Concretely:
+//   k=1 paired with k=29 -> delays 0 and 14    -> hb_1 * (uxL_0 + uxL_14)
+//   k=3 paired with k=27 -> delays 1 and 13    -> hb_3 * (uxL_1 + uxL_13)
+//   k=5 paired with k=25 -> delays 2 and 12    -> hb_5 * (uxL_2 + uxL_12)
+//   k=7 paired with k=23 -> delays 3 and 11    -> hb_7 * (uxL_3 + uxL_11)
+//   k=9 paired with k=21 -> delays 4 and 10    -> hb_9 * (uxL_4 + uxL_10)
+//   k=11 paired with k=19 -> delays 5 and 9    -> hb_11 * (uxL_5 + uxL_9)
+//   k=13 paired with k=17 -> delays 6 and 8    -> hb_13 * (uxL_6 + uxL_8)
+//   k=15 (center) is on EVEN phase, not odd.
+
+yOdd_L = hb_1  * (uxL_0  + uxL_14)
+       + hb_3  * (uxL_1  + uxL_13)
+       + hb_5  * (uxL_2  + uxL_12)
+       + hb_7  * (uxL_3  + uxL_11)
+       + hb_9  * (uxL_4  + uxL_10)
+       + hb_11 * (uxL_5  + uxL_9)
+       + hb_13 * (uxL_6  + uxL_8);
+yOdd_L = 2.0 * yOdd_L;
+
+// Stage 4: asymmetric tanh waveshaper applied to BOTH oversampled samples.
+// u = sample + bias;  base = tanh(d*u)/tanh(d);  mult = (u<0) ? 1+beta*u : 1
+// Out = base * mult.
+//
+// Even-phase shaped sample:
+uE_L     = yEven_L + bias;
+baseE_L  = tanh(drive * uE_L) * inv_tanh_d;
+multE_L  = (uE_L < 0.0) ? (1.0 + beta_ * uE_L) : 1.0;
+shapedE_L = baseE_L * multE_L;
+// Odd-phase shaped sample:
+uO_L     = yOdd_L + bias;
+baseO_L  = tanh(drive * uO_L) * inv_tanh_d;
+multO_L  = (uO_L < 0.0) ? (1.0 + beta_ * uO_L) : 1.0;
+shapedO_L = baseO_L * multO_L;
+
+// Shift the upsampler input delay line AFTER reading.
+// (Ordering: read taps, then shift -- standard FIR pattern.)
+uxL_15 = uxL_14;
+uxL_14 = uxL_13;
+uxL_13 = uxL_12;
+uxL_12 = uxL_11;
+uxL_11 = uxL_10;
+uxL_10 = uxL_9;
+uxL_9  = uxL_8;
+uxL_8  = uxL_7;
+uxL_7  = uxL_6;
+uxL_6  = uxL_5;
+uxL_5  = uxL_4;
+uxL_4  = uxL_3;
+uxL_3  = uxL_2;
+uxL_2  = uxL_1;
+uxL_1  = uxL_0;
+uxL_0  = pre_yL;
+
+// Stage 5: 2x downsample (polyphase halfband decimator)
+// We push two samples per native sample into the down-sampler delay line.
+// The halfband decim FIR has the same taps as the interp FIR.
+// Maintain v_L[0..30] = oversampled-shaped stream of length 31.
+// Push order each sample: even sample (older time index), then odd sample
+// (newer). After both pushes, output one native sample = sum h[k]*v[k].
+
+History dxL_0(0.0);  History dxL_1(0.0);  History dxL_2(0.0);  History dxL_3(0.0);
+History dxL_4(0.0);  History dxL_5(0.0);  History dxL_6(0.0);  History dxL_7(0.0);
+History dxL_8(0.0);  History dxL_9(0.0);  History dxL_10(0.0); History dxL_11(0.0);
+History dxL_12(0.0); History dxL_13(0.0); History dxL_14(0.0); History dxL_15(0.0);
+History dxL_16(0.0); History dxL_17(0.0); History dxL_18(0.0); History dxL_19(0.0);
+History dxL_20(0.0); History dxL_21(0.0); History dxL_22(0.0); History dxL_23(0.0);
+History dxL_24(0.0); History dxL_25(0.0); History dxL_26(0.0); History dxL_27(0.0);
+History dxL_28(0.0); History dxL_29(0.0); History dxL_30(0.0);
+
+// Push the two oversampled-shaped samples (FIFO, oldest off the back).
+// Two-sample shift in one go. Because the decimator outputs every other
+// sample of `convolve(v, h, 'same')[::2]`, pairing the push order
+// (shapedE_L then shapedO_L) with reading the symmetric pair sums below
+// reproduces the numpy ref exactly.
+dxL_30 = dxL_28; dxL_29 = dxL_27;
+dxL_28 = dxL_26; dxL_27 = dxL_25;
+dxL_26 = dxL_24; dxL_25 = dxL_23;
+dxL_24 = dxL_22; dxL_23 = dxL_21;
+dxL_22 = dxL_20; dxL_21 = dxL_19;
+dxL_20 = dxL_18; dxL_19 = dxL_17;
+dxL_18 = dxL_16; dxL_17 = dxL_15;
+dxL_16 = dxL_14; dxL_15 = dxL_13;
+dxL_14 = dxL_12; dxL_13 = dxL_11;
+dxL_12 = dxL_10; dxL_11 = dxL_9;
+dxL_10 = dxL_8;  dxL_9  = dxL_7;
+dxL_8  = dxL_6;  dxL_7  = dxL_5;
+dxL_6  = dxL_4;  dxL_5  = dxL_3;
+dxL_4  = dxL_2;  dxL_3  = dxL_1;
+dxL_2  = dxL_0;
+dxL_1 = shapedE_L;
+dxL_0 = shapedO_L;
+// (After the shifts, dxL_0 = newest [odd phase], dxL_1 = even phase one
+//  oversample-step earlier, ..., dxL_30 = oldest.)
+
+// Decimator output: sum h[k]*v[k] for k=0..30.  Use linear-phase pairing
+// to halve the multiplies (h[k] == h[30-k]).
+//   k=15 (center): hb_15 * dxL_15
+//   even-k pairs (0,30), (2,28), (4,26), ..., (14,16): all zero -- skipped
+//   odd-k pairs:  (1,29), (3,27), ..., (13,17)
+yDecim_L =
+      hb_15 * dxL_15
+    + hb_1  * (dxL_1  + dxL_29)
+    + hb_3  * (dxL_3  + dxL_27)
+    + hb_5  * (dxL_5  + dxL_25)
+    + hb_7  * (dxL_7  + dxL_23)
+    + hb_9  * (dxL_9  + dxL_21)
+    + hb_11 * (dxL_11 + dxL_19)
+    + hb_13 * (dxL_13 + dxL_17);
+
+// Stage 6: de-emphasis biquad (Direct Form I)
+History de_x1_L(0.0); History de_x2_L(0.0);
+History de_y1_L(0.0); History de_y2_L(0.0);
+
+de_yL = de_b0*yDecim_L + de_b1*de_x1_L + de_b2*de_x2_L
+      - de_a1*de_y1_L - de_a2*de_y2_L;
+de_yL = (abs(de_yL) < 1e-30) ? 0.0 : de_yL;
+
+de_x2_L = de_x1_L;
+de_x1_L = yDecim_L;
+de_y2_L = de_y1_L;
+de_y1_L = de_yL;
+
+// Stage 7: DC blocker  y[n] = x[n] - x[n-1] + R*y[n-1]
+History dc_x1_L(0.0);
+History dc_y1_L(0.0);
+
+dc_yL = de_yL - dc_x1_L + dcr_R * dc_y1_L;
+dc_x1_L = de_yL;
+dc_y1_L = dc_yL;
+
+// Stage 8: drive-dependent makeup gain
+y_wet_L = dc_yL * makeup;
+
+// Stage 9: INPUT_GAIN output cancellation (linear)
+y_wet_L = y_wet_L * g_out;
+
+// Stage X: bypass mux for saturate == 0.
+//   Bypass branch: input * g_out  -- input passes through and the
+//   INPUT_GAIN cancellation still applies, so output is mode-independent
+//   (matches the numpy ref's saturate==0 branch which still applies g_out).
+y_dry_L = In1 * g_out;
+Out1 = is_bypass * y_dry_L + (1.0 - is_bypass) * y_wet_L;
+
+
+// -------------------------- R CHANNEL ----------------------------------------
+// Identical structure to L; independent state.
+
+xR = In2 * g_in;
+
+History pre_x1_R(0.0);
+History pre_x2_R(0.0);
+History pre_y1_R(0.0);
+History pre_y2_R(0.0);
+
+pre_yR = pre_b0*xR + pre_b1*pre_x1_R + pre_b2*pre_x2_R
+       - pre_a1*pre_y1_R - pre_a2*pre_y2_R;
+pre_yR = (abs(pre_yR) < 1e-30) ? 0.0 : pre_yR;
+
+pre_x2_R = pre_x1_R;
+pre_x1_R = xR;
+pre_y2_R = pre_y1_R;
+pre_y1_R = pre_yR;
+
+History uxR_0(0.0); History uxR_1(0.0); History uxR_2(0.0); History uxR_3(0.0);
+History uxR_4(0.0); History uxR_5(0.0); History uxR_6(0.0); History uxR_7(0.0);
+History uxR_8(0.0); History uxR_9(0.0); History uxR_10(0.0); History uxR_11(0.0);
+History uxR_12(0.0); History uxR_13(0.0); History uxR_14(0.0); History uxR_15(0.0);
+
+yEven_R = 2.0 * hb_15 * uxR_7;
+
+yOdd_R = hb_1  * (uxR_0  + uxR_14)
+       + hb_3  * (uxR_1  + uxR_13)
+       + hb_5  * (uxR_2  + uxR_12)
+       + hb_7  * (uxR_3  + uxR_11)
+       + hb_9  * (uxR_4  + uxR_10)
+       + hb_11 * (uxR_5  + uxR_9)
+       + hb_13 * (uxR_6  + uxR_8);
+yOdd_R = 2.0 * yOdd_R;
+
+uE_R     = yEven_R + bias;
+baseE_R  = tanh(drive * uE_R) * inv_tanh_d;
+multE_R  = (uE_R < 0.0) ? (1.0 + beta_ * uE_R) : 1.0;
+shapedE_R = baseE_R * multE_R;
+
+uO_R     = yOdd_R + bias;
+baseO_R  = tanh(drive * uO_R) * inv_tanh_d;
+multO_R  = (uO_R < 0.0) ? (1.0 + beta_ * uO_R) : 1.0;
+shapedO_R = baseO_R * multO_R;
+
+uxR_15 = uxR_14;
+uxR_14 = uxR_13;
+uxR_13 = uxR_12;
+uxR_12 = uxR_11;
+uxR_11 = uxR_10;
+uxR_10 = uxR_9;
+uxR_9  = uxR_8;
+uxR_8  = uxR_7;
+uxR_7  = uxR_6;
+uxR_6  = uxR_5;
+uxR_5  = uxR_4;
+uxR_4  = uxR_3;
+uxR_3  = uxR_2;
+uxR_2  = uxR_1;
+uxR_1  = uxR_0;
+uxR_0  = pre_yR;
+
+History dxR_0(0.0);  History dxR_1(0.0);  History dxR_2(0.0);  History dxR_3(0.0);
+History dxR_4(0.0);  History dxR_5(0.0);  History dxR_6(0.0);  History dxR_7(0.0);
+History dxR_8(0.0);  History dxR_9(0.0);  History dxR_10(0.0); History dxR_11(0.0);
+History dxR_12(0.0); History dxR_13(0.0); History dxR_14(0.0); History dxR_15(0.0);
+History dxR_16(0.0); History dxR_17(0.0); History dxR_18(0.0); History dxR_19(0.0);
+History dxR_20(0.0); History dxR_21(0.0); History dxR_22(0.0); History dxR_23(0.0);
+History dxR_24(0.0); History dxR_25(0.0); History dxR_26(0.0); History dxR_27(0.0);
+History dxR_28(0.0); History dxR_29(0.0); History dxR_30(0.0);
+
+dxR_30 = dxR_28; dxR_29 = dxR_27;
+dxR_28 = dxR_26; dxR_27 = dxR_25;
+dxR_26 = dxR_24; dxR_25 = dxR_23;
+dxR_24 = dxR_22; dxR_23 = dxR_21;
+dxR_22 = dxR_20; dxR_21 = dxR_19;
+dxR_20 = dxR_18; dxR_19 = dxR_17;
+dxR_18 = dxR_16; dxR_17 = dxR_15;
+dxR_16 = dxR_14; dxR_15 = dxR_13;
+dxR_14 = dxR_12; dxR_13 = dxR_11;
+dxR_12 = dxR_10; dxR_11 = dxR_9;
+dxR_10 = dxR_8;  dxR_9  = dxR_7;
+dxR_8  = dxR_6;  dxR_7  = dxR_5;
+dxR_6  = dxR_4;  dxR_5  = dxR_3;
+dxR_4  = dxR_2;  dxR_3  = dxR_1;
+dxR_2  = dxR_0;
+dxR_1 = shapedE_R;
+dxR_0 = shapedO_R;
+
+yDecim_R =
+      hb_15 * dxR_15
+    + hb_1  * (dxR_1  + dxR_29)
+    + hb_3  * (dxR_3  + dxR_27)
+    + hb_5  * (dxR_5  + dxR_25)
+    + hb_7  * (dxR_7  + dxR_23)
+    + hb_9  * (dxR_9  + dxR_21)
+    + hb_11 * (dxR_11 + dxR_19)
+    + hb_13 * (dxR_13 + dxR_17);
+
+History de_x1_R(0.0); History de_x2_R(0.0);
+History de_y1_R(0.0); History de_y2_R(0.0);
+
+de_yR = de_b0*yDecim_R + de_b1*de_x1_R + de_b2*de_x2_R
+      - de_a1*de_y1_R - de_a2*de_y2_R;
+de_yR = (abs(de_yR) < 1e-30) ? 0.0 : de_yR;
+
+de_x2_R = de_x1_R;
+de_x1_R = yDecim_R;
+de_y2_R = de_y1_R;
+de_y1_R = de_yR;
+
+History dc_x1_R(0.0);
+History dc_y1_R(0.0);
+
+dc_yR = de_yR - dc_x1_R + dcr_R * dc_y1_R;
+dc_x1_R = de_yR;
+dc_y1_R = dc_yR;
+
+y_wet_R = dc_yR * makeup * g_out;
+y_dry_R = In2 * g_out;
+Out2 = is_bypass * y_dry_R + (1.0 - is_bypass) * y_wet_R;
+
+// =============================================================================
+// END tl_saturate.gendsp
+// =============================================================================

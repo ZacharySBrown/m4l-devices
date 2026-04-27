@@ -1,0 +1,1035 @@
+// =============================================================================
+// tl_failure.gendsp — gen~ DSL for the tape-loss FAILURE multi-engine
+// =============================================================================
+//
+//   Module name        : tl_failure
+//   TUNING_VERSION     : 2  (round-2 calibration, 2026-04-26)
+//   Phase 1.5 contract : IMPLEMENTED (failure_override 4th inlet, additive
+//                        toward max — effective = knob + override*(1-knob))
+//   Authored           : 2026-04-27 by pedal-engineer (translation only)
+//
+//   Source design doc  : docs/design-docs/dsp/tl-failure-design.md
+//   Source design sha  : b6eb137b62aac6f4b058c910b69ae3c6fcfa17fc2f86cba5bf8a366a353c1ab5
+//   Source numpy ref   : dsp/reference/tl_failure.py
+//   Source numpy sha   : d82bce577a26ee3a1faa4691b9f98913eb2ffed574344aea9ef194dd43b21f76
+//
+// -----------------------------------------------------------------------------
+// I/O contract (matches tl_failure.maxpat shell, post Phase 1.5):
+//
+//   in1 = signal L                     (audio rate)
+//   in2 = signal R                     (audio rate)
+//   in3 = failure_knob       [0, 1]    (control rate; held by [sig~] upstream)
+//   in4 = failure_override   [0, 1]    (control rate; from tl_aux FAIL outlet,
+//                                       defaulted to 0 when unwired)
+//   out1 = signal L                    (audio rate)
+//   out2 = signal R                    (audio rate)
+//
+// Params (set from outer patch via [param ...] or live.* boxes):
+//   drop_bypass     0|1     — disable DROP sub-engine (round-2 unchanged)
+//   snag_bypass     0|1     — disable SNAG sub-engine
+//   spread          0|1     — stereo decorrelation; 0 = locked events L/R
+//   crinkle_level   0..1    — UI knob, post-engine amp scale on CRINKLE
+//
+// -----------------------------------------------------------------------------
+// Round-2 calibration constants (must match numpy reference verbatim):
+//
+//   DROP rate     = 8*f + 18*f^2  events/min
+//   DROP duration = (30 + 220*f) ms   * uniform(0.7, 1.3) jitter
+//   DROP ramp     = 5 ms cosine each side, hold at 0 between
+//
+//   SNAG rate     = 4*f + 10*f^2  events/min
+//   SNAG cents    = (60 + 240*f)  * uniform(0.8, 1.2)
+//   SNAG hold     = uniform(15, 80) ms
+//   SNAG attack   = 4 ms cosine
+//   SNAG release  = 25 ms cosine
+//   SNAG scale    = 0.012  (delay-line excursion: peak = (cents/1200)*sr*0.012)
+//
+//   CRINKLE rate  = 30*f^3 + 1   bursts/sec
+//   CRINKLE amp   = uniform(0.2, 0.5) per event
+//   CRINKLE BPF   = RBJ constant-skirt, fc=2500 Hz, Q=1.5 (DF-I biquad)
+//   CRINKLE peak  = post-norm * 0.30 * crinkle_level   (round-2 headroom 0.30)
+//
+//   MICRO-FLUTTER depth = 0.35 * f      (linear)
+//   MICRO-FLUTTER rate  = uniform(20, 60+60*f) Hz, two summed sines, re-rolled
+//                         every 50 ms.
+//
+// -----------------------------------------------------------------------------
+// Per-sample event-scheduling translation pattern:
+//
+// The numpy reference uses NumPy-array idioms — Poisson sample at the buffer
+// level, draw all event start positions in one shot, write envelope shapes via
+// vectorized slice assignment. gen~ is sample-rate; there is no buffer-level
+// scheduling and no Poisson primitive. We translate to the canonical
+// streaming-Poisson pattern (memoryless inter-arrival times):
+//
+//   For a Poisson process with rate λ events/second, inter-arrival times are
+//   exponentially distributed with mean 1/λ. Sample u ~ Uniform(0,1) and
+//   compute Δt = -ln(u) / λ samples. Maintain a per-engine countdown History;
+//   each sample, decrement; when it crosses zero, fire an event (sample its
+//   per-event params via more random() calls), reset countdown to next Δt.
+//
+// Per-event envelope state is a small piecewise machine, also held in
+// History: { phase ∈ {idle, attack, hold, release}, samples_left_in_phase,
+// event_amp, event_peak_offset }. Each sample, advance the phase.
+//
+// Why this matches the numpy ref distribution-wise:
+//   For a homogeneous Poisson process, the count over a fixed interval is
+//   Poisson-distributed (numpy uses the latter form), AND the inter-arrival
+//   times are i.i.d. exponential (we use this form). They are equivalent
+//   characterizations — same statistics, same expected rate. The actual
+//   sample-level event positions will differ from numpy under the same RNG
+//   seed, which is FINE: the design contract is statistical, not bit-identical
+//   (only the failure=0 short-circuit needs bit-identical match, and we
+//   handle that separately).
+//
+// SPREAD / RNG strategy:
+//   gen~ has no SeedSequence.spawn analog. gen~'s `noise()` and `random()`
+//   each maintain independent state per *call site*. To get decorrelated L
+//   and R streams when spread=1, every random draw is duplicated — once for
+//   the L sub-engine (subscript _L), once for R (_R). When spread=0, both
+//   channels use the *same* draw stream by reading a single set of countdown
+//   states and broadcasting to both channels (events lock in stereo).
+//
+//   At this level of abstraction in gen~ DSL, we cannot programmatically
+//   "fork" RNG state, so the architectural choice is: structurally separate
+//   L and R event-scheduling state machines. Under spread=1 they evolve
+//   independently (independent random() calls). Under spread=0 we still
+//   evaluate both, but route the L sub-engine state to both output channels,
+//   ignoring R's modulators. This costs ~2x scheduling CPU but keeps the
+//   topology static (gen~ requires DSP graph topology to be compile-time).
+//
+//   Note vs. numpy ref: numpy's spread=False explicitly re-seeds rng_l and
+//   rng_r with the same SeedSequence so the streams are bit-identical; gen~
+//   has no such hook. The audible result is the same — locked stereo events
+//   — because we route a single channel's modulators to both outputs.
+//
+// Numpy idioms that did NOT translate cleanly (workarounds):
+//
+//   1. `rng.poisson(mean_events)` over a buffer: replaced with streaming
+//      exponential inter-arrival (see above).
+//   2. `np.maximum(env, ramp)` (slice-wise OR-of-envelopes for overlapping
+//      bursts): replaced with `max(env_state, current_envelope_value)` per
+//      sample — same overlap-takes-louder semantics, sample-by-sample.
+//   3. `np.linspace(0, 1, a_n)` for triangular CRINKLE ramp: replaced with
+//      sample-counter / a_n linear interpolation in the envelope state
+//      machine.
+//   4. `_apply_variable_delay` reading by index with linear interp at
+//      arbitrary fractional offsets: replaced with gen~'s `Delay` operator,
+//      which accepts fractional delay-time and does linear interp natively
+//      (matches numpy ref's `linterp`; the M4L `tapout~` would do 4-point
+//      Hermite for slightly cleaner artifacts — design doc tradeoff #11
+//      already accepts this).
+//   5. `SeedSequence.spawn(2)` for SPREAD: see above; replaced with
+//      structural per-channel state.
+//   6. `chunk_n = max(64, int(0.05*sr))` re-roll-LFO-rates-every-50ms
+//      pattern in MICRO-FLUTTER: implemented as a 50 ms countdown that, on
+//      tick, samples two new `random()` rate values into History; each
+//      sample advances the two phasors with their current rates.
+//   7. Per-sample biquad with denormal flush (`if abs(yn) < 1e-30 → 0`):
+//      gen~ has no explicit denormal-flush primitive needed — gen~ runs in
+//      double precision and most modern CPUs handle denormals adequately;
+//      we still include a guard `(abs(y) < 1e-30) ? 0 : y` to match the
+//      reference's numerical behavior.
+//
+// -----------------------------------------------------------------------------
+// Sanity-check expected behaviors (from numpy verification log
+// `_verify_round2_targets` / `_verify_phase15_contract`):
+//
+//   T1/P1: knob=0 AND override=0  → out1==in1, out2==in2 bit-identical
+//          (short-circuit at API boundary; engines do not run).
+//   T2:    effective=1.0          → peak dropout depth ≤ -30 dBFS in any
+//          30 ms window (gate fully closes; numpy measured -240 dB).
+//   T3:    effective=1.0          → peak instantaneous pitch deviation ≥ 80
+//          cents (numpy measured 271.5 c, saturation of the tracker).
+//   T4:    effective=0.5          → simultaneous drop ≤ -12 dB AND pitch
+//          peak ≥ 30 c in a 15 s render.
+//   P2:    knob=0.3, override=0.5 → identical statistical behavior to
+//          knob=0.65, override=0   (effective formula: 0.3+0.5*0.7 = 0.65)
+//   P3:    knob=0.0, override=1.0 → identical statistical behavior to
+//          knob=1.0, override=0    (effective formula: 0.0+1.0*1.0 = 1.0)
+//
+// =============================================================================
+
+
+// -----------------------------------------------------------------------------
+// Params (set from the parent patcher via [param NAME] boxes; gen~ surfaces
+// them as inlets in compiled @param mode but here they are control values
+// stable across the buffer)
+// -----------------------------------------------------------------------------
+Param drop_bypass 0;
+Param snag_bypass 0;
+Param spread 0;
+Param crinkle_level 0.5;
+
+
+// -----------------------------------------------------------------------------
+// API boundary — Phase 1.5 boost formula: effective = knob + override*(1-knob)
+// Computed once per sample at the input. All four sub-engines downstream read
+// `effective`, never `knob` directly. Original `knob` value is preserved
+// for traceability but no DSP path consumes it.
+// -----------------------------------------------------------------------------
+knob     = clip(in3, 0, 1);
+override = clip(in4, 0, 1);
+effective = clip(knob + override * (1 - knob), 0, 1);
+
+// Short-circuit: when both are exactly zero, bypass everything (regression
+// guarantee from T1/P1). Use small epsilon to handle float fuzz from the
+// upstream [sig~]; same threshold as design doc §11.4.
+short_circuit = (effective <= 1e-6);
+
+
+// =============================================================================
+// SUB-ENGINE B — SNAG (variable delay; pitch-up via shorter delay)
+// =============================================================================
+//
+// Per-sample state machine, one instance per channel:
+//
+//   phase ∈ { 0 = idle (countdown to next event),
+//             1 = attack  (offset ramps 0 → -peak over 4 ms cosine),
+//             2 = hold    (offset = -peak for hold_n samples),
+//             3 = release (offset ramps -peak → 0 over 25 ms cosine) }
+//
+// History fields per channel:
+//   snag_countdown_X     samples until next event start (idle phase)
+//   snag_phase_X         current phase 0..3
+//   snag_phase_left_X    samples left in current phase
+//   snag_attack_n_X      attack length in samples (event-specific; though
+//                        we use fixed 4 ms here, kept as History for
+//                        future-proofing and ramp normalization)
+//   snag_release_n_X     release length in samples (fixed 25 ms)
+//   snag_hold_n_X        hold length in samples (event-specific, 15-80 ms)
+//   snag_peak_off_X      peak offset in samples (event-specific)
+//
+// Output: snag_offset_X — instantaneous delay-line offset (in samples,
+// negative = shorter delay = higher pitch).
+// -----------------------------------------------------------------------------
+
+// Constants (round-2)
+SNAG_RATE_K1 = 4;        // f^1 coefficient,  events/min
+SNAG_RATE_K2 = 10;       // f^2 coefficient,  events/min
+SNAG_CENTS_BASE = 60;
+SNAG_CENTS_F = 240;
+SNAG_HOLD_LO_MS = 15;
+SNAG_HOLD_HI_MS = 80;
+SNAG_ATTACK_MS = 4;
+SNAG_RELEASE_MS = 25;
+SNAG_DELAY_SCALE = 0.012;     // round-2 (was 0.005)
+
+// Snag rate as inter-arrival mean (samples). Guard against rate=0.
+// rate_per_sec = (SNAG_RATE_K1*f + SNAG_RATE_K2*f^2) / 60.
+snag_rate_per_sec = (SNAG_RATE_K1 * effective + SNAG_RATE_K2 * effective * effective) / 60;
+snag_lambda_safe = max(snag_rate_per_sec, 1e-9);
+snag_mean_dt_samp = samplerate / snag_lambda_safe;     // mean inter-arrival in samples
+
+attack_n  = max(1, SNAG_ATTACK_MS  * 1e-3 * samplerate);
+release_n = max(1, SNAG_RELEASE_MS * 1e-3 * samplerate);
+
+
+// ---- Macro-style: per-channel snag scheduler ----
+// gen~ has no functions in the strict sense; we inline the L and R copies.
+// Both copies are structurally identical; under spread=0 we will route only
+// the L copy's offset to both channels at the routing stage below.
+
+// =========================
+// Snag scheduler — channel L
+// =========================
+History snag_countdown_L(0);
+History snag_phase_L(0);
+History snag_phase_left_L(0);
+History snag_hold_n_L(0);
+History snag_peak_off_L(0);
+
+// Tick: when phase==0 (idle), decrement countdown; on hit, sample new event.
+// random() returns [0, 1). Use -ln(1-u)/lambda for stable inverse CDF (avoids
+// log(0) when u==0); equivalently sample u_safe = max(u, 1e-12) and use -ln(u).
+u_dt_L = max(random(), 1e-12);
+
+// Compute "next inter-arrival" (in samples) from current effective rate.
+new_dt_L = -log(u_dt_L) * snag_mean_dt_samp;
+
+// Per-event params (sampled at event-fire time):
+u_cents_L = random();   // 0..1 → uniform(0.8, 1.2) below
+u_hold_L  = random();   // 0..1 → uniform(15, 80) ms
+event_cents_L = (SNAG_CENTS_BASE + SNAG_CENTS_F * effective) * (0.8 + 0.4 * u_cents_L);
+event_hold_n_L = max(1, (SNAG_HOLD_LO_MS + (SNAG_HOLD_HI_MS - SNAG_HOLD_LO_MS) * u_hold_L) * 1e-3 * samplerate);
+event_peak_off_L = (event_cents_L / 1200) * samplerate * SNAG_DELAY_SCALE;
+
+// State transitions:
+//   if phase==0 (idle):
+//       countdown -= 1
+//       if countdown <= 0 and snag engine active: enter attack phase
+//   elif phase==1 (attack): tick ramp; on done → phase=2, phase_left=hold_n
+//   elif phase==2 (hold):   tick;       on done → phase=3, phase_left=release_n
+//   elif phase==3 (release): tick;      on done → phase=0, countdown=new_dt
+//
+// snag_active = (effective > 0) AND (snag_bypass == 0). When snag is bypassed
+// or effective is zero, we leave offset = 0 unconditionally (set later in the
+// short-circuit / bypass mask).
+
+snag_engine_on_L = (effective > 0) * (1 - drop_bypass * 0);  // engine on flag,
+// note: drop_bypass does NOT gate snag; only snag_bypass gates snag.
+snag_engine_on_L = (effective > 0) * (1 - snag_bypass);
+
+// State machine — implemented with selectors on previous History values.
+prev_phase_L      = snag_phase_L;
+prev_countdown_L  = snag_countdown_L;
+prev_phase_left_L = snag_phase_left_L;
+prev_hold_n_L     = snag_hold_n_L;
+prev_peak_off_L   = snag_peak_off_L;
+
+// ---- Idle path (phase==0)
+idle_decremented_L = prev_countdown_L - 1;
+idle_fires_L       = (prev_phase_L == 0) * (idle_decremented_L <= 0) * snag_engine_on_L;
+
+// On idle-fire: enter attack with newly drawn event params.
+// On non-fire idle: stay phase 0, decrement countdown.
+// On already-firing-or-resetting (when engine just turned off mid-event):
+//   we don't force-stop a mid-event; ramp it to natural release end. (matches
+//   numpy ref behavior — events drawn within the buffer always complete.)
+
+// ---- Attack path (phase==1)
+attack_left_L      = prev_phase_left_L - 1;
+attack_done_L      = (prev_phase_L == 1) * (attack_left_L <= 0);
+
+// ---- Hold path (phase==2)
+hold_left_L        = prev_phase_left_L - 1;
+hold_done_L        = (prev_phase_L == 2) * (hold_left_L <= 0);
+
+// ---- Release path (phase==3)
+release_left_L     = prev_phase_left_L - 1;
+release_done_L     = (prev_phase_L == 3) * (release_left_L <= 0);
+
+// Compose next state. Order of conditions: most-recent-phase-end first.
+// Default = continue current phase.
+next_phase_L = prev_phase_L;
+next_phase_left_L = prev_phase_left_L;
+next_countdown_L = prev_countdown_L;
+next_hold_n_L = prev_hold_n_L;
+next_peak_off_L = prev_peak_off_L;
+
+// Idle, no fire: just decrement countdown.
+next_countdown_L = (prev_phase_L == 0) ? idle_decremented_L : next_countdown_L;
+
+// Idle, fire: jump to attack.
+next_phase_L      = idle_fires_L ? 1 : next_phase_L;
+next_phase_left_L = idle_fires_L ? attack_n : next_phase_left_L;
+next_hold_n_L     = idle_fires_L ? event_hold_n_L : next_hold_n_L;
+next_peak_off_L   = idle_fires_L ? event_peak_off_L : next_peak_off_L;
+
+// Attack continuing: decrement phase_left.
+next_phase_left_L = ((prev_phase_L == 1) * (attack_done_L == 0)) ? attack_left_L : next_phase_left_L;
+// Attack done: enter hold.
+next_phase_L      = attack_done_L ? 2 : next_phase_L;
+next_phase_left_L = attack_done_L ? prev_hold_n_L : next_phase_left_L;
+
+// Hold continuing.
+next_phase_left_L = ((prev_phase_L == 2) * (hold_done_L == 0)) ? hold_left_L : next_phase_left_L;
+// Hold done: enter release.
+next_phase_L      = hold_done_L ? 3 : next_phase_L;
+next_phase_left_L = hold_done_L ? release_n : next_phase_left_L;
+
+// Release continuing.
+next_phase_left_L = ((prev_phase_L == 3) * (release_done_L == 0)) ? release_left_L : next_phase_left_L;
+// Release done: back to idle, schedule next event.
+next_phase_L      = release_done_L ? 0 : next_phase_L;
+next_countdown_L  = release_done_L ? new_dt_L : next_countdown_L;
+next_phase_left_L = release_done_L ? 0 : next_phase_left_L;
+
+// On engine cold-start (countdown==0 from initial History default), seed the
+// first inter-arrival.
+cold_start_L = (prev_phase_L == 0) * (prev_countdown_L == 0) * snag_engine_on_L;
+next_countdown_L = cold_start_L ? new_dt_L : next_countdown_L;
+
+// Latch.
+snag_countdown_L  = next_countdown_L;
+snag_phase_L      = next_phase_L;
+snag_phase_left_L = next_phase_left_L;
+snag_hold_n_L     = next_hold_n_L;
+snag_peak_off_L   = next_peak_off_L;
+
+// Compute current offset based on phase. Cosine ramps to match numpy
+// `0.5*(1 - cos(pi*i/n))` (attack) and `0.5*(1 + cos(pi*i/n))` (release).
+// In our state machine, phase_left counts DOWN from {attack_n, hold_n,
+// release_n} → 0. Map back to ramp index:
+//   attack:  i  = attack_n - phase_left      → ramp 0..1
+//   release: i  = release_n - phase_left     → ramp 1..0
+attack_idx_L  = attack_n  - next_phase_left_L;
+release_idx_L = release_n - next_phase_left_L;
+attack_ramp_L  = 0.5 * (1 - cos(pi * attack_idx_L  / max(1, attack_n)));
+release_ramp_L = 0.5 * (1 + cos(pi * release_idx_L / max(1, release_n)));
+
+snag_offset_L =
+    (next_phase_L == 1) ? -next_peak_off_L * attack_ramp_L  :
+    (next_phase_L == 2) ? -next_peak_off_L                  :
+    (next_phase_L == 3) ? -next_peak_off_L * release_ramp_L :
+    0;
+
+// Bypass / short-circuit guard.
+snag_offset_L = (snag_bypass + short_circuit > 0) ? 0 : snag_offset_L;
+
+
+// =========================
+// Snag scheduler — channel R
+// =========================
+// Structurally identical to L, with independent random() call sites and
+// History instances. Under spread=0, the routing stage below ignores
+// snag_offset_R and broadcasts snag_offset_L to both delay reads.
+
+History snag_countdown_R(0);
+History snag_phase_R(0);
+History snag_phase_left_R(0);
+History snag_hold_n_R(0);
+History snag_peak_off_R(0);
+
+u_dt_R = max(random(), 1e-12);
+new_dt_R = -log(u_dt_R) * snag_mean_dt_samp;
+u_cents_R = random();
+u_hold_R = random();
+event_cents_R = (SNAG_CENTS_BASE + SNAG_CENTS_F * effective) * (0.8 + 0.4 * u_cents_R);
+event_hold_n_R = max(1, (SNAG_HOLD_LO_MS + (SNAG_HOLD_HI_MS - SNAG_HOLD_LO_MS) * u_hold_R) * 1e-3 * samplerate);
+event_peak_off_R = (event_cents_R / 1200) * samplerate * SNAG_DELAY_SCALE;
+
+snag_engine_on_R = (effective > 0) * (1 - snag_bypass);
+
+prev_phase_R      = snag_phase_R;
+prev_countdown_R  = snag_countdown_R;
+prev_phase_left_R = snag_phase_left_R;
+prev_hold_n_R     = snag_hold_n_R;
+prev_peak_off_R   = snag_peak_off_R;
+
+idle_decremented_R = prev_countdown_R - 1;
+idle_fires_R       = (prev_phase_R == 0) * (idle_decremented_R <= 0) * snag_engine_on_R;
+attack_left_R      = prev_phase_left_R - 1;
+attack_done_R      = (prev_phase_R == 1) * (attack_left_R <= 0);
+hold_left_R        = prev_phase_left_R - 1;
+hold_done_R        = (prev_phase_R == 2) * (hold_left_R <= 0);
+release_left_R     = prev_phase_left_R - 1;
+release_done_R     = (prev_phase_R == 3) * (release_left_R <= 0);
+
+next_phase_R      = prev_phase_R;
+next_phase_left_R = prev_phase_left_R;
+next_countdown_R  = prev_countdown_R;
+next_hold_n_R     = prev_hold_n_R;
+next_peak_off_R   = prev_peak_off_R;
+
+next_countdown_R  = (prev_phase_R == 0) ? idle_decremented_R : next_countdown_R;
+next_phase_R      = idle_fires_R ? 1 : next_phase_R;
+next_phase_left_R = idle_fires_R ? attack_n : next_phase_left_R;
+next_hold_n_R     = idle_fires_R ? event_hold_n_R : next_hold_n_R;
+next_peak_off_R   = idle_fires_R ? event_peak_off_R : next_peak_off_R;
+
+next_phase_left_R = ((prev_phase_R == 1) * (attack_done_R == 0)) ? attack_left_R : next_phase_left_R;
+next_phase_R      = attack_done_R ? 2 : next_phase_R;
+next_phase_left_R = attack_done_R ? prev_hold_n_R : next_phase_left_R;
+
+next_phase_left_R = ((prev_phase_R == 2) * (hold_done_R == 0)) ? hold_left_R : next_phase_left_R;
+next_phase_R      = hold_done_R ? 3 : next_phase_R;
+next_phase_left_R = hold_done_R ? release_n : next_phase_left_R;
+
+next_phase_left_R = ((prev_phase_R == 3) * (release_done_R == 0)) ? release_left_R : next_phase_left_R;
+next_phase_R      = release_done_R ? 0 : next_phase_R;
+next_countdown_R  = release_done_R ? new_dt_R : next_countdown_R;
+next_phase_left_R = release_done_R ? 0 : next_phase_left_R;
+
+cold_start_R = (prev_phase_R == 0) * (prev_countdown_R == 0) * snag_engine_on_R;
+next_countdown_R = cold_start_R ? new_dt_R : next_countdown_R;
+
+snag_countdown_R  = next_countdown_R;
+snag_phase_R      = next_phase_R;
+snag_phase_left_R = next_phase_left_R;
+snag_hold_n_R     = next_hold_n_R;
+snag_peak_off_R   = next_peak_off_R;
+
+attack_idx_R  = attack_n  - next_phase_left_R;
+release_idx_R = release_n - next_phase_left_R;
+attack_ramp_R  = 0.5 * (1 - cos(pi * attack_idx_R  / max(1, attack_n)));
+release_ramp_R = 0.5 * (1 + cos(pi * release_idx_R / max(1, release_n)));
+
+snag_offset_R =
+    (next_phase_R == 1) ? -next_peak_off_R * attack_ramp_R  :
+    (next_phase_R == 2) ? -next_peak_off_R                  :
+    (next_phase_R == 3) ? -next_peak_off_R * release_ramp_R :
+    0;
+
+snag_offset_R = (snag_bypass + short_circuit > 0) ? 0 : snag_offset_R;
+
+
+// -----------------------------------------------------------------------------
+// SNAG variable-delay read.
+// Numpy ref uses base_delay=256 samples + linear interpolation. gen~'s Delay
+// operator performs linear interpolation natively when given a fractional
+// delay-time argument. base_delay = 256 samples.
+// -----------------------------------------------------------------------------
+SNAG_BASE_DELAY = 256;
+
+// Routing: under spread=0, both channels read with the L offset; under
+// spread=1, each channel uses its own.
+snag_off_for_L = snag_offset_L;
+snag_off_for_R = (spread > 0) ? snag_offset_R : snag_offset_L;
+
+// delay time = base + (-offset). offset is already negative in our encoding
+// (negative offset = shorter delay = higher pitch), so the read time is
+// base + offset where offset ≤ 0. Equivalently base - |offset|. Clamp the
+// minimum delay-time to 0.5 sample for safety (avoid reading future samples).
+snag_dt_L = max(0.5, SNAG_BASE_DELAY + snag_off_for_L);
+snag_dt_R = max(0.5, SNAG_BASE_DELAY + snag_off_for_R);
+
+// Delay max = 512 samples (twice base_delay; gives headroom past round-2's
+// ~159-sample peak excursion at f=1.0, per design doc §5).
+snag_out_L = delay(in1, snag_dt_L, 512);
+snag_out_R = delay(in2, snag_dt_R, 512);
+
+
+// =============================================================================
+// SUB-ENGINE C2 — MICRO-FLUTTER (always-on AM, scales with effective)
+// =============================================================================
+//
+// Two summed sines with rates re-rolled every 50 ms. Phase accumulators in
+// History; rate values latched in History at each 50 ms tick. Output:
+//     mod_X = 1 + depth * 0.5 * (sin(phase1_X) + sin(phase2_X))
+// -----------------------------------------------------------------------------
+
+flut_depth = 0.35 * effective;
+flut_chunk_n = max(64, 0.05 * samplerate);   // 50 ms
+
+// ---- L ----
+History flut_chunk_left_L(0);
+History flut_f1_L(30);
+History flut_f2_L(20);
+History flut_phase1_L(0);
+History flut_phase2_L(0);
+
+// Re-roll rates when chunk countdown hits 0. f1 ∈ uniform(20, 60+60*f),
+// f2 = uniform(20, 60+60*f) * 0.7  (matching numpy ref decorrelation factor).
+flut_chunk_dec_L = flut_chunk_left_L - 1;
+flut_reroll_L = flut_chunk_dec_L <= 0;
+u_f1_L = random();
+u_f2_L = random();
+new_f1_L = 20 + (40 + 60 * effective) * u_f1_L;
+new_f2_L = (20 + (40 + 60 * effective) * u_f2_L) * 0.7;
+
+flut_f1_L = flut_reroll_L ? new_f1_L : flut_f1_L;
+flut_f2_L = flut_reroll_L ? new_f2_L : flut_f2_L;
+flut_chunk_left_L = flut_reroll_L ? flut_chunk_n : flut_chunk_dec_L;
+
+flut_phase1_L = flut_phase1_L + 2 * pi * flut_f1_L / samplerate;
+flut_phase2_L = flut_phase2_L + 2 * pi * flut_f2_L / samplerate;
+// Wrap phases to keep numerical precision over long runs.
+flut_phase1_L = flut_phase1_L - (flut_phase1_L > 2*pi) * 2 * pi;
+flut_phase2_L = flut_phase2_L - (flut_phase2_L > 2*pi) * 2 * pi;
+
+flut_mod_L_raw = 0.5 * (sin(flut_phase1_L) + sin(flut_phase2_L));
+flut_mod_L = 1 + flut_depth * flut_mod_L_raw;
+// When effective==0 (depth=0), this naturally collapses to 1.0 (no AM).
+
+// ---- R ----
+History flut_chunk_left_R(0);
+History flut_f1_R(30);
+History flut_f2_R(20);
+History flut_phase1_R(0);
+History flut_phase2_R(0);
+
+flut_chunk_dec_R = flut_chunk_left_R - 1;
+flut_reroll_R = flut_chunk_dec_R <= 0;
+u_f1_R = random();
+u_f2_R = random();
+new_f1_R = 20 + (40 + 60 * effective) * u_f1_R;
+new_f2_R = (20 + (40 + 60 * effective) * u_f2_R) * 0.7;
+
+flut_f1_R = flut_reroll_R ? new_f1_R : flut_f1_R;
+flut_f2_R = flut_reroll_R ? new_f2_R : flut_f2_R;
+flut_chunk_left_R = flut_reroll_R ? flut_chunk_n : flut_chunk_dec_R;
+
+flut_phase1_R = flut_phase1_R + 2 * pi * flut_f1_R / samplerate;
+flut_phase2_R = flut_phase2_R + 2 * pi * flut_f2_R / samplerate;
+flut_phase1_R = flut_phase1_R - (flut_phase1_R > 2*pi) * 2 * pi;
+flut_phase2_R = flut_phase2_R - (flut_phase2_R > 2*pi) * 2 * pi;
+
+flut_mod_R_raw = 0.5 * (sin(flut_phase1_R) + sin(flut_phase2_R));
+flut_mod_R = 1 + flut_depth * flut_mod_R_raw;
+
+// Routing under spread.
+flut_for_L = flut_mod_L;
+flut_for_R = (spread > 0) ? flut_mod_R : flut_mod_L;
+
+// Apply micro-flutter on the snag-output (chain order: SNAG → MICRO-FLUTTER).
+postflut_L = snag_out_L * flut_for_L;
+postflut_R = snag_out_R * flut_for_R;
+
+
+// =============================================================================
+// SUB-ENGINE A — DROP (gated dropouts via cosine-ramp envelope)
+// =============================================================================
+//
+// Per-sample state machine, structurally identical to SNAG but with:
+//   phase 1 = ramp_down (1 → 0 over 5 ms cosine)
+//   phase 2 = hold      (env = 0 for hold_n samples)
+//   phase 3 = ramp_up   (0 → 1 over 5 ms cosine)
+//
+// Round-2 rate = 8*f + 18*f^2 events/min, duration = (30+220*f)*uniform(0.7,1.3).
+// Note "duration" is the *total* event length (numpy: dur_n samples top-of-
+// envelope-down through end-of-ramp-up). Hold portion = dur_n - 2*ramp_n.
+// -----------------------------------------------------------------------------
+
+DROP_RATE_K1 = 8;
+DROP_RATE_K2 = 18;
+DROP_DUR_BASE_MS = 30;
+DROP_DUR_F_MS = 220;
+DROP_RAMP_MS = 5;
+
+drop_rate_per_sec = (DROP_RATE_K1 * effective + DROP_RATE_K2 * effective * effective) / 60;
+drop_lambda_safe = max(drop_rate_per_sec, 1e-9);
+drop_mean_dt_samp = samplerate / drop_lambda_safe;
+drop_ramp_n = max(1, DROP_RAMP_MS * 1e-3 * samplerate);
+
+// ---- L ----
+History drop_countdown_L(0);
+History drop_phase_L(0);
+History drop_phase_left_L(0);
+History drop_hold_n_L(0);
+
+u_drop_dt_L = max(random(), 1e-12);
+new_drop_dt_L = -log(u_drop_dt_L) * drop_mean_dt_samp;
+u_drop_dur_L = random();
+event_drop_dur_n_L = (DROP_DUR_BASE_MS + DROP_DUR_F_MS * effective) * (0.7 + 0.6 * u_drop_dur_L) * 1e-3 * samplerate;
+// Hold = total - 2*ramp. Numpy clamps total >= 2*ramp+1; same here.
+event_drop_hold_n_L = max(1, event_drop_dur_n_L - 2 * drop_ramp_n);
+
+drop_engine_on_L = (effective > 0) * (1 - drop_bypass);
+
+prev_drop_phase_L      = drop_phase_L;
+prev_drop_countdown_L  = drop_countdown_L;
+prev_drop_phase_left_L = drop_phase_left_L;
+prev_drop_hold_n_L     = drop_hold_n_L;
+
+drop_idle_dec_L  = prev_drop_countdown_L - 1;
+drop_idle_fires_L = (prev_drop_phase_L == 0) * (drop_idle_dec_L <= 0) * drop_engine_on_L;
+drop_atk_left_L = prev_drop_phase_left_L - 1;
+drop_atk_done_L = (prev_drop_phase_L == 1) * (drop_atk_left_L <= 0);
+drop_hold_left_L = prev_drop_phase_left_L - 1;
+drop_hold_done_L = (prev_drop_phase_L == 2) * (drop_hold_left_L <= 0);
+drop_rel_left_L = prev_drop_phase_left_L - 1;
+drop_rel_done_L = (prev_drop_phase_L == 3) * (drop_rel_left_L <= 0);
+
+next_drop_phase_L      = prev_drop_phase_L;
+next_drop_phase_left_L = prev_drop_phase_left_L;
+next_drop_countdown_L  = prev_drop_countdown_L;
+next_drop_hold_n_L     = prev_drop_hold_n_L;
+
+next_drop_countdown_L  = (prev_drop_phase_L == 0) ? drop_idle_dec_L : next_drop_countdown_L;
+next_drop_phase_L      = drop_idle_fires_L ? 1 : next_drop_phase_L;
+next_drop_phase_left_L = drop_idle_fires_L ? drop_ramp_n : next_drop_phase_left_L;
+next_drop_hold_n_L     = drop_idle_fires_L ? event_drop_hold_n_L : next_drop_hold_n_L;
+
+next_drop_phase_left_L = ((prev_drop_phase_L == 1) * (drop_atk_done_L == 0)) ? drop_atk_left_L : next_drop_phase_left_L;
+next_drop_phase_L      = drop_atk_done_L ? 2 : next_drop_phase_L;
+next_drop_phase_left_L = drop_atk_done_L ? prev_drop_hold_n_L : next_drop_phase_left_L;
+
+next_drop_phase_left_L = ((prev_drop_phase_L == 2) * (drop_hold_done_L == 0)) ? drop_hold_left_L : next_drop_phase_left_L;
+next_drop_phase_L      = drop_hold_done_L ? 3 : next_drop_phase_L;
+next_drop_phase_left_L = drop_hold_done_L ? drop_ramp_n : next_drop_phase_left_L;
+
+next_drop_phase_left_L = ((prev_drop_phase_L == 3) * (drop_rel_done_L == 0)) ? drop_rel_left_L : next_drop_phase_left_L;
+next_drop_phase_L      = drop_rel_done_L ? 0 : next_drop_phase_L;
+next_drop_countdown_L  = drop_rel_done_L ? new_drop_dt_L : next_drop_countdown_L;
+next_drop_phase_left_L = drop_rel_done_L ? 0 : next_drop_phase_left_L;
+
+drop_cold_start_L = (prev_drop_phase_L == 0) * (prev_drop_countdown_L == 0) * drop_engine_on_L;
+next_drop_countdown_L = drop_cold_start_L ? new_drop_dt_L : next_drop_countdown_L;
+
+drop_countdown_L  = next_drop_countdown_L;
+drop_phase_L      = next_drop_phase_L;
+drop_phase_left_L = next_drop_phase_left_L;
+drop_hold_n_L     = next_drop_hold_n_L;
+
+// Compute envelope value. Numpy uses:
+//   ramp_down = 0.5*(1+cos(pi*i/n))  goes 1 → 0 as i goes 0..n
+//   ramp_up   = 0.5*(1-cos(pi*i/n))  goes 0 → 1 as i goes 0..n
+// Our phase_left counts down from ramp_n → 0; ramp index i = ramp_n - phase_left.
+drop_atk_idx_L = drop_ramp_n - next_drop_phase_left_L;
+drop_rel_idx_L = drop_ramp_n - next_drop_phase_left_L;
+drop_atk_env_L = 0.5 * (1 + cos(pi * drop_atk_idx_L / max(1, drop_ramp_n)));
+drop_rel_env_L = 0.5 * (1 - cos(pi * drop_rel_idx_L / max(1, drop_ramp_n)));
+
+drop_env_L =
+    (next_drop_phase_L == 1) ? drop_atk_env_L :
+    (next_drop_phase_L == 2) ? 0              :
+    (next_drop_phase_L == 3) ? drop_rel_env_L :
+    1;
+
+drop_env_L = (drop_bypass + short_circuit > 0) ? 1 : drop_env_L;
+
+
+// ---- R ----
+History drop_countdown_R(0);
+History drop_phase_R(0);
+History drop_phase_left_R(0);
+History drop_hold_n_R(0);
+
+u_drop_dt_R = max(random(), 1e-12);
+new_drop_dt_R = -log(u_drop_dt_R) * drop_mean_dt_samp;
+u_drop_dur_R = random();
+event_drop_dur_n_R = (DROP_DUR_BASE_MS + DROP_DUR_F_MS * effective) * (0.7 + 0.6 * u_drop_dur_R) * 1e-3 * samplerate;
+event_drop_hold_n_R = max(1, event_drop_dur_n_R - 2 * drop_ramp_n);
+
+drop_engine_on_R = (effective > 0) * (1 - drop_bypass);
+
+prev_drop_phase_R      = drop_phase_R;
+prev_drop_countdown_R  = drop_countdown_R;
+prev_drop_phase_left_R = drop_phase_left_R;
+prev_drop_hold_n_R     = drop_hold_n_R;
+
+drop_idle_dec_R  = prev_drop_countdown_R - 1;
+drop_idle_fires_R = (prev_drop_phase_R == 0) * (drop_idle_dec_R <= 0) * drop_engine_on_R;
+drop_atk_left_R = prev_drop_phase_left_R - 1;
+drop_atk_done_R = (prev_drop_phase_R == 1) * (drop_atk_left_R <= 0);
+drop_hold_left_R = prev_drop_phase_left_R - 1;
+drop_hold_done_R = (prev_drop_phase_R == 2) * (drop_hold_left_R <= 0);
+drop_rel_left_R = prev_drop_phase_left_R - 1;
+drop_rel_done_R = (prev_drop_phase_R == 3) * (drop_rel_left_R <= 0);
+
+next_drop_phase_R      = prev_drop_phase_R;
+next_drop_phase_left_R = prev_drop_phase_left_R;
+next_drop_countdown_R  = prev_drop_countdown_R;
+next_drop_hold_n_R     = prev_drop_hold_n_R;
+
+next_drop_countdown_R  = (prev_drop_phase_R == 0) ? drop_idle_dec_R : next_drop_countdown_R;
+next_drop_phase_R      = drop_idle_fires_R ? 1 : next_drop_phase_R;
+next_drop_phase_left_R = drop_idle_fires_R ? drop_ramp_n : next_drop_phase_left_R;
+next_drop_hold_n_R     = drop_idle_fires_R ? event_drop_hold_n_R : next_drop_hold_n_R;
+
+next_drop_phase_left_R = ((prev_drop_phase_R == 1) * (drop_atk_done_R == 0)) ? drop_atk_left_R : next_drop_phase_left_R;
+next_drop_phase_R      = drop_atk_done_R ? 2 : next_drop_phase_R;
+next_drop_phase_left_R = drop_atk_done_R ? prev_drop_hold_n_R : next_drop_phase_left_R;
+
+next_drop_phase_left_R = ((prev_drop_phase_R == 2) * (drop_hold_done_R == 0)) ? drop_hold_left_R : next_drop_phase_left_R;
+next_drop_phase_R      = drop_hold_done_R ? 3 : next_drop_phase_R;
+next_drop_phase_left_R = drop_hold_done_R ? drop_ramp_n : next_drop_phase_left_R;
+
+next_drop_phase_left_R = ((prev_drop_phase_R == 3) * (drop_rel_done_R == 0)) ? drop_rel_left_R : next_drop_phase_left_R;
+next_drop_phase_R      = drop_rel_done_R ? 0 : next_drop_phase_R;
+next_drop_countdown_R  = drop_rel_done_R ? new_drop_dt_R : next_drop_countdown_R;
+next_drop_phase_left_R = drop_rel_done_R ? 0 : next_drop_phase_left_R;
+
+drop_cold_start_R = (prev_drop_phase_R == 0) * (prev_drop_countdown_R == 0) * drop_engine_on_R;
+next_drop_countdown_R = drop_cold_start_R ? new_drop_dt_R : next_drop_countdown_R;
+
+drop_countdown_R  = next_drop_countdown_R;
+drop_phase_R      = next_drop_phase_R;
+drop_phase_left_R = next_drop_phase_left_R;
+drop_hold_n_R     = next_drop_hold_n_R;
+
+drop_atk_idx_R = drop_ramp_n - next_drop_phase_left_R;
+drop_rel_idx_R = drop_ramp_n - next_drop_phase_left_R;
+drop_atk_env_R = 0.5 * (1 + cos(pi * drop_atk_idx_R / max(1, drop_ramp_n)));
+drop_rel_env_R = 0.5 * (1 - cos(pi * drop_rel_idx_R / max(1, drop_ramp_n)));
+
+drop_env_R =
+    (next_drop_phase_R == 1) ? drop_atk_env_R :
+    (next_drop_phase_R == 2) ? 0              :
+    (next_drop_phase_R == 3) ? drop_rel_env_R :
+    1;
+
+drop_env_R = (drop_bypass + short_circuit > 0) ? 1 : drop_env_R;
+
+// Routing.
+drop_env_for_L = drop_env_L;
+drop_env_for_R = (spread > 0) ? drop_env_R : drop_env_L;
+
+postdrop_L = postflut_L * drop_env_for_L;
+postdrop_R = postflut_R * drop_env_for_R;
+
+
+// =============================================================================
+// SUB-ENGINE C1 — CRINKLE BURSTS (additive bandpass-filtered noise impulses)
+// =============================================================================
+//
+// Streaming Poisson burst scheduler. Per event:
+//   amp ∈ uniform(0.2, 0.5)
+//   dur_n ∈ uniform(1, 4) ms
+//   triangular AR envelope, sharp attack (a_n = dur_n/4), longer release.
+//
+// Numpy uses np.maximum to overlap envelopes. Per-sample analog: keep an
+// `env_state` History; fire-on-event resets it to start a new envelope; while
+// active, ramp down each sample. New events may overlap and we take the max
+// of the current state and the new envelope value (handled by re-arming on
+// each fire; if a new fire happens during a release, we restart at the new
+// amp peak, which is the per-sample equivalent of `np.maximum`).
+//
+// Then: noise * env_state → bandpass biquad → normalize × 0.30 × crinkle_level.
+//
+// Normalization in numpy is `peak = max(abs(filtered))` over the whole buffer.
+// At sample-rate we have no buffer-level max. Translation: use the analytical
+// peak of the BPF impulse response × event amp ≈ 1 (the BPF's peak gain at
+// fc=2500/Q=1.5 is Q=1.5 — slight magnification — but events are also scaled
+// by uniform(0.2,0.5) and triangular envelope, whose maximum ≈ 0.5). So a
+// reasonable static normalization constant matching the round-2 reference's
+// post-filter peak is empirically near 0.3–0.5; we use a fixed
+// `CRINKLE_PEAK_EST = 0.5` so the post-norm * 0.30 multiplier produces the
+// same audible level the round-2 fixtures hit. This is an approximation
+// (numpy's per-buffer normalization is not preserved bit-for-bit; the design
+// doc tradeoff log already accepts that gen-port is not bit-identical).
+// -----------------------------------------------------------------------------
+
+CRINKLE_RATE_K3 = 30;     // f^3 coefficient
+CRINKLE_FLOOR = 1;        // bursts/sec floor
+CRINKLE_AMP_LO = 0.2;
+CRINKLE_AMP_HI = 0.5;
+CRINKLE_DUR_LO_MS = 1;
+CRINKLE_DUR_HI_MS = 4;
+CRINKLE_HEADROOM = 0.30;  // round-2 (was 0.5)
+CRINKLE_PEAK_EST = 0.5;   // static normalization estimate (see comment above)
+
+// Gate: numpy ref's spec says crinkle is always-on if crinkle_level > 0; the
+// reference impl gates on (failure > 0) AND (crinkle_level > 0) for sanity
+// hash stability. The design doc tradeoff #10 says: engineer must relax to
+// always-on when crinkle_level > 0, regardless of failure. Honor the spec.
+crinkle_engine_on = (crinkle_level > 0) * (1 - short_circuit * 0);
+// Re-evaluating: short_circuit happens only when knob==0 AND override==0,
+// meaning the user has the failure off entirely. In that case the spec says
+// crinkle should still be audible if crinkle_level > 0. So we DON'T gate on
+// short_circuit here. We do, however, drive the rate from `effective` so
+// at effective=0 the rate is the floor (1 burst/sec).
+crinkle_engine_on = (crinkle_level > 0);
+
+crinkle_rate_per_sec = CRINKLE_RATE_K3 * effective * effective * effective + CRINKLE_FLOOR;
+crinkle_lambda_safe = max(crinkle_rate_per_sec, 1e-9);
+crinkle_mean_dt_samp = samplerate / crinkle_lambda_safe;
+
+// ---- L ----
+History crinkle_countdown_L(0);
+History crinkle_env_L(0);
+History crinkle_env_phase_L(0);     // 0=idle, 1=attack, 2=release
+History crinkle_env_left_L(0);
+History crinkle_amp_L(0);
+History crinkle_a_n_L(0);
+History crinkle_r_n_L(0);
+
+u_cr_dt_L = max(random(), 1e-12);
+new_cr_dt_L = -log(u_cr_dt_L) * crinkle_mean_dt_samp;
+u_cr_amp_L = random();
+u_cr_dur_L = random();
+event_cr_amp_L = CRINKLE_AMP_LO + (CRINKLE_AMP_HI - CRINKLE_AMP_LO) * u_cr_amp_L;
+event_cr_dur_n_L = max(2, (CRINKLE_DUR_LO_MS + (CRINKLE_DUR_HI_MS - CRINKLE_DUR_LO_MS) * u_cr_dur_L) * 1e-3 * samplerate);
+event_cr_a_n_L = max(1, event_cr_dur_n_L * 0.25);
+event_cr_r_n_L = max(1, event_cr_dur_n_L - event_cr_a_n_L);
+
+prev_cr_countdown_L = crinkle_countdown_L;
+prev_cr_phase_L     = crinkle_env_phase_L;
+prev_cr_left_L      = crinkle_env_left_L;
+prev_cr_amp_L       = crinkle_amp_L;
+prev_cr_a_n_L       = crinkle_a_n_L;
+prev_cr_r_n_L       = crinkle_r_n_L;
+
+cr_idle_dec_L = prev_cr_countdown_L - 1;
+cr_idle_fires_L = (cr_idle_dec_L <= 0) * crinkle_engine_on;
+cr_atk_left_L = prev_cr_left_L - 1;
+cr_atk_done_L = (prev_cr_phase_L == 1) * (cr_atk_left_L <= 0);
+cr_rel_left_L = prev_cr_left_L - 1;
+cr_rel_done_L = (prev_cr_phase_L == 2) * (cr_rel_left_L <= 0);
+
+next_cr_phase_L     = prev_cr_phase_L;
+next_cr_left_L      = prev_cr_left_L;
+next_cr_countdown_L = prev_cr_countdown_L;
+next_cr_amp_L       = prev_cr_amp_L;
+next_cr_a_n_L       = prev_cr_a_n_L;
+next_cr_r_n_L       = prev_cr_r_n_L;
+
+next_cr_countdown_L = cr_idle_dec_L;
+// On fire: re-arm into attack (overlapping new event takes precedence — this
+// is the per-sample analog of np.maximum overlap: a new burst overrides an
+// in-flight tail which was already lower-amplitude on its release leg).
+next_cr_phase_L = cr_idle_fires_L ? 1 : next_cr_phase_L;
+next_cr_left_L  = cr_idle_fires_L ? event_cr_a_n_L : next_cr_left_L;
+next_cr_amp_L   = cr_idle_fires_L ? event_cr_amp_L : next_cr_amp_L;
+next_cr_a_n_L   = cr_idle_fires_L ? event_cr_a_n_L : next_cr_a_n_L;
+next_cr_r_n_L   = cr_idle_fires_L ? event_cr_r_n_L : next_cr_r_n_L;
+next_cr_countdown_L = cr_idle_fires_L ? new_cr_dt_L : next_cr_countdown_L;
+
+next_cr_left_L  = ((prev_cr_phase_L == 1) * (cr_atk_done_L == 0)) ? cr_atk_left_L : next_cr_left_L;
+next_cr_phase_L = cr_atk_done_L ? 2 : next_cr_phase_L;
+next_cr_left_L  = cr_atk_done_L ? prev_cr_r_n_L : next_cr_left_L;
+
+next_cr_left_L  = ((prev_cr_phase_L == 2) * (cr_rel_done_L == 0)) ? cr_rel_left_L : next_cr_left_L;
+next_cr_phase_L = cr_rel_done_L ? 0 : next_cr_phase_L;
+next_cr_left_L  = cr_rel_done_L ? 0 : next_cr_left_L;
+
+cr_cold_L = (prev_cr_phase_L == 0) * (prev_cr_countdown_L == 0) * crinkle_engine_on;
+next_cr_countdown_L = cr_cold_L ? new_cr_dt_L : next_cr_countdown_L;
+
+crinkle_countdown_L = next_cr_countdown_L;
+crinkle_env_phase_L = next_cr_phase_L;
+crinkle_env_left_L  = next_cr_left_L;
+crinkle_amp_L       = next_cr_amp_L;
+crinkle_a_n_L       = next_cr_a_n_L;
+crinkle_r_n_L       = next_cr_r_n_L;
+
+// Triangular envelope value:
+//   attack:  i = a_n - left, env = amp * (i / a_n)
+//   release: i = r_n - left, env = amp * (1 - i / r_n)
+cr_atk_idx_L = next_cr_a_n_L - next_cr_left_L;
+cr_rel_idx_L = next_cr_r_n_L - next_cr_left_L;
+cr_atk_env_L = next_cr_amp_L * cr_atk_idx_L / max(1, next_cr_a_n_L);
+cr_rel_env_L = next_cr_amp_L * (1 - cr_rel_idx_L / max(1, next_cr_r_n_L));
+
+crinkle_env_value_L =
+    (next_cr_phase_L == 1) ? cr_atk_env_L :
+    (next_cr_phase_L == 2) ? cr_rel_env_L :
+    0;
+
+crinkle_env_L = crinkle_env_value_L;
+
+// White noise * envelope.
+cr_noise_L = noise() * crinkle_env_L;
+
+// ---- R ----
+History crinkle_countdown_R(0);
+History crinkle_env_R(0);
+History crinkle_env_phase_R(0);
+History crinkle_env_left_R(0);
+History crinkle_amp_R(0);
+History crinkle_a_n_R(0);
+History crinkle_r_n_R(0);
+
+u_cr_dt_R = max(random(), 1e-12);
+new_cr_dt_R = -log(u_cr_dt_R) * crinkle_mean_dt_samp;
+u_cr_amp_R = random();
+u_cr_dur_R = random();
+event_cr_amp_R = CRINKLE_AMP_LO + (CRINKLE_AMP_HI - CRINKLE_AMP_LO) * u_cr_amp_R;
+event_cr_dur_n_R = max(2, (CRINKLE_DUR_LO_MS + (CRINKLE_DUR_HI_MS - CRINKLE_DUR_LO_MS) * u_cr_dur_R) * 1e-3 * samplerate);
+event_cr_a_n_R = max(1, event_cr_dur_n_R * 0.25);
+event_cr_r_n_R = max(1, event_cr_dur_n_R - event_cr_a_n_R);
+
+prev_cr_countdown_R = crinkle_countdown_R;
+prev_cr_phase_R     = crinkle_env_phase_R;
+prev_cr_left_R      = crinkle_env_left_R;
+prev_cr_amp_R       = crinkle_amp_R;
+prev_cr_a_n_R       = crinkle_a_n_R;
+prev_cr_r_n_R       = crinkle_r_n_R;
+
+cr_idle_dec_R = prev_cr_countdown_R - 1;
+cr_idle_fires_R = (cr_idle_dec_R <= 0) * crinkle_engine_on;
+cr_atk_left_R = prev_cr_left_R - 1;
+cr_atk_done_R = (prev_cr_phase_R == 1) * (cr_atk_left_R <= 0);
+cr_rel_left_R = prev_cr_left_R - 1;
+cr_rel_done_R = (prev_cr_phase_R == 2) * (cr_rel_left_R <= 0);
+
+next_cr_phase_R     = prev_cr_phase_R;
+next_cr_left_R      = prev_cr_left_R;
+next_cr_countdown_R = prev_cr_countdown_R;
+next_cr_amp_R       = prev_cr_amp_R;
+next_cr_a_n_R       = prev_cr_a_n_R;
+next_cr_r_n_R       = prev_cr_r_n_R;
+
+next_cr_countdown_R = cr_idle_dec_R;
+next_cr_phase_R = cr_idle_fires_R ? 1 : next_cr_phase_R;
+next_cr_left_R  = cr_idle_fires_R ? event_cr_a_n_R : next_cr_left_R;
+next_cr_amp_R   = cr_idle_fires_R ? event_cr_amp_R : next_cr_amp_R;
+next_cr_a_n_R   = cr_idle_fires_R ? event_cr_a_n_R : next_cr_a_n_R;
+next_cr_r_n_R   = cr_idle_fires_R ? event_cr_r_n_R : next_cr_r_n_R;
+next_cr_countdown_R = cr_idle_fires_R ? new_cr_dt_R : next_cr_countdown_R;
+
+next_cr_left_R  = ((prev_cr_phase_R == 1) * (cr_atk_done_R == 0)) ? cr_atk_left_R : next_cr_left_R;
+next_cr_phase_R = cr_atk_done_R ? 2 : next_cr_phase_R;
+next_cr_left_R  = cr_atk_done_R ? prev_cr_r_n_R : next_cr_left_R;
+
+next_cr_left_R  = ((prev_cr_phase_R == 2) * (cr_rel_done_R == 0)) ? cr_rel_left_R : next_cr_left_R;
+next_cr_phase_R = cr_rel_done_R ? 0 : next_cr_phase_R;
+next_cr_left_R  = cr_rel_done_R ? 0 : next_cr_left_R;
+
+cr_cold_R = (prev_cr_phase_R == 0) * (prev_cr_countdown_R == 0) * crinkle_engine_on;
+next_cr_countdown_R = cr_cold_R ? new_cr_dt_R : next_cr_countdown_R;
+
+crinkle_countdown_R = next_cr_countdown_R;
+crinkle_env_phase_R = next_cr_phase_R;
+crinkle_env_left_R  = next_cr_left_R;
+crinkle_amp_R       = next_cr_amp_R;
+crinkle_a_n_R       = next_cr_a_n_R;
+crinkle_r_n_R       = next_cr_r_n_R;
+
+cr_atk_idx_R = next_cr_a_n_R - next_cr_left_R;
+cr_rel_idx_R = next_cr_r_n_R - next_cr_left_R;
+cr_atk_env_R = next_cr_amp_R * cr_atk_idx_R / max(1, next_cr_a_n_R);
+cr_rel_env_R = next_cr_amp_R * (1 - cr_rel_idx_R / max(1, next_cr_r_n_R));
+
+crinkle_env_value_R =
+    (next_cr_phase_R == 1) ? cr_atk_env_R :
+    (next_cr_phase_R == 2) ? cr_rel_env_R :
+    0;
+
+crinkle_env_R = crinkle_env_value_R;
+cr_noise_R = noise() * crinkle_env_R;
+
+
+// ---- BPF biquad — RBJ constant-skirt (fc=2500 Hz, Q=1.5) ----
+// Coefficients computed at sample rate. Matches numpy `_bpf_coeffs`.
+bpf_w0 = 2 * pi * 2500 / samplerate;
+bpf_cos_w0 = cos(bpf_w0);
+bpf_alpha = sin(bpf_w0) / (2 * 1.5);
+bpf_a0 = 1 + bpf_alpha;
+bpf_b0 = (1.5 * bpf_alpha) / bpf_a0;
+bpf_b1 = 0;
+bpf_b2 = (-1.5 * bpf_alpha) / bpf_a0;
+bpf_a1 = (-2 * bpf_cos_w0) / bpf_a0;
+bpf_a2 = (1 - bpf_alpha) / bpf_a0;
+
+// Direct Form I biquad, channel L.
+History bpf_x1_L(0); History bpf_x2_L(0);
+History bpf_y1_L(0); History bpf_y2_L(0);
+
+bpf_y_L_raw = bpf_b0 * cr_noise_L + bpf_b1 * bpf_x1_L + bpf_b2 * bpf_x2_L
+              - bpf_a1 * bpf_y1_L - bpf_a2 * bpf_y2_L;
+// Denormal flush per JOS recommendation.
+bpf_y_L = (abs(bpf_y_L_raw) < 1e-30) ? 0 : bpf_y_L_raw;
+
+bpf_x2_L = bpf_x1_L;
+bpf_x1_L = cr_noise_L;
+bpf_y2_L = bpf_y1_L;
+bpf_y1_L = bpf_y_L;
+
+// Normalize then scale: post-norm * CRINKLE_HEADROOM * crinkle_level.
+crinkle_out_L = (bpf_y_L / CRINKLE_PEAK_EST) * CRINKLE_HEADROOM * crinkle_level;
+
+// Direct Form I biquad, channel R.
+History bpf_x1_R(0); History bpf_x2_R(0);
+History bpf_y1_R(0); History bpf_y2_R(0);
+
+bpf_y_R_raw = bpf_b0 * cr_noise_R + bpf_b1 * bpf_x1_R + bpf_b2 * bpf_x2_R
+              - bpf_a1 * bpf_y1_R - bpf_a2 * bpf_y2_R;
+bpf_y_R = (abs(bpf_y_R_raw) < 1e-30) ? 0 : bpf_y_R_raw;
+
+bpf_x2_R = bpf_x1_R;
+bpf_x1_R = cr_noise_R;
+bpf_y2_R = bpf_y1_R;
+bpf_y1_R = bpf_y_R;
+
+crinkle_out_R = (bpf_y_R / CRINKLE_PEAK_EST) * CRINKLE_HEADROOM * crinkle_level;
+
+// Routing: under spread=0, broadcast L crinkle to both channels.
+crinkle_for_L = crinkle_out_L;
+crinkle_for_R = (spread > 0) ? crinkle_out_R : crinkle_out_L;
+
+// Disable crinkle on short-circuit OR when crinkle_level == 0.
+crinkle_for_L = (short_circuit + (crinkle_level <= 0) > 0) ? 0 : crinkle_for_L;
+crinkle_for_R = (short_circuit + (crinkle_level <= 0) > 0) ? 0 : crinkle_for_R;
+
+
+// =============================================================================
+// FINAL MIX & SHORT-CIRCUIT
+// =============================================================================
+//
+// Chain order from design doc §1: SNAG → MICRO-FLUTTER → DROP → +CRINKLE.
+// Already accumulated in `postdrop_X` (signal path) and `crinkle_for_X`
+// (additive). When short_circuit is true, route raw inputs through unchanged
+// for bit-identical T1/P1 behavior.
+// -----------------------------------------------------------------------------
+
+processed_L = postdrop_L + crinkle_for_L;
+processed_R = postdrop_R + crinkle_for_R;
+
+out1 = short_circuit ? in1 : processed_L;
+out2 = short_circuit ? in2 : processed_R;
+
+// =============================================================================
+// END tl_failure.gendsp
+// =============================================================================

@@ -1,0 +1,470 @@
+// =====================================================================
+// tl_flutter.gendsp — gen~ DSL source for the FLUTTER module of tape-loss
+// =====================================================================
+//
+// Module          : tl_flutter (Generation Loss MKII "FLUTTER" knob)
+// TUNING_VERSION  : 2 (round-2 retune, sqrt taper — see design-doc §13b)
+// Authored        : 2026-04-27 (Phase 2.5 — gen~ translation)
+// Author          : pedal-engineer (auto-authored from numpy reference)
+//
+// Source files :
+//   design-doc      : docs/design-docs/dsp/tl-flutter-design.md
+//                     sha256: 1b8c99fb7250020f49ad81d8b1deb568397c55614c
+//                             120869e3dcadd4995a7202
+//   numpy reference : dsp/reference/tl_flutter.py     (TUNING_VERSION = 2)
+//                     sha256: 0c85878d0e2e92dfa3b44a9ae3ce78637d50e1389b
+//                             4f39991e6f54b428d0027b
+//   parent stub     : device/tape-loss/tl_flutter.maxpat (codebox host)
+//
+// Inlets  (2): in1 = signal L, in2 = signal R
+// Outlets (2): out1 = signal L, out2 = signal R
+// Params  (2): flutter      ∈ [0, 1]   (default 0.0)
+//              classic_mode ∈ {0, 1}   (default 0)   AM-bypass-only
+//
+// ---------------------------------------------------------------------
+// Algorithm summary (translated 1:1 from dsp/reference/tl_flutter.py;
+// fast pitch + AM modulation per spec §"MODULE 5: tl.flutter.maxpat"):
+//
+//   Per channel (independent noise() streams = decorrelated stereo):
+//
+//     Pitch-mod LFO bank:
+//       n_p1 = noise() → biquad RBJ LPF(fc= 8 Hz, Q=0.7) ─┐
+//       n_p2 = noise() → biquad RBJ LPF(fc=19 Hz, Q=0.7) ─┴ avg
+//       lfo_p = avg(n_p1_filt, n_p2_filt) · PITCH_LFO_NORM   // p99 ≈ 1.0
+//
+//     AM-mod LFO bank (different cutoffs — pitch and AM should NOT track):
+//       n_a1 = noise() → biquad RBJ LPF(fc=11 Hz, Q=0.6) ─┐
+//       n_a2 = noise() → biquad RBJ LPF(fc=23 Hz, Q=0.6) ─┴ avg
+//       lfo_a = avg(n_a1_filt, n_a2_filt) · AM_LFO_NORM      // p99 ≈ 1.0
+//
+//     Round-2 sqrt depth tapers (NOT quadratic — see §13b):
+//       pitch_depth_seconds = 1.5e-4 · sqrt(flutter)
+//       am_depth            = 0.25   · sqrt(flutter)
+//
+//     Variable-delay read (4-point LAGRANGE — JOS PASP "Lagrange Interp."):
+//       D[n]      = (BASE_DELAY_S + pitch_depth_seconds · lfo_p) · sr
+//       write delbuf[n] = x[n]
+//       y_pitched = lagrange4(delbuf, D, frac)
+//
+//     AM stage (gated by classic_mode):
+//       multiplier = 1 + am_depth · lfo_a
+//       y = (classic_mode != 0) ? y_pitched : y_pitched · multiplier
+//
+//     Short-circuit (bit-identical passthrough invariant):
+//       short = (flutter <= EPS)
+//       out   = short ? x : y
+//
+// ---------------------------------------------------------------------
+// Sanity-check expectations (matches numpy ref's run_round2_taper_assertions):
+//
+//   flutter = 0.0                      → bit-identical passthrough (regression)
+//   flutter = 0.5, classic_mode = 0    → pitch p99 ≥ 18 c, AM pk-pk ≥ 1.0 dB
+//                                         (chord-noon audibility floor — clears
+//                                          the round-2 ground-truth assertions)
+//   flutter = 1.0, classic_mode = 0    → pitch p99 ≤ 50 c (under vibrato boundary;
+//                                         numpy ref measures 28.4 c)
+//                                         AM pk-pk ~ 5 dB (numpy ref measures 5.0)
+//   flutter = 1.0, classic_mode = 1    → AM bypassed; pitch path identical to
+//                                         non-classic (sha-equal pitch path)
+//
+// ---------------------------------------------------------------------
+// Lagrange-4 kernel (JOS PASP "Lagrange Interpolation"):
+//
+//   For frac ∈ [0, 1) read at samples [-1, 0, 1, 2] relative to floor:
+//
+//     c_m1 = -frac · (frac - 1) · (frac - 2) / 6
+//     c_0  =  (frac + 1) · (frac - 1) · (frac - 2) / 2
+//     c_p1 = -(frac + 1) · frac      · (frac - 2) / 2
+//     c_p2 =  (frac + 1) · frac      · (frac - 1) / 6
+//     y    = c_m1·xm1 + c_0·x0 + c_p1·x1 + c_p2·x2
+//
+// NB: this is NOT the Hermite-4 (Catmull-Rom) kernel used in tl_wow.gendsp.
+// Lagrange interpolates exactly through all four sample points (polynomial
+// fit), while Hermite uses estimated derivatives at the inner two. Per the
+// design-doc §5, Lagrange-4 matches Max's tapout~ internal interpolation
+// and gives smoother HF artifact rejection than linear at modest cost.
+//
+// ---------------------------------------------------------------------
+// 99th-percentile-peak normalization scalars (constants from design-doc §10
+// row 12 / numpy ref _build_lfo). MEASURED EMPIRICALLY from the reference
+// path (RBJ LPF + Direct-Form-I biquad with denormal flush + sum-and-divide-
+// by-n_bands), 8 seeds × 30 s, sr = 44.1 kHz, then median taken:
+//
+//   PITCH_LFO_NORM = 21.3824   // (8 Hz + 19 Hz, Q=0.7) median 1/p99
+//   AM_LFO_NORM    = 20.3633   // (11 Hz + 23 Hz, Q=0.6) median 1/p99
+//
+// Why median-of-1/p99 and not the numpy-style per-buffer divide?  Real-time
+// gen~ cannot afford a percentile pass over a future buffer. The constants
+// produce a long-run 99th-percentile peak ≈ 1.0 within ±3 % across seeds,
+// which keeps depth-multiplication semantics intact (depth · lfo ≈ ±depth
+// 99 % of the time, with rare ~1.4× outliers preserved per design-doc).
+//
+// Why these and not RMS-target / abs-peak-target normalization?
+//   * RMS-target: 99th-percentile peak ≈ 3–4× depth → blows past the spec'd
+//     pitch ceiling (~50 c) and AM ceiling (~6 dB pk-pk).
+//   * Abs-peak-target: single-sample outliers drag mean swing down → noon
+//     undershoots audibility floor.
+//   * 99th-percentile-peak: stable middle ground (design-doc §10 row 12).
+//
+// Sample-rate dependence: the biquad coefficients shift with samplerate, so
+// the bare 1/p99 also shifts.  Measured at 48 kHz the scalars come out
+// within ~3 % of the 44.1 kHz values (filter behavior is dominated by the
+// LP cutoff, which scales with fc/sr — same band-shape, similar variance).
+// Acceptable for v0; if a tighter sr-correction is needed we can promote
+// these to per-sample expressions of the form k/sqrt(samplerate) once the
+// taper is finalized.  Pitfall #4 — coefficient recompute on sr change is
+// handled by the biquad-coefficient block below.
+//
+// ---------------------------------------------------------------------
+// Buffer-sharing decision:
+//
+//   Spec §MODULE 5 + Phase-1.5 reconciliation say tl_flutter and tl_wow
+//   share a single [buffer~ tape_loss_delay].  In gen~, sharing requires
+//   `Buffer tape_loss_delay;` referencing the patcher-level buffer object.
+//
+//   For v0 we use **PRIVATE Delay buffers** here (delbuf_L, delbuf_R).
+//   Rationale:
+//     - bit-identity to the numpy reference is unreachable in real-time
+//       anyway (different RNG, different sr-dependent norm scalar);
+//     - private Delay is well-trodden (matches tl_wow.gendsp's strategy);
+//     - shared-buffer wiring is a patcher-level concern that the
+//       integration agent will reconcile in tl_flutter.maxpat (the stub
+//       there already wires through tapin~/tapout~ — those will be
+//       removed when the codebox absorbs the variable-delay read).
+//
+//   buffer_sharing_strategy = "private"  (audit emission flag).
+//
+//   If/when the integration agent decides to share, replace the
+//   `Delay delbuf_L(BUF_SAMPS); Delay delbuf_R(BUF_SAMPS);` declarations
+//   with `Buffer tape_loss_delay;` and adjust the .write/.read calls to
+//   use Buffer's positional read/poke API. Coordinates with tl_wow's gen
+//   DSL would then be by offset position in the same buffer.
+//
+// ---------------------------------------------------------------------
+// classic_mode interpretation:
+//
+//   classic_mode = 0 → full mode (pitch + AM).
+//   classic_mode = 1 → AM stage bypassed; pitch path **unchanged** (rates,
+//                       depth, taper all identical between modes).
+//
+//   Source: design-doc §6 reading of spec line 528 ("Classic Mode Flutter:
+//   Pitch modulation only, no AM path").  Signed off by user.
+//
+//   Implementation: a soft mux `(classic_mode != 0) ? y_pitched : y_full`.
+//   Note this is a hard switch, not a crossfade — pitfall #16 says use a
+//   crossfade in M4L `selector~`, but the M4L wrapper does the crossfade
+//   externally (see tl_flutter.maxpat's `selector~ 2` after the AM `*~`).
+//   Inside gen~, the hard switch is fine because the bool toggle change
+//   is rate-limited at the patcher level.
+// =====================================================================
+
+Param flutter 0.0;
+Param classic_mode 0;
+
+// --- Constants -------------------------------------------------------
+
+// Base mean delay (seconds). Matches numpy ref _BASE_DELAY_S = 5e-3.
+BASE_DELAY_S = 0.005;
+
+// Round-2 sqrt taper maxima (design-doc §13b).
+PITCH_DEPTH_MAX_S = 1.5e-4;   // pitch_depth = PITCH_DEPTH_MAX_S * sqrt(flutter)
+AM_DEPTH_MAX      = 0.25;     // am_depth   = AM_DEPTH_MAX      * sqrt(flutter)
+
+// Pitch-mod LFO band cutoffs (Hz) and Q. Two bands per channel, summed.
+PITCH_FC1_HZ = 8.0;
+PITCH_FC2_HZ = 19.0;
+PITCH_Q      = 0.7;
+
+// AM-mod LFO band cutoffs (Hz) and Q. Offset from pitch bands so AM does
+// not exactly track pitch — real tape: different mechanical sources.
+AM_FC1_HZ = 11.0;
+AM_FC2_HZ = 23.0;
+AM_Q      = 0.6;
+
+// 99th-percentile-peak normalization scalars (see header block; empirical
+// medians across 8 seeds × 30 s of biquad-filtered noise at 44.1 kHz).
+PITCH_LFO_NORM = 21.3824;
+AM_LFO_NORM    = 20.3633;
+
+// Short-circuit / safety epsilons.
+EPS = 1e-6;
+
+// Variable-delay buffer length (samples). At 96 kHz worst-case mean delay
+// + max pitch swing is (5 + 0.15) ms · 96000 ≈ 495 samples; we round up
+// generously to 4096 for headroom and Lagrange-4 footprint. (See design-
+// doc §5: "Spec §MODULE 4 sets `tapin~ 100ms`. Our buffer comfortably
+// fits.")
+BUF_SAMPS = 4096.0;
+
+// Two pi.
+TWO_PI = 6.28318530717958647693;
+
+// --- LFO biquad state (History) --------------------------------------
+//
+// Each `noise()` call site in gen~ produces an independent pseudo-random
+// stream, so the four pitch streams (2 channels × 2 bands) and four AM
+// streams (2 channels × 2 bands) are mutually decorrelated without any
+// seed plumbing.  Eight biquads total, each in Direct-Form-I (4 taps).
+
+// Pitch path L — band 1 (8 Hz)
+History pL1_x1, pL1_x2, pL1_y1, pL1_y2;
+// Pitch path L — band 2 (19 Hz)
+History pL2_x1, pL2_x2, pL2_y1, pL2_y2;
+// Pitch path R — band 1
+History pR1_x1, pR1_x2, pR1_y1, pR1_y2;
+// Pitch path R — band 2
+History pR2_x1, pR2_x2, pR2_y1, pR2_y2;
+// AM path L — band 1 (11 Hz)
+History aL1_x1, aL1_x2, aL1_y1, aL1_y2;
+// AM path L — band 2 (23 Hz)
+History aL2_x1, aL2_x2, aL2_y1, aL2_y2;
+// AM path R — band 1
+History aR1_x1, aR1_x2, aR1_y1, aR1_y2;
+// AM path R — band 2
+History aR2_x1, aR2_x2, aR2_y1, aR2_y2;
+
+// --- Variable-delay buffers (PRIVATE — see header) -------------------
+Delay delbuf_L(4096);
+Delay delbuf_R(4096);
+
+// =====================================================================
+// Per-sample DSP
+// =====================================================================
+
+// ----- RBJ LPF biquad coefficients (recomputed per sample; sr-aware) --
+//
+// H(z) = (b0 + b1·z⁻¹ + b2·z⁻²) / (1 + a1·z⁻¹ + a2·z⁻²),  a0 = 1
+//
+//   ω0 = 2π · fc / Fs
+//   α  = sin(ω0) / (2Q)
+//   b0 = (1 - cos ω0) / 2,  b1 = 1 - cos ω0,  b2 = b0
+//   a0 = 1 + α,  a1 = -2 cos ω0,  a2 = 1 - α
+//
+// `samplerate` is a gen~ keyword — coefficients track sr changes per
+// pitfall #4. Recomputed per sample (cheap; cosine ≈ 1 op on M-series).
+
+// Pitch band 1 (8 Hz, Q=0.7)
+w0_p1     = TWO_PI * PITCH_FC1_HZ / samplerate;
+cw_p1     = cos(w0_p1);
+alpha_p1  = sin(w0_p1) / (2.0 * PITCH_Q);
+a0_p1     = 1.0 + alpha_p1;
+pb0_1     = ((1.0 - cw_p1) * 0.5) / a0_p1;
+pb1_1     = (1.0 - cw_p1)         / a0_p1;
+pb2_1     = pb0_1;
+pa1_1     = (-2.0 * cw_p1)        / a0_p1;
+pa2_1     = (1.0 - alpha_p1)      / a0_p1;
+
+// Pitch band 2 (19 Hz, Q=0.7)
+w0_p2     = TWO_PI * PITCH_FC2_HZ / samplerate;
+cw_p2     = cos(w0_p2);
+alpha_p2  = sin(w0_p2) / (2.0 * PITCH_Q);
+a0_p2     = 1.0 + alpha_p2;
+pb0_2     = ((1.0 - cw_p2) * 0.5) / a0_p2;
+pb1_2     = (1.0 - cw_p2)         / a0_p2;
+pb2_2     = pb0_2;
+pa1_2     = (-2.0 * cw_p2)        / a0_p2;
+pa2_2     = (1.0 - alpha_p2)      / a0_p2;
+
+// AM band 1 (11 Hz, Q=0.6)
+w0_a1     = TWO_PI * AM_FC1_HZ / samplerate;
+cw_a1     = cos(w0_a1);
+alpha_a1  = sin(w0_a1) / (2.0 * AM_Q);
+a0_a1     = 1.0 + alpha_a1;
+ab0_1     = ((1.0 - cw_a1) * 0.5) / a0_a1;
+ab1_1     = (1.0 - cw_a1)         / a0_a1;
+ab2_1     = ab0_1;
+aa1_1     = (-2.0 * cw_a1)        / a0_a1;
+aa2_1     = (1.0 - alpha_a1)      / a0_a1;
+
+// AM band 2 (23 Hz, Q=0.6)
+w0_a2     = TWO_PI * AM_FC2_HZ / samplerate;
+cw_a2     = cos(w0_a2);
+alpha_a2  = sin(w0_a2) / (2.0 * AM_Q);
+a0_a2     = 1.0 + alpha_a2;
+ab0_2     = ((1.0 - cw_a2) * 0.5) / a0_a2;
+ab1_2     = (1.0 - cw_a2)         / a0_a2;
+ab2_2     = ab0_2;
+aa1_2     = (-2.0 * cw_a2)        / a0_a2;
+aa2_2     = (1.0 - alpha_a2)      / a0_a2;
+
+// ----- Pitch LFO, channel L ------------------------------------------
+//
+// Direct-Form-I biquad: y = b0 x + b1 x[-1] + b2 x[-2] - a1 y[-1] - a2 y[-2]
+// Independent noise() per band ⇒ band 1 and band 2 streams are decorrelated.
+
+nPL1 = noise();
+yPL1 = pb0_1 * nPL1 + pb1_1 * pL1_x1 + pb2_1 * pL1_x2
+                    - pa1_1 * pL1_y1 - pa2_1 * pL1_y2;
+pL1_x2 = pL1_x1; pL1_x1 = nPL1;
+pL1_y2 = pL1_y1; pL1_y1 = yPL1;
+
+nPL2 = noise();
+yPL2 = pb0_2 * nPL2 + pb1_2 * pL2_x1 + pb2_2 * pL2_x2
+                    - pa1_2 * pL2_y1 - pa2_2 * pL2_y2;
+pL2_x2 = pL2_x1; pL2_x1 = nPL2;
+pL2_y2 = pL2_y1; pL2_y1 = yPL2;
+
+// avg of the two bands → · norm scalar → ≈ ±1 with p99 = 1.0
+lfo_p_L = 0.5 * (yPL1 + yPL2) * PITCH_LFO_NORM;
+
+// ----- Pitch LFO, channel R ------------------------------------------
+
+nPR1 = noise();
+yPR1 = pb0_1 * nPR1 + pb1_1 * pR1_x1 + pb2_1 * pR1_x2
+                    - pa1_1 * pR1_y1 - pa2_1 * pR1_y2;
+pR1_x2 = pR1_x1; pR1_x1 = nPR1;
+pR1_y2 = pR1_y1; pR1_y1 = yPR1;
+
+nPR2 = noise();
+yPR2 = pb0_2 * nPR2 + pb1_2 * pR2_x1 + pb2_2 * pR2_x2
+                    - pa1_2 * pR2_y1 - pa2_2 * pR2_y2;
+pR2_x2 = pR2_x1; pR2_x1 = nPR2;
+pR2_y2 = pR2_y1; pR2_y1 = yPR2;
+
+lfo_p_R = 0.5 * (yPR1 + yPR2) * PITCH_LFO_NORM;
+
+// ----- AM LFO, channel L ---------------------------------------------
+
+nAL1 = noise();
+yAL1 = ab0_1 * nAL1 + ab1_1 * aL1_x1 + ab2_1 * aL1_x2
+                    - aa1_1 * aL1_y1 - aa2_1 * aL1_y2;
+aL1_x2 = aL1_x1; aL1_x1 = nAL1;
+aL1_y2 = aL1_y1; aL1_y1 = yAL1;
+
+nAL2 = noise();
+yAL2 = ab0_2 * nAL2 + ab1_2 * aL2_x1 + ab2_2 * aL2_x2
+                    - aa1_2 * aL2_y1 - aa2_2 * aL2_y2;
+aL2_x2 = aL2_x1; aL2_x1 = nAL2;
+aL2_y2 = aL2_y1; aL2_y1 = yAL2;
+
+lfo_a_L = 0.5 * (yAL1 + yAL2) * AM_LFO_NORM;
+
+// ----- AM LFO, channel R ---------------------------------------------
+
+nAR1 = noise();
+yAR1 = ab0_1 * nAR1 + ab1_1 * aR1_x1 + ab2_1 * aR1_x2
+                    - aa1_1 * aR1_y1 - aa2_1 * aR1_y2;
+aR1_x2 = aR1_x1; aR1_x1 = nAR1;
+aR1_y2 = aR1_y1; aR1_y1 = yAR1;
+
+nAR2 = noise();
+yAR2 = ab0_2 * nAR2 + ab1_2 * aR2_x1 + ab2_2 * aR2_x2
+                    - aa1_2 * aR2_y1 - aa2_2 * aR2_y2;
+aR2_x2 = aR2_x1; aR2_x1 = nAR2;
+aR2_y2 = aR2_y1; aR2_y1 = yAR2;
+
+lfo_a_R = 0.5 * (yAR1 + yAR2) * AM_LFO_NORM;
+
+// ----- Round-2 sqrt depth tapers -------------------------------------
+//
+//   pitch_depth_seconds = 1.5e-4 · sqrt(flutter)
+//   am_depth            = 0.25   · sqrt(flutter)
+//
+// Round-1 used `1.2e-4 · f²` (pitch) and `0.20 · f` (AM) — quadratic /
+// linear, which under-shot the chord-noon audibility floor (~5–6 c pitch
+// p99, ~2.7 dB AM pk-pk at f=0.5).  Sqrt is concave: lots at low values,
+// plateau at high.  See design-doc §13b for the full retune rationale.
+
+f               = clamp(flutter, 0.0, 1.0);
+sqf             = sqrt(f);
+pitch_depth_s   = PITCH_DEPTH_MAX_S * sqf;
+am_depth        = AM_DEPTH_MAX      * sqf;
+
+// ----- Variable-delay read (Lagrange-4) ------------------------------
+//
+//   D[n] = (BASE_DELAY_S + pitch_depth_s · lfo_p) · samplerate    [samples]
+//
+// Defensive: never let D go below 1 (need xm1) or above BUF_SAMPS-4.
+
+base_samp     = BASE_DELAY_S * samplerate;
+pdepth_samp   = pitch_depth_s * samplerate;
+
+D_L = base_samp + pdepth_samp * lfo_p_L;
+D_R = base_samp + pdepth_samp * lfo_p_R;
+
+D_L = clamp(D_L, 1.0, BUF_SAMPS - 4.0);
+D_R = clamp(D_R, 1.0, BUF_SAMPS - 4.0);
+
+// Write current input to delay buffers.
+delbuf_L.write(in1);
+delbuf_R.write(in2);
+
+// Integer & fractional split of the requested delay.
+iD_L  = floor(D_L);
+fD_L  = D_L - iD_L;
+iD_R  = floor(D_R);
+fD_R  = D_R - iD_R;
+
+// Four-tap reads centered on the integer delay (drop-sample inside each
+// .read; the Lagrange kernel below does the fractional interpolation).
+xm1_L = delbuf_L.read(iD_L - 1.0, "step");
+x0_L  = delbuf_L.read(iD_L,        "step");
+x1_L  = delbuf_L.read(iD_L + 1.0,  "step");
+x2_L  = delbuf_L.read(iD_L + 2.0,  "step");
+
+xm1_R = delbuf_R.read(iD_R - 1.0, "step");
+x0_R  = delbuf_R.read(iD_R,        "step");
+x1_R  = delbuf_R.read(iD_R + 1.0,  "step");
+x2_R  = delbuf_R.read(iD_R + 2.0,  "step");
+
+// ----- Lagrange-4 kernel (JOS PASP) ----------------------------------
+//
+//   c_m1 = -frac · (frac - 1) · (frac - 2) / 6
+//   c_0  =  (frac + 1) · (frac - 1) · (frac - 2) / 2
+//   c_p1 = -(frac + 1) · frac      · (frac - 2) / 2
+//   c_p2 =  (frac + 1) · frac      · (frac - 1) / 6
+//
+// Channel L
+fL_m1 = fD_L - 1.0;
+fL_m2 = fD_L - 2.0;
+fL_p1 = fD_L + 1.0;
+cL_m1 = -fD_L * fL_m1 * fL_m2 / 6.0;
+cL_0  =  fL_p1 * fL_m1 * fL_m2 / 2.0;
+cL_p1 = -fL_p1 * fD_L  * fL_m2 / 2.0;
+cL_p2 =  fL_p1 * fD_L  * fL_m1 / 6.0;
+y_pitched_L = cL_m1 * xm1_L + cL_0 * x0_L + cL_p1 * x1_L + cL_p2 * x2_L;
+
+// Channel R
+fR_m1 = fD_R - 1.0;
+fR_m2 = fD_R - 2.0;
+fR_p1 = fD_R + 1.0;
+cR_m1 = -fD_R * fR_m1 * fR_m2 / 6.0;
+cR_0  =  fR_p1 * fR_m1 * fR_m2 / 2.0;
+cR_p1 = -fR_p1 * fD_R  * fR_m2 / 2.0;
+cR_p2 =  fR_p1 * fD_R  * fR_m1 / 6.0;
+y_pitched_R = cR_m1 * xm1_R + cR_0 * x0_R + cR_p1 * x1_R + cR_p2 * x2_R;
+
+// ----- AM stage (gated by classic_mode) ------------------------------
+//
+//   multiplier = 1 + am_depth · lfo_a
+//   y = classic_mode ? y_pitched : y_pitched · multiplier
+//
+// Clamp the multiplier to [0, 2] to prevent any phase inversion if the
+// LFO has an unusually large outlier (matches numpy ref np.clip path).
+
+mult_L = clamp(1.0 + am_depth * lfo_a_L, 0.0, 2.0);
+mult_R = clamp(1.0 + am_depth * lfo_a_R, 0.0, 2.0);
+
+y_full_L = y_pitched_L * mult_L;
+y_full_R = y_pitched_R * mult_R;
+
+cm = (classic_mode != 0);
+
+y_L = cm ? y_pitched_L : y_full_L;
+y_R = cm ? y_pitched_R : y_full_R;
+
+// ----- Short-circuit (bit-identical bypass at flutter = 0) -----------
+//
+// Numpy ref invariant: `flutter <= 0.0` → output ≡ input, no RNG draws.
+// In gen~ we cannot un-advance the noise() streams, but the mux makes
+// the OUTPUT bit-identical, which is what the verified-property check
+// measures.  EPS guards against denormal-tier residuals in the param.
+
+short = (f <= EPS);
+
+out1 = short ? in1 : y_L;
+out2 = short ? in2 : y_R;
+
+// =====================================================================
+// END tl_flutter.gendsp  (TUNING_VERSION = 2)
+// =====================================================================
