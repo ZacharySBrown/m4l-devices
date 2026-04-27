@@ -34,6 +34,10 @@ MAX_LOG = (
     Path.home()
     / "Library/Application Support/Cycling '74/Max 9/Logs/Max.log"
 )
+CRASH_RECOVERY_DIR = (
+    Path.home()
+    / "Library/Application Support/Cycling '74/Max 9/Crash Recovery"
+)
 
 # Max log lines look like:
 #   [2026-04-27 13:31:15.777269 error] [4689737] patchcord inlet out of range: ...
@@ -52,12 +56,42 @@ CATEGORIES: list[tuple[str, re.Pattern[str]]] = [
 ]
 
 
-def kill_max() -> None:
-    subprocess.run(
-        ["pkill", "-f", "App-Resources/Max/Max"],
-        capture_output=True,
-        check=False,
+def list_max_pids() -> set[int]:
+    """Return PIDs of any currently running Max processes (the binary inside
+    Ableton Live's Max bundle)."""
+    r = subprocess.run(
+        ["pgrep", "-f", "App-Resources/Max/Max"],
+        capture_output=True, text=True, check=False,
     )
+    out: set[int] = set()
+    for line in r.stdout.splitlines():
+        line = line.strip()
+        if line.isdigit():
+            out.add(int(line))
+    return out
+
+
+def kill_pids(pids: set[int]) -> None:
+    """Send SIGTERM only to the specified PIDs — never blanket-kill Max."""
+    for pid in pids:
+        try:
+            subprocess.run(["kill", str(pid)], capture_output=True, check=False)
+        except OSError:
+            pass
+
+
+def clear_crash_recovery() -> None:
+    """Max treats pkill as a crash and restores the previous workspace on the
+    next launch — which means subsequent verifier runs would see the stale
+    workspace state rather than the patch under test. Delete the recovery
+    file before each launch so Max starts clean."""
+    if not CRASH_RECOVERY_DIR.exists():
+        return
+    for f in CRASH_RECOVERY_DIR.glob("maxworkspace-*.txt"):
+        try:
+            f.unlink()
+        except OSError:
+            pass
 
 
 def launch_max(patch: Path) -> None:
@@ -118,18 +152,37 @@ def verify(patch: Path, *, idle_seconds: float, timeout: float) -> dict:
     if not patch.exists():
         return {"ok": False, "infra_error": f"patch not found: {patch}"}
 
-    # Fresh Max session = log truncated and rewritten from scratch
-    kill_max()
-    time.sleep(1.5)
+    # Track Max PIDs we own — never kill ones we didn't start (the user may
+    # have their own Max IDE open). Refuse to run if Max is already running,
+    # since (a) the existing session has a different log file owner, and
+    # (b) killing it would destroy the user's work.
+    pre_pids = list_max_pids()
+    if pre_pids:
+        return {
+            "ok": False,
+            "infra_error": (
+                f"Max is already running (PIDs: {sorted(pre_pids)}). "
+                "The verifier won't touch sessions it didn't start. "
+                "Please close Max manually before re-running."
+            ),
+        }
+
+    # Clear crash-recovery — otherwise Max thinks the prior session crashed
+    # and restores its workspace on top of our target patch.
+    clear_crash_recovery()
 
     launch_max(patch)
+
+    # Wait briefly for the new Max to register so we can identify its PID(s)
+    time.sleep(1.5)
+    our_pids = list_max_pids() - pre_pids
 
     try:
         final_size = wait_for_idle(idle_seconds=idle_seconds, timeout=timeout)
         with open(MAX_LOG, "rb") as fh:
             new_bytes = fh.read(final_size)
     finally:
-        kill_max()
+        kill_pids(our_pids or list_max_pids() - pre_pids)
 
     text = new_bytes.decode("utf-8", errors="replace")
     error_lines = [ln for ln in text.splitlines() if ERROR_TAG.search(ln)]

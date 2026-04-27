@@ -233,7 +233,7 @@
 				"box": {
 					"id": "tl_failure-gen",
 					"maxclass": "newobj",
-					"numinlets": 8,
+					"numinlets": 4,
 					"numoutlets": 2,
 					"patching_rect": [
 						40,
@@ -267,7 +267,7 @@
 								"box": {
 									"id": "tl_failure-gen-codebox",
 									"maxclass": "codebox",
-									"numinlets": 8,
+									"numinlets": 4,
 									"numoutlets": 2,
 									"outlettype": [
 										"signal",
@@ -349,60 +349,12 @@
 			{
 				"patchline": {
 					"source": [
-						"tl_failure-pin-1",
-						0
-					],
-					"destination": [
-						"tl_failure-gen",
-						3
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_failure-pin-2",
-						0
-					],
-					"destination": [
-						"tl_failure-gen",
-						4
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_failure-pin-3",
-						0
-					],
-					"destination": [
-						"tl_failure-gen",
-						5
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_failure-pin-4",
-						0
-					],
-					"destination": [
-						"tl_failure-gen",
-						6
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
 						"tl_failure-in-fov",
 						0
 					],
 					"destination": [
 						"tl_failure-gen",
-						7
+						3
 					]
 				}
 			},

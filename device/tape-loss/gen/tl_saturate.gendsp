@@ -14,12 +14,12 @@
 //     4ab5994a40f510a00b00bd95c17a4bb0cd7c80efc7127840af2ff0feaf674b1b
 //
 // I/O CONTRACT (matches device/tape-loss/tl_saturate.maxpat stub):
-//   In1 : signal L (audio)
-//   In2 : signal R (audio)
+//   in1 : signal L (audio)
+//   in2 : signal R (audio)
 //   In3 : pin0 -- routed to Param `saturate`   (0..1)
 //   In4 : pin1 -- routed to Param `input_gain` (0=LINE, 1=INSTRUMENT, 2=HIGH_GAIN)
-//   Out1: signal L
-//   Out2: signal R
+//   out1: signal L
+//   out2: signal R
 //
 // (The maxpat stub wires inlet-3/inlet-4 to gen~ inlets 3/4. Inside this
 //  codebox we expose `saturate` and `input_gain` as Params so an outer
@@ -154,8 +154,13 @@
 // Parameter declarations
 // -----------------------------------------------------------------------------
 
-Param saturate(0.0);
-Param input_gain(0);
+// saturate (in3) and input_gain (in4) come via signal-rate inlets from
+// the parent maxpat (dial-saturate → subpatcher inlet 2 → gen~ inlet 2,
+// tab-input_gain → subpatcher inlet 3 → gen~ inlet 3). These are
+// per-sample control values; they vary continuously when the user
+// touches the knob, but are otherwise constant.
+saturate = in3;
+input_gain = in4;
 
 // Pre-emphasis biquad coefficients (44.1 kHz; hot-swappable via [js])
 Param pre_b0(1.4796626808353215);
@@ -236,7 +241,7 @@ is_bypass = (saturate <= 0.0);
 // -------------------------- L CHANNEL ----------------------------------------
 
 // Stage 1: input gain
-xL = In1 * g_in;
+xL = in1 * g_in;
 
 // Stage 2: pre-emphasis biquad (Direct Form I)
 History pre_x1_L(0.0);
@@ -432,14 +437,14 @@ y_wet_L = y_wet_L * g_out;
 //   Bypass branch: input * g_out  -- input passes through and the
 //   INPUT_GAIN cancellation still applies, so output is mode-independent
 //   (matches the numpy ref's saturate==0 branch which still applies g_out).
-y_dry_L = In1 * g_out;
-Out1 = is_bypass * y_dry_L + (1.0 - is_bypass) * y_wet_L;
+y_dry_L = in1 * g_out;
+out1 = is_bypass * y_dry_L + (1.0 - is_bypass) * y_wet_L;
 
 
 // -------------------------- R CHANNEL ----------------------------------------
 // Identical structure to L; independent state.
 
-xR = In2 * g_in;
+xR = in2 * g_in;
 
 History pre_x1_R(0.0);
 History pre_x2_R(0.0);
@@ -555,8 +560,8 @@ dc_x1_R = de_yR;
 dc_y1_R = dc_yR;
 
 y_wet_R = dc_yR * makeup * g_out;
-y_dry_R = In2 * g_out;
-Out2 = is_bypass * y_dry_R + (1.0 - is_bypass) * y_wet_R;
+y_dry_R = in2 * g_out;
+out2 = is_bypass * y_dry_R + (1.0 - is_bypass) * y_wet_R;
 
 // =============================================================================
 // END tl_saturate.gendsp

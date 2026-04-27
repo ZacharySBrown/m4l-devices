@@ -155,91 +155,17 @@
 			},
 			{
 				"box": {
-					"id": "tl_flutter-tapin-L",
-					"maxclass": "newobj",
-					"numinlets": 1,
-					"numoutlets": 1,
-					"patching_rect": [
-						40,
-						100,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "tapin~ 50"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_flutter-tapout-L",
-					"maxclass": "newobj",
-					"numinlets": 2,
-					"numoutlets": 1,
-					"patching_rect": [
-						40,
-						140,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "tapout~ 5"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_flutter-tapin-R",
-					"maxclass": "newobj",
-					"numinlets": 1,
-					"numoutlets": 1,
-					"patching_rect": [
-						250,
-						100,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "tapin~ 50"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_flutter-tapout-R",
-					"maxclass": "newobj",
-					"numinlets": 2,
-					"numoutlets": 1,
-					"patching_rect": [
-						250,
-						140,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "tapout~ 5"
-				}
-			},
-			{
-				"box": {
 					"id": "tl_flutter-gen",
 					"maxclass": "newobj",
 					"numinlets": 2,
-					"numoutlets": 4,
+					"numoutlets": 2,
 					"patching_rect": [
 						40,
-						60,
+						100,
 						250,
-						30
+						60
 					],
 					"outlettype": [
-						"signal",
-						"signal",
 						"signal",
 						"signal"
 					],
@@ -266,10 +192,8 @@
 									"id": "tl_flutter-gen-codebox",
 									"maxclass": "codebox",
 									"numinlets": 2,
-									"numoutlets": 4,
+									"numoutlets": 2,
 									"outlettype": [
-										"signal",
-										"signal",
 										"signal",
 										"signal"
 									],
@@ -295,89 +219,17 @@
 			},
 			{
 				"box": {
-					"id": "tl_flutter-am-L",
-					"maxclass": "newobj",
-					"numinlets": 2,
-					"numoutlets": 1,
-					"patching_rect": [
-						40,
-						200,
-						50,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "*~"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_flutter-sel-L",
-					"maxclass": "newobj",
-					"numinlets": 3,
-					"numoutlets": 1,
-					"patching_rect": [
-						40,
-						240,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "selector~ 2"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_flutter-am-R",
-					"maxclass": "newobj",
-					"numinlets": 2,
-					"numoutlets": 1,
-					"patching_rect": [
-						250,
-						200,
-						50,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "*~"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_flutter-sel-R",
-					"maxclass": "newobj",
-					"numinlets": 3,
-					"numoutlets": 1,
-					"patching_rect": [
-						250,
-						240,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "selector~ 2"
-				}
-			},
-			{
-				"box": {
 					"id": "tl_flutter-note",
 					"maxclass": "comment",
 					"numinlets": 1,
 					"numoutlets": 0,
 					"patching_rect": [
 						40,
-						280,
+						180,
 						700,
-						40
+						60
 					],
-					"text": "tl_flutter (SANDBOX-PARTIAL): fast pitch + AM. Pitch LFO (8+19 Hz), AM LFO (11+23 Hz). classic_mode = AM-bypass-only (divergence #8, pitch unchanged). Reads from shared [buffer~ tape_loss_delay] (contract #4). Independent per-channel RNG."
+					"text": "tl_flutter (SANDBOX-PARTIAL): fast pitch + AM. gen~ owns full audio path (internal Delay primitives). Pitch LFO (8+19 Hz), AM LFO (11+23 Hz). classic_mode = AM-bypass-only (divergence #8, pitch unchanged). Phase 1.5 buffer-share divergence: private Delay vs shared tape_loss_delay."
 				}
 			}
 		],
@@ -389,19 +241,7 @@
 						0
 					],
 					"destination": [
-						"tl_flutter-tapin-L",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-tapin-L",
-						0
-					],
-					"destination": [
-						"tl_flutter-tapout-L",
+						"tl_flutter-gen",
 						0
 					]
 				}
@@ -413,42 +253,6 @@
 						0
 					],
 					"destination": [
-						"tl_flutter-tapin-R",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-tapin-R",
-						0
-					],
-					"destination": [
-						"tl_flutter-tapout-R",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-pin-0",
-						0
-					],
-					"destination": [
-						"tl_flutter-gen",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-pin-1",
-						0
-					],
-					"destination": [
 						"tl_flutter-gen",
 						1
 					]
@@ -458,90 +262,6 @@
 				"patchline": {
 					"source": [
 						"tl_flutter-gen",
-						0
-					],
-					"destination": [
-						"tl_flutter-tapout-L",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-gen",
-						1
-					],
-					"destination": [
-						"tl_flutter-tapout-R",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-tapout-L",
-						0
-					],
-					"destination": [
-						"tl_flutter-am-L",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-gen",
-						2
-					],
-					"destination": [
-						"tl_flutter-am-L",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-am-L",
-						0
-					],
-					"destination": [
-						"tl_flutter-sel-L",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-tapout-L",
-						0
-					],
-					"destination": [
-						"tl_flutter-sel-L",
-						2
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-pin-1",
-						0
-					],
-					"destination": [
-						"tl_flutter-sel-L",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-sel-L",
 						0
 					],
 					"destination": [
@@ -553,68 +273,8 @@
 			{
 				"patchline": {
 					"source": [
-						"tl_flutter-tapout-R",
-						0
-					],
-					"destination": [
-						"tl_flutter-am-R",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
 						"tl_flutter-gen",
-						3
-					],
-					"destination": [
-						"tl_flutter-am-R",
 						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-am-R",
-						0
-					],
-					"destination": [
-						"tl_flutter-sel-R",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-tapout-R",
-						0
-					],
-					"destination": [
-						"tl_flutter-sel-R",
-						2
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-pin-1",
-						0
-					],
-					"destination": [
-						"tl_flutter-sel-R",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_flutter-sel-R",
-						0
 					],
 					"destination": [
 						"tl_flutter-out-R",

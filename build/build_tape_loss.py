@@ -287,11 +287,17 @@ def build_tl_failure() -> dict:
 
     # gen~ codebox encapsulating the whole 4-sub-engine pipeline + the
     # effective_failure = failure + override·(1-failure) calculation.
+    #
+    # DSL I/O contract (4 inlets): in1=L, in2=R, in3=failure_knob, in4=failure_override.
+    # The drop_bypass / snag_bypass / spread / crinkle_level dip-switches are
+    # parent-side inlet boxes (so the UI controls land somewhere), but the DSL
+    # currently doesn't read them — they're calibration TODOs. The inlet boxes
+    # remain so parent patchcords are valid; they just don't connect to gen~.
     dsl, _dsl_sha, _dsl_bytes = load_gen_dsl(name)
     boxes.append(gen_codebox(
         title=f"{name}_dsp",
         code=dsl,
-        numinlets=8,  # L, R, failure, drop_bypass, snag_bypass, spread, crinkle_level, override
+        numinlets=4,  # L, R, failure_knob, failure_override
         numoutlets=2,
         outlettype=["signal", "signal"],
         patching_rect=(40, 100, 250, 60),
@@ -300,9 +306,8 @@ def build_tl_failure() -> dict:
 
     lines.append(P.line(ids["in_L"], 0, f"{name}-gen", 0))
     lines.append(P.line(ids["in_R"], 0, f"{name}-gen", 1))
-    for i in range(5):
-        lines.append(P.line(ids[f"param_{i}"], 0, f"{name}-gen", 2 + i))
-    lines.append(P.line(ids["failure_override"], 0, f"{name}-gen", 7))
+    lines.append(P.line(ids["param_0"], 0, f"{name}-gen", 2))  # failure_knob
+    lines.append(P.line(ids["failure_override"], 0, f"{name}-gen", 3))
 
     lines.append(P.line(f"{name}-gen", 0, ids["out_L"], 0))
     lines.append(P.line(f"{name}-gen", 1, ids["out_R"], 0))
@@ -329,71 +334,41 @@ def build_tl_failure() -> dict:
 def build_tl_wow() -> dict:
     name = "tl_wow"
     p, boxes, lines, ids = _mk_module_skeleton(
-        name, num_param_inlets=2,  # 0=wow, 1=pitch_floor_cents
+        name, num_param_inlets=2,  # 0=wow (Param-set), 1=pitch_floor_cents (signal)
     )
 
-    # Shared buffer reference [buffer~ tape_loss_delay] — declared in main patch.
-    # This module writes to it via [record~] / [tapin~] and reads via [tapout~].
-    # For sandbox correctness here, we use [tapin~ 100] (which auto-allocates).
-
-    # Per channel:
-    for ch in ("L", "R"):
-        # tapin~ writes input
-        tapin_id = f"{name}-tapin-{ch}"
-        boxes.append(newobj(
-            tapin_id, "tapin~ 100", (40 if ch == "L" else 200, 100, 80, 22),
-            numinlets=1, numoutlets=1, outlettype=["signal"],
-        ))
-        lines.append(P.line(ids[f"in_{ch}"], 0, tapin_id, 0))
-
-        # tapout~ with delay-time signal driven by LFO. 25 ms base + LFO modulation.
-        tapout_id = f"{name}-tapout-{ch}"
-        boxes.append(newobj(
-            tapout_id, "tapout~ 25", (40 if ch == "L" else 200, 140, 80, 22),
-            numinlets=2, numoutlets=1, outlettype=["signal"],
-        ))
-        lines.append(P.line(tapin_id, 0, tapout_id, 0))
-
-    # gen~ codebox computes the LFO drive: filtered-noise pair + pitch_floor_cents
-    # feature. Outputs delay-time signals to the two tapout~s.
+    # gen~ codebox owns the full wow signal path (internal Delay primitives,
+    # Hermite-interp read, bypass mux). DSL I/O contract: in1=L, in2=R,
+    # in3=pitch_floor_cents, out1=L, out2=R. wow is a gen Param (set via
+    # [wow $1] message from a future UI hookup — Phase 5).
+    #
+    # Phase 1.5 buffer-share divergence: private Delay rather than shared
+    # [buffer~ tape_loss_delay]. Audit emits phase15.contract.flag.
     dsl, _dsl_sha, _dsl_bytes = load_gen_dsl(name)
     boxes.append(gen_codebox(
         title=f"{name}_lfo",
         code=dsl,
-        numinlets=2,  # wow, pitch_floor_cents
-        numoutlets=2,  # delay_time_L, delay_time_R
+        numinlets=3,  # L, R, pitch_floor_cents
+        numoutlets=2,  # L, R
         outlettype=["signal", "signal"],
-        patching_rect=(40, 60, 250, 30),
+        patching_rect=(40, 100, 250, 60),
         box_id=f"{name}-gen",
     ))
-    lines.append(P.line(ids["param_0"], 0, f"{name}-gen", 0))
-    lines.append(P.line(ids["param_1"], 0, f"{name}-gen", 1))
-    lines.append(P.line(f"{name}-gen", 0, f"{name}-tapout-L", 1))
-    lines.append(P.line(f"{name}-gen", 1, f"{name}-tapout-R", 1))
 
-    # Wow=0 bypass mux
-    for ch in ("L", "R"):
-        sel_id = f"{name}-sel-{ch}"
-        boxes.append(newobj(
-            sel_id, "selector~ 2", (40 if ch == "L" else 200, 200, 80, 22),
-            numinlets=3, numoutlets=1, outlettype=["signal"],
-        ))
-        lines.append(P.line(f"{name}-tapout-{ch}", 0, sel_id, 1))  # wet
-        lines.append(P.line(ids[f"in_{ch}"], 0, sel_id, 2))         # bypass
-        # Selector control: bypass when wow==0 AND pitch_floor_cents==0 (divergence #7
-        # preserves bit-identical bypass under that condition).
-        # Implemented inside gen~ via threshold; here we wire param_0 directly for simplicity.
-        lines.append(P.line(ids["param_0"], 0, sel_id, 0))
-        lines.append(P.line(sel_id, 0, ids[f"out_{ch}"], 0))
+    lines.append(P.line(ids["in_L"], 0, f"{name}-gen", 0))
+    lines.append(P.line(ids["in_R"], 0, f"{name}-gen", 1))
+    lines.append(P.line(ids["param_1"], 0, f"{name}-gen", 2))  # pitch_floor_cents
+    lines.append(P.line(f"{name}-gen", 0, ids["out_L"], 0))
+    lines.append(P.line(f"{name}-gen", 1, ids["out_R"], 0))
 
     boxes.append(comment_box(
         f"{name}-note",
-        "tl_wow (SANDBOX-PARTIAL): variable-delay slow random pitch drift. Base D0=25ms "
+        "tl_wow (SANDBOX-PARTIAL): variable-delay slow random pitch drift. gen~ owns full "
+        "audio path (internal Delay primitives + 4-pt Hermite read). Base D0=25ms "
         "(spec divergence #7), A_max=6ms at wow=1.0. Filtered-noise LFO (0.5+0.7 Hz cutoffs). "
-        "4-pt Hermite read in [gen~]. Cross-module: pitch_floor_cents inlet (=0.3 when model=11). "
-        "Shared [buffer~ tape_loss_delay] contract #4 (tapin~/tapout~ wired to main-patch buffer). "
-        "wow=0 AND pitch_floor_cents=0 → bit-identical bypass.",
-        (40, 240, 700, 60),
+        "Cross-module: pitch_floor_cents inlet (=0.3 when model=11). "
+        "Phase 1.5 buffer-share divergence: private Delay vs shared tape_loss_delay.",
+        (40, 180, 700, 60),
     ))
 
     return p
@@ -406,73 +381,42 @@ def build_tl_wow() -> dict:
 def build_tl_flutter() -> dict:
     name = "tl_flutter"
     p, boxes, lines, ids = _mk_module_skeleton(
-        name, num_param_inlets=2,  # flutter, classic_mode
+        name, num_param_inlets=2,  # flutter, classic_mode (Param-set, not gen-wired)
     )
 
-    # Per-channel: tapin~ writes; tapout~ reads with LFO-driven delay
-    for ch in ("L", "R"):
-        tapin_id = f"{name}-tapin-{ch}"
-        boxes.append(newobj(
-            tapin_id, "tapin~ 50", (40 if ch == "L" else 250, 100, 80, 22),
-            numinlets=1, numoutlets=1, outlettype=["signal"],
-        ))
-        lines.append(P.line(ids[f"in_{ch}"], 0, tapin_id, 0))
-
-        tapout_id = f"{name}-tapout-{ch}"
-        boxes.append(newobj(
-            tapout_id, "tapout~ 5", (40 if ch == "L" else 250, 140, 80, 22),
-            numinlets=2, numoutlets=1, outlettype=["signal"],
-        ))
-        lines.append(P.line(tapin_id, 0, tapout_id, 0))
-
-    # gen~ computes LFOs: pitch (8+19 Hz) and AM (11+23 Hz) bands per channel.
-    # Note (Phase 1.5 contract divergence): the authored DSL uses private Delay
-    # buffers rather than the shared [buffer~ tape_loss_delay] (contract #4).
-    # Bit-identity to the numpy reference is unreachable in real time anyway
-    # (different RNG, sr-dependent norm scalar). Audit emits
+    # gen~ codebox owns the full flutter signal path (variable delay + AM
+    # internal). DSL I/O contract: in1=L, in2=R, out1=L, out2=R. flutter
+    # and classic_mode are gen Params (set via [flutter $1] / [classic_mode $1]
+    # messages from a future UI hookup — Phase 5).
+    #
+    # Phase 1.5 contract divergence: the DSL uses private Delay buffers
+    # rather than the shared [buffer~ tape_loss_delay]. Audit emits
     # phase15.contract.flag for v1 revisit.
     dsl, _dsl_sha, _dsl_bytes = load_gen_dsl(name)
     boxes.append(gen_codebox(
         title=f"{name}_lfos",
         code=dsl,
-        numinlets=2,  # flutter, classic_mode
-        numoutlets=4,  # pitch_L, pitch_R, am_L, am_R
-        outlettype=["signal"] * 4,
-        patching_rect=(40, 60, 250, 30),
+        numinlets=2,  # L, R
+        numoutlets=2,  # L, R
+        outlettype=["signal", "signal"],
+        patching_rect=(40, 100, 250, 60),
         box_id=f"{name}-gen",
     ))
-    lines.append(P.line(ids["param_0"], 0, f"{name}-gen", 0))
-    lines.append(P.line(ids["param_1"], 0, f"{name}-gen", 1))
-    lines.append(P.line(f"{name}-gen", 0, f"{name}-tapout-L", 1))
-    lines.append(P.line(f"{name}-gen", 1, f"{name}-tapout-R", 1))
 
-    # AM stage: y = x_pitched · (1 + d·m). classic_mode mutes AM.
-    for i, ch in enumerate(("L", "R")):
-        am_mul = f"{name}-am-{ch}"
-        boxes.append(newobj(
-            am_mul, "*~", (40 if ch == "L" else 250, 200, 50, 22),
-            numinlets=2, numoutlets=1, outlettype=["signal"],
-        ))
-        lines.append(P.line(f"{name}-tapout-{ch}", 0, am_mul, 0))
-        lines.append(P.line(f"{name}-gen", 2 + i, am_mul, 1))  # AM signal
-
-        # Mute AM when classic_mode=1 via selector~ (divergence #8: AM-bypass-only)
-        sel_id = f"{name}-sel-{ch}"
-        boxes.append(newobj(
-            sel_id, "selector~ 2", (40 if ch == "L" else 250, 240, 80, 22),
-            numinlets=3, numoutlets=1, outlettype=["signal"],
-        ))
-        lines.append(P.line(am_mul, 0, sel_id, 1))                  # AM-on path
-        lines.append(P.line(f"{name}-tapout-{ch}", 0, sel_id, 2))   # AM-off path (classic_mode)
-        lines.append(P.line(ids["param_1"], 0, sel_id, 0))          # classic_mode selects
-        lines.append(P.line(sel_id, 0, ids[f"out_{ch}"], 0))
+    # Wiring: audio inlets → gen~ → audio outlets. Param inlets remain as
+    # parent UI landing points but don't connect to gen~ here.
+    lines.append(P.line(ids["in_L"], 0, f"{name}-gen", 0))
+    lines.append(P.line(ids["in_R"], 0, f"{name}-gen", 1))
+    lines.append(P.line(f"{name}-gen", 0, ids["out_L"], 0))
+    lines.append(P.line(f"{name}-gen", 1, ids["out_R"], 0))
 
     boxes.append(comment_box(
         f"{name}-note",
-        "tl_flutter (SANDBOX-PARTIAL): fast pitch + AM. Pitch LFO (8+19 Hz), AM LFO (11+23 Hz). "
+        "tl_flutter (SANDBOX-PARTIAL): fast pitch + AM. gen~ owns full audio path "
+        "(internal Delay primitives). Pitch LFO (8+19 Hz), AM LFO (11+23 Hz). "
         "classic_mode = AM-bypass-only (divergence #8, pitch unchanged). "
-        "Reads from shared [buffer~ tape_loss_delay] (contract #4). Independent per-channel RNG.",
-        (40, 280, 700, 40),
+        "Phase 1.5 buffer-share divergence: private Delay vs shared tape_loss_delay.",
+        (40, 180, 700, 60),
     ))
 
     return p
@@ -493,11 +437,16 @@ def build_tl_aux() -> dict:
     # gen~ codebox handles all three modes + envelope generator + cross-module
     # failure_override emission. Outlet 0,1 = stereo audio out; outlet 2 =
     # failure_override scalar signal (0 unless mode=FAIL && aux_active).
+    #
+    # DSL I/O contract: in1=L, in2=R, in3=aux_active, in4=aux_onset_ms.
+    # aux_mode is a gen Param (set via [aux_mode $1] message — Phase 5 hookup).
+    # The aux_mode parent inlet box (param_0) remains so parent UI wiring is
+    # valid, but no longer connects to gen~ here.
     dsl, _dsl_sha, _dsl_bytes = load_gen_dsl(name)
     boxes.append(gen_codebox(
         title=f"{name}_modes",
         code=dsl,
-        numinlets=5,  # L, R, mode, active, onset_ms
+        numinlets=4,  # L, R, aux_active, aux_onset_ms
         numoutlets=3,  # L, R, failure_override
         outlettype=["signal"] * 3,
         patching_rect=(40, 100, 250, 60),
@@ -506,9 +455,8 @@ def build_tl_aux() -> dict:
 
     lines.append(P.line(ids["in_L"], 0, f"{name}-gen", 0))
     lines.append(P.line(ids["in_R"], 0, f"{name}-gen", 1))
-    lines.append(P.line(ids["param_0"], 0, f"{name}-gen", 2))
-    lines.append(P.line(ids["param_1"], 0, f"{name}-gen", 3))
-    lines.append(P.line(ids["param_2"], 0, f"{name}-gen", 4))
+    lines.append(P.line(ids["param_1"], 0, f"{name}-gen", 2))  # aux_active
+    lines.append(P.line(ids["param_2"], 0, f"{name}-gen", 3))  # aux_onset_ms
 
     lines.append(P.line(f"{name}-gen", 0, ids["out_L"], 0))
     lines.append(P.line(f"{name}-gen", 1, ids["out_R"], 0))

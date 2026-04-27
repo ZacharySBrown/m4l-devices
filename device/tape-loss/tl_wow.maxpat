@@ -155,87 +155,15 @@
 			},
 			{
 				"box": {
-					"id": "tl_wow-tapin-L",
-					"maxclass": "newobj",
-					"numinlets": 1,
-					"numoutlets": 1,
-					"patching_rect": [
-						40,
-						100,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "tapin~ 100"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_wow-tapout-L",
-					"maxclass": "newobj",
-					"numinlets": 2,
-					"numoutlets": 1,
-					"patching_rect": [
-						40,
-						140,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "tapout~ 25"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_wow-tapin-R",
-					"maxclass": "newobj",
-					"numinlets": 1,
-					"numoutlets": 1,
-					"patching_rect": [
-						200,
-						100,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "tapin~ 100"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_wow-tapout-R",
-					"maxclass": "newobj",
-					"numinlets": 2,
-					"numoutlets": 1,
-					"patching_rect": [
-						200,
-						140,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "tapout~ 25"
-				}
-			},
-			{
-				"box": {
 					"id": "tl_wow-gen",
 					"maxclass": "newobj",
-					"numinlets": 2,
+					"numinlets": 3,
 					"numoutlets": 2,
 					"patching_rect": [
 						40,
-						60,
+						100,
 						250,
-						30
+						60
 					],
 					"outlettype": [
 						"signal",
@@ -263,7 +191,7 @@
 								"box": {
 									"id": "tl_wow-gen-codebox",
 									"maxclass": "codebox",
-									"numinlets": 2,
+									"numinlets": 3,
 									"numoutlets": 2,
 									"outlettype": [
 										"signal",
@@ -291,53 +219,17 @@
 			},
 			{
 				"box": {
-					"id": "tl_wow-sel-L",
-					"maxclass": "newobj",
-					"numinlets": 3,
-					"numoutlets": 1,
-					"patching_rect": [
-						40,
-						200,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "selector~ 2"
-				}
-			},
-			{
-				"box": {
-					"id": "tl_wow-sel-R",
-					"maxclass": "newobj",
-					"numinlets": 3,
-					"numoutlets": 1,
-					"patching_rect": [
-						200,
-						200,
-						80,
-						22
-					],
-					"outlettype": [
-						"signal"
-					],
-					"text": "selector~ 2"
-				}
-			},
-			{
-				"box": {
 					"id": "tl_wow-note",
 					"maxclass": "comment",
 					"numinlets": 1,
 					"numoutlets": 0,
 					"patching_rect": [
 						40,
-						240,
+						180,
 						700,
 						60
 					],
-					"text": "tl_wow (SANDBOX-PARTIAL): variable-delay slow random pitch drift. Base D0=25ms (spec divergence #7), A_max=6ms at wow=1.0. Filtered-noise LFO (0.5+0.7 Hz cutoffs). 4-pt Hermite read in [gen~]. Cross-module: pitch_floor_cents inlet (=0.3 when model=11). Shared [buffer~ tape_loss_delay] contract #4 (tapin~/tapout~ wired to main-patch buffer). wow=0 AND pitch_floor_cents=0 \u2192 bit-identical bypass."
+					"text": "tl_wow (SANDBOX-PARTIAL): variable-delay slow random pitch drift. gen~ owns full audio path (internal Delay primitives + 4-pt Hermite read). Base D0=25ms (spec divergence #7), A_max=6ms at wow=1.0. Filtered-noise LFO (0.5+0.7 Hz cutoffs). Cross-module: pitch_floor_cents inlet (=0.3 when model=11). Phase 1.5 buffer-share divergence: private Delay vs shared tape_loss_delay."
 				}
 			}
 		],
@@ -349,19 +241,7 @@
 						0
 					],
 					"destination": [
-						"tl_wow-tapin-L",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-tapin-L",
-						0
-					],
-					"destination": [
-						"tl_wow-tapout-L",
+						"tl_wow-gen",
 						0
 					]
 				}
@@ -373,32 +253,8 @@
 						0
 					],
 					"destination": [
-						"tl_wow-tapin-R",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-tapin-R",
-						0
-					],
-					"destination": [
-						"tl_wow-tapout-R",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-pin-0",
-						0
-					],
-					"destination": [
 						"tl_wow-gen",
-						0
+						1
 					]
 				}
 			},
@@ -410,54 +266,6 @@
 					],
 					"destination": [
 						"tl_wow-gen",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-gen",
-						0
-					],
-					"destination": [
-						"tl_wow-tapout-L",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-gen",
-						1
-					],
-					"destination": [
-						"tl_wow-tapout-R",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-tapout-L",
-						0
-					],
-					"destination": [
-						"tl_wow-sel-L",
-						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-in-L",
-						0
-					],
-					"destination": [
-						"tl_wow-sel-L",
 						2
 					]
 				}
@@ -465,19 +273,7 @@
 			{
 				"patchline": {
 					"source": [
-						"tl_wow-pin-0",
-						0
-					],
-					"destination": [
-						"tl_wow-sel-L",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-sel-L",
+						"tl_wow-gen",
 						0
 					],
 					"destination": [
@@ -489,44 +285,8 @@
 			{
 				"patchline": {
 					"source": [
-						"tl_wow-tapout-R",
-						0
-					],
-					"destination": [
-						"tl_wow-sel-R",
+						"tl_wow-gen",
 						1
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-in-R",
-						0
-					],
-					"destination": [
-						"tl_wow-sel-R",
-						2
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-pin-0",
-						0
-					],
-					"destination": [
-						"tl_wow-sel-R",
-						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"tl_wow-sel-R",
-						0
 					],
 					"destination": [
 						"tl_wow-out-R",

@@ -192,7 +192,7 @@
 				"box": {
 					"id": "tl_aux-gen",
 					"maxclass": "newobj",
-					"numinlets": 5,
+					"numinlets": 4,
 					"numoutlets": 3,
 					"patching_rect": [
 						40,
@@ -227,7 +227,7 @@
 								"box": {
 									"id": "tl_aux-gen-codebox",
 									"maxclass": "codebox",
-									"numinlets": 5,
+									"numinlets": 4,
 									"numoutlets": 3,
 									"outlettype": [
 										"signal",
@@ -298,7 +298,7 @@
 			{
 				"patchline": {
 					"source": [
-						"tl_aux-pin-0",
+						"tl_aux-pin-1",
 						0
 					],
 					"destination": [
@@ -310,24 +310,12 @@
 			{
 				"patchline": {
 					"source": [
-						"tl_aux-pin-1",
-						0
-					],
-					"destination": [
-						"tl_aux-gen",
-						3
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
 						"tl_aux-pin-2",
 						0
 					],
 					"destination": [
 						"tl_aux-gen",
-						4
+						3
 					]
 				}
 			},
