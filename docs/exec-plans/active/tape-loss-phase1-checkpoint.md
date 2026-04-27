@@ -158,3 +158,158 @@ PYTHONPATH=$HARNESS_TOOLS python3 -m forge_device summary docs/exec-plans/active
 ---
 
 *Checkpoint generated 2026-04-26. To extend: append to this file rather than replacing — keeps the trajectory legible for future evolution analysis.*
+
+---
+
+# tape-loss — Phase 2 / 2.5 Checkpoint
+
+**Date:** 2026-04-27
+**Status:** `.amxd` structurally and functionally complete. Awaiting manual smoke tests in Max IDE + Ableton (~40 s of human time) before Phase 5 release.
+**Spec hash (unchanged):** `5f6a62295b7e2f8627c2bc6a8b5410d0178a9beee73e0e0a37585d8394aadeb9`
+**Final `.amxd` sha256:** `a5ed9d6f5223d22fce67b108499858b85724e9238866291cdca0e590db67ed74`
+**Repo commit:** `bff7716` (entire build snapshot)
+
+---
+
+## Phase ledger (Phase 2 → Phase 2.5)
+
+| Step | Run id | When (UTC) | Outcome |
+|---|---|---|---|
+| Phase 2 — engineer dispatch | `1777295240-engineer-phase2` | 2026-04-27 13:07 | 9 module `.maxpat` + main + debug + packed `.amxd`. **gen~ codeboxes were stubs.** sha `d992777f…`, 117 KB. 63/0 verifiers (structural). |
+| Harness — bridge extension | `1777296439-harness-bridge-extension` | 2026-04-27 13:27 | `gen_codebox` primitive + 5 bonus primitives (`subpatcher_box`, `inlet_box`, `outlet_box`, `newobj`, `comment_box`) promoted into `stemforge_bridge.patcher`. 14 tests passed, backward-compat verified. Addresses pitfall #22. |
+| Phase 2.5 — gen DSL authoring | (offline; 6 module-agent runs) | 2026-04-27 13:30–13:42 | 6 `.gendsp` source files written, 3,430 lines total: `tl_saturate` (563), `tl_wow` (287), `tl_failure` (1,035), `tl_flutter` (470), `tl_aux` (374), `tl_noise` (701). |
+| Phase 2.5 — JS companion | (same window) | 2026-04-27 ~13:40 | `model_selector.js` 339 lines / 13,305 B. Loads `data/model_eq_coefficients.json`, emits `setcoeff` per profile, gates `pitch_floor_cents` on AMU-2. |
+| Phase 2.5 — integration | `1777297347-engineer-phase2p5` then `1777297386-engineer-phase2p5` | 2026-04-27 13:42–13:43 | 147,913 B of gen~ DSL embedded into the 6 stubbed codeboxes; `.amxd` repacked to 275,448 B / sha `a5ed9d6f…`. Re-run yields identical sha (deterministic). 63/0 verifiers. |
+
+`tl_model_eq`, `tl_volume_mix`, `tl_dry_mix` are biquad / mixer / crossfade modules that the bridge expresses with native Max objects, so they have no `.gendsp` source — by design.
+
+---
+
+## Build artifacts (final)
+
+| Artifact | Path | Size | sha256 |
+|---|---|---|---|
+| Packed device | `device/tape-loss/tape-loss.amxd` | 275,448 B | `a5ed9d6f…` |
+| Main patcher | `device/tape-loss/tape-loss.maxpat` | 275,415 B | (in audit) |
+| Debug harness | `device/tape-loss/tape-loss-debug.maxpat` | 306,150 B | `1aabde43…` |
+| Module patches | `device/tape-loss/tl_*.maxpat` | 9 files | (in audit) |
+| Gen DSL sources | `device/tape-loss/gen/*.gendsp` | 6 files, 147,913 B embedded | (in audit) |
+| JS companion | `device/tape-loss/js/model_selector.js` | 13,305 B | `e0d85960…` |
+| Audit ndjson | `docs/exec-plans/active/tape-loss-audit.ndjson` | 556 events | — |
+
+---
+
+## Cross-module contracts — Phase 1.5 reconciliation outcome
+
+All five contracts and three spec divergences from the Phase-1 emergence list were resolved before Phase 2 build. Full record in [`tape-loss-phase1.5-reconciliation.md`](tape-loss-phase1.5-reconciliation.md).
+
+| # | Contract | Resolution | Implementation status |
+|---|---|---|---|
+| 1 | `failure_override` (tl_aux→tl_failure) | Code change: 4th inlet on tl_failure | ✓ wired in main patch |
+| 2 | AMU-2 ±0.3c pitch floor (tl_model_eq→tl_wow) | Code change: `pitch_floor_cents` param | ✓ gated by `model_selector.js` on profile 11 |
+| 3 | AUX FILTER ramp authority | Doc: tl_aux owns timing | ✓ no double-ramp |
+| 4 | Shared `tapin~` buffer (wow↔flutter) | Doc: single `tape_loss_delay` buffer | **DIVERGED — see flag below** |
+| 5 | Pre/de-emphasis ownership | Doc: tl_saturate owns NAB/IEC; tl_model_eq doesn't double-EQ | ✓ verified |
+
+### Phase 1.5 contract divergence flag
+
+The audit emitted one `phase15.contract.flag` event during Phase 2.5 integration:
+
+```
+contract: shared_tapin_wow_flutter
+original_phase15_status: signed_off_shared
+current_implementation: private_per_module
+rationale: bit_identity_to_numpy_unreachable_real_time
+revisit_when: v1_or_when_audible_diff_surfaces
+```
+
+Each of `tl_wow` and `tl_flutter` allocates its own delay buffer in their `.gendsp` rather than sharing `[buffer~ tape_loss_delay 1024]`. The numpy reference impls also cascade rather than share, so the divergence was already present in Phase 1; Phase 1.5 documented the *intent* to share at engineer time, but the realtime gen~ implementation didn't follow through. **User decision pending** — listed under "Open decisions" below.
+
+---
+
+## What changed in the build script
+
+`build/build_tape_loss.py` between Phase 2 and Phase 2.5:
+
+- 6 stub `newobj("gen~ @title …")` calls → `gen_codebox(title=, code=dsl, …)` with matching `numinlets` / `outlettype`
+- ~85 lines of inline primitive definitions (`subpatcher_box`, `inlet_box`, `outlet_box`, generic `newobj`, `comment_box`) **deleted** — promoted to `stemforge_bridge.patcher`
+- New helpers: `sha256_bytes`, `load_gen_dsl(module)` (reads `device/tape-loss/gen/<module>.gendsp` and inlines into the codebox)
+
+The `gen_codebox` primitive worked first try with no rough edges. Multi-line DSL round-trips exactly. Inner `classnamespace="dsp.gen"` is correctly applied (the gotcha the bridge agent flagged when promoting it).
+
+---
+
+## Three new harness pitfalls (filed separately)
+
+Surfaced during Phase 2 / 2.5; written up as proposals in the harness repo for verifier evolution. Captured here as a pointer; full text lives in `~/raindog/harness/docs/product-specs/`:
+
+1. **Pitfall #21 — Subpatcher verifier exemption.** `verify_plugin_pair_for_audio` flags every subpatcher as missing `plugin~`/`plugout~`. Fix: typed verifier registry (`top_level_audio` vs `subpatcher`); subpatcher verifier asserts `[inlet]`/`[outlet]` count matches declared `numinlets`/`numoutlets`.
+2. **Pitfall #22 — Bridge primitive gap.** `stemforge_bridge.patcher` was missing `subpatcher_box`, `inlet_box`, `outlet_box`, generic `newobj`, `comment_box`. **Already addressed** during Phase 2.5 (audit `harness.bridge_extended` event); needs a follow-on `verify_inlet_outlet_indices` to keep the inlet/outlet counts from drifting from declared values.
+3. **Pitfall #23 — Cross-module contract verifier.** No verifier today checks that signal-rate cross-module wires (e.g. `tl_aux` outlet 2 → `tl_failure` inlet 7) actually exist in the main patch. Fix: add `cross_module_contracts:` to `pedal.schema.yaml` + a spec-driven verifier — the verifier-equivalent of the Phase 1.5 reconciliation doc.
+
+---
+
+## Open decisions (user input wanted)
+
+### A. `tl_flutter` buffer sharing — private (current) vs shared (`tape_loss_delay`)
+
+- **Private (current build):** each module owns its own `tapin~`/`tapout~` pair inside its `.gendsp`. Diverges from Phase 1.5 sign-off; matches numpy reference cascade behavior.
+- **Shared (Phase 1.5 intent):** allocate one `[buffer~ tape_loss_delay 1024]` at the main-patch level; both modules read/write the same buffer.
+
+**Recommend:** keep private until/unless an audible diff surfaces or v1 begins. The realtime constraint (read-write race avoidance, samplerate-change handling for both consumers off one buffer) was the unspoken cost the Phase 1.5 sign-off didn't price.
+
+### B. Calibration round 2 — defer until after Max-IDE smoke test passes
+
+The Phase 1 character-feedback list (failure too crackly, flutter weak at noon, dry-mix wet probe regen) is still queued. Don't burn cycles on it until we know the device loads and produces sound — calibration on a non-loading device is wasted work.
+
+---
+
+## Manual steps remaining (pre-Phase-5)
+
+| # | Step | Time | Catches |
+|---|---|---|---|
+| 1 | Open [`tape-loss-debug.maxpat`](../../../device/tape-loss/tape-loss-debug.maxpat) in Max IDE → click loadbang → verify zero console errors | ~10 s | gen~ JIT-compile errors (pitfall #9) before Ableton sees the device |
+| 2 | Drop [`tape-loss.amxd`](../../../device/tape-loss/tape-loss.amxd) on an Ableton track → play test audio | ~30 s | runtime crashes / clicks / silence-passthrough |
+
+Manual budget remains within the project convention's ≤30 s/build excluding the IR-capture phase (Phase 5, deferred).
+
+---
+
+## Harness evolution observations (additions to the Phase-1 list)
+
+7. **Stub-vs-functional distinction is project-relevant.** Phase 2 produced a verifier-passing `.amxd` (63/0) that was structurally complete but audibly silent. The verifier suite has no concept of "this module's body has actual DSP." **Proposal:** add a heuristic verifier that flags `gen~` codeboxes whose source body length is below a threshold (e.g. < 200 bytes after stripping comments) — catches stubs that pass syntactic checks.
+
+8. **Bridge primitive promotion is a healthy harness signal.** Phase 2 inlined ~85 LOC of patcher primitives that Phase 2.5 then promoted into `stemforge_bridge.patcher`. **Proposal:** the engineer persona's checklist should include "list any inline patcher helpers added to the build script — these are bridge-promotion candidates" so this surfaces routinely rather than only when a follow-up phase notices.
+
+9. **Phase 1.5 contract drift is a real risk.** A signed-off contract (shared buffer) was implemented differently in Phase 2.5 with an explicit flag event. The flag survived because the auditor explicitly emitted it; without that discipline it would have been silent. **Proposal:** make `phase15.contract.flag` a first-class event the verifier suite *requires* the engineer to either resolve or explicitly defer — and surface unresolved flags in `forge-device summary`.
+
+10. **`gen_codebox` was a high-leverage primitive.** Once the bridge had it, the entire stub→functional transition was 6 calls + 1 helper (`load_gen_dsl`). **Proposal:** treat "what's the smallest set of primitives that turns hand-authored DSL into an embedded codebox" as a design question for any future runtime (vst-plugin quickstart, etc.) — the `.gendsp` → embedded-codebox pattern generalizes.
+
+---
+
+## Phase 5 entry conditions
+
+When manual steps 1 + 2 above succeed:
+
+- [ ] Tag a release commit
+- [ ] Move `docs/exec-plans/active/tape-loss-*` → `docs/exec-plans/shipped/`
+- [ ] Update repo `README.md` with the user-facing pedal description + install instructions
+- [ ] Decide whether to begin tape-loss V1 (calibration round 2 + flutter taper retune + dry-mix fixture regen) or move on to a second pedal
+
+---
+
+## Audit-trail pointer (Phase 2 / 2.5)
+
+Audit ndjson has grown from 123 events at Phase-1 close to **556 events** total. New event types added in this phase:
+
+- `phase15.contract.flag` — divergence from a signed-off Phase 1.5 contract
+- `phase2p5.integration.start` / `phase2p5.integration.complete` — wraps the gen-DSL embedding pass
+- `harness.bridge_extended` — emitted from the bridge-extension run; records primitive name + bonus promotions + tests-passed
+
+```bash
+PYTHONPATH=$HARNESS_TOOLS python3 -m forge_device summary docs/exec-plans/active/tape-loss-audit.ndjson
+```
+
+---
+
+*Phase 2 / 2.5 checkpoint generated 2026-04-27. Continues the Phase 1 trajectory above. Next checkpoint: Phase 5 (release) once manual smoke tests pass.*

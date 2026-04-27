@@ -1079,7 +1079,7 @@
 							{
 								"box": {
 									"id": "tl_saturate-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -1091,7 +1091,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -1099,7 +1098,7 @@
 							{
 								"box": {
 									"id": "tl_saturate-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -1111,7 +1110,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -1119,7 +1117,7 @@
 							{
 								"box": {
 									"id": "tl_saturate-pin-0",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -1131,7 +1129,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 3
 								}
@@ -1139,7 +1136,7 @@
 							{
 								"box": {
 									"id": "tl_saturate-pin-1",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -1151,7 +1148,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 4
 								}
@@ -1159,7 +1155,7 @@
 							{
 								"box": {
 									"id": "tl_saturate-out-L",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -1168,8 +1164,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -1177,7 +1171,7 @@
 							{
 								"box": {
 									"id": "tl_saturate-out-R",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -1186,8 +1180,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -1427,7 +1419,7 @@
 							{
 								"box": {
 									"id": "tl_model_eq-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -1439,7 +1431,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -1447,7 +1438,7 @@
 							{
 								"box": {
 									"id": "tl_model_eq-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -1459,7 +1450,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -1467,7 +1457,7 @@
 							{
 								"box": {
 									"id": "tl_model_eq-pin-0",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -1479,7 +1469,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 3
 								}
@@ -1487,7 +1476,7 @@
 							{
 								"box": {
 									"id": "tl_model_eq-pin-1",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -1499,7 +1488,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 4
 								}
@@ -1507,7 +1495,7 @@
 							{
 								"box": {
 									"id": "tl_model_eq-out-L",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -1516,8 +1504,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -1525,7 +1511,7 @@
 							{
 								"box": {
 									"id": "tl_model_eq-out-R",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -1534,8 +1520,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -1543,7 +1527,7 @@
 							{
 								"box": {
 									"id": "tl_model_eq-eout-0",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -1552,8 +1536,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 3
 								}
@@ -2339,7 +2321,7 @@
 							{
 								"box": {
 									"id": "tl_failure-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2351,7 +2333,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -2359,7 +2340,7 @@
 							{
 								"box": {
 									"id": "tl_failure-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2371,7 +2352,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -2379,7 +2359,7 @@
 							{
 								"box": {
 									"id": "tl_failure-pin-0",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2391,7 +2371,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 3
 								}
@@ -2399,7 +2378,7 @@
 							{
 								"box": {
 									"id": "tl_failure-pin-1",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2411,7 +2390,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 4
 								}
@@ -2419,7 +2397,7 @@
 							{
 								"box": {
 									"id": "tl_failure-pin-2",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2431,7 +2409,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 5
 								}
@@ -2439,7 +2416,7 @@
 							{
 								"box": {
 									"id": "tl_failure-pin-3",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2451,7 +2428,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 6
 								}
@@ -2459,7 +2435,7 @@
 							{
 								"box": {
 									"id": "tl_failure-pin-4",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2471,7 +2447,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 7
 								}
@@ -2479,7 +2454,7 @@
 							{
 								"box": {
 									"id": "tl_failure-out-L",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -2488,8 +2463,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -2497,7 +2470,7 @@
 							{
 								"box": {
 									"id": "tl_failure-out-R",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -2506,8 +2479,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -2515,7 +2486,7 @@
 							{
 								"box": {
 									"id": "tl_failure-in-fov",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2527,7 +2498,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 8
 								}
@@ -2814,7 +2784,7 @@
 							{
 								"box": {
 									"id": "tl_wow-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2826,7 +2796,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -2834,7 +2803,7 @@
 							{
 								"box": {
 									"id": "tl_wow-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2846,7 +2815,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -2854,7 +2822,7 @@
 							{
 								"box": {
 									"id": "tl_wow-pin-0",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2866,7 +2834,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 3
 								}
@@ -2874,7 +2841,7 @@
 							{
 								"box": {
 									"id": "tl_wow-pin-1",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -2886,7 +2853,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 4
 								}
@@ -2894,7 +2860,7 @@
 							{
 								"box": {
 									"id": "tl_wow-out-L",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -2903,8 +2869,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -2912,7 +2876,7 @@
 							{
 								"box": {
 									"id": "tl_wow-out-R",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -2921,8 +2885,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -3389,7 +3351,7 @@
 							{
 								"box": {
 									"id": "tl_flutter-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -3401,7 +3363,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -3409,7 +3370,7 @@
 							{
 								"box": {
 									"id": "tl_flutter-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -3421,7 +3382,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -3429,7 +3389,7 @@
 							{
 								"box": {
 									"id": "tl_flutter-pin-0",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -3441,7 +3401,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 3
 								}
@@ -3449,7 +3408,7 @@
 							{
 								"box": {
 									"id": "tl_flutter-pin-1",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -3461,7 +3420,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 4
 								}
@@ -3469,7 +3427,7 @@
 							{
 								"box": {
 									"id": "tl_flutter-out-L",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -3478,8 +3436,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -3487,7 +3443,7 @@
 							{
 								"box": {
 									"id": "tl_flutter-out-R",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -3496,8 +3452,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -4053,7 +4007,7 @@
 							{
 								"box": {
 									"id": "tl_aux-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -4065,7 +4019,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -4073,7 +4026,7 @@
 							{
 								"box": {
 									"id": "tl_aux-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -4085,7 +4038,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -4093,7 +4045,7 @@
 							{
 								"box": {
 									"id": "tl_aux-pin-0",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -4105,7 +4057,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 3
 								}
@@ -4113,7 +4064,7 @@
 							{
 								"box": {
 									"id": "tl_aux-pin-1",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -4125,7 +4076,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 4
 								}
@@ -4133,7 +4083,7 @@
 							{
 								"box": {
 									"id": "tl_aux-pin-2",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -4145,7 +4095,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 5
 								}
@@ -4153,7 +4102,7 @@
 							{
 								"box": {
 									"id": "tl_aux-out-L",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -4162,8 +4111,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -4171,7 +4118,7 @@
 							{
 								"box": {
 									"id": "tl_aux-out-R",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -4180,8 +4127,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -4189,7 +4134,7 @@
 							{
 								"box": {
 									"id": "tl_aux-eout-0",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -4198,8 +4143,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 3
 								}
@@ -4464,7 +4407,7 @@
 							{
 								"box": {
 									"id": "tl_volume_mix-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -4476,7 +4419,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -4484,7 +4426,7 @@
 							{
 								"box": {
 									"id": "tl_volume_mix-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -4496,7 +4438,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -4504,7 +4445,7 @@
 							{
 								"box": {
 									"id": "tl_volume_mix-pin-0",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -4516,7 +4457,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 3
 								}
@@ -4524,7 +4464,7 @@
 							{
 								"box": {
 									"id": "tl_volume_mix-pin-1",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -4536,7 +4476,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 4
 								}
@@ -4544,7 +4483,7 @@
 							{
 								"box": {
 									"id": "tl_volume_mix-out-L",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -4553,8 +4492,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -4562,7 +4499,7 @@
 							{
 								"box": {
 									"id": "tl_volume_mix-out-R",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -4571,8 +4508,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -5023,7 +4958,7 @@
 							{
 								"box": {
 									"id": "tl_dry_mix-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5035,7 +4970,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -5043,7 +4977,7 @@
 							{
 								"box": {
 									"id": "tl_dry_mix-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5055,7 +4989,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -5063,7 +4996,7 @@
 							{
 								"box": {
 									"id": "tl_dry_mix-pin-0",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5075,7 +5008,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 3
 								}
@@ -5083,7 +5015,7 @@
 							{
 								"box": {
 									"id": "tl_dry_mix-out-L",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -5092,8 +5024,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -5101,7 +5031,7 @@
 							{
 								"box": {
 									"id": "tl_dry_mix-out-R",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -5110,8 +5040,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -5119,7 +5047,7 @@
 							{
 								"box": {
 									"id": "tl_dry_mix-dry-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5131,7 +5059,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 5
 								}
@@ -5139,7 +5066,7 @@
 							{
 								"box": {
 									"id": "tl_dry_mix-dry-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5151,7 +5078,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 6
 								}
@@ -5524,7 +5450,7 @@
 							{
 								"box": {
 									"id": "tl_noise-in-L",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5536,7 +5462,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -5544,7 +5469,7 @@
 							{
 								"box": {
 									"id": "tl_noise-in-R",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5556,7 +5481,6 @@
 									"outlettype": [
 										"signal"
 									],
-									"text": "inlet~",
 									"comment": "",
 									"index": 2
 								}
@@ -5564,7 +5488,7 @@
 							{
 								"box": {
 									"id": "tl_noise-pin-0",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5576,7 +5500,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 3
 								}
@@ -5584,7 +5507,7 @@
 							{
 								"box": {
 									"id": "tl_noise-pin-1",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5596,7 +5519,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 4
 								}
@@ -5604,7 +5526,7 @@
 							{
 								"box": {
 									"id": "tl_noise-pin-2",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5616,7 +5538,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 5
 								}
@@ -5624,7 +5545,7 @@
 							{
 								"box": {
 									"id": "tl_noise-pin-3",
-									"maxclass": "newobj",
+									"maxclass": "inlet",
 									"numinlets": 0,
 									"numoutlets": 1,
 									"patching_rect": [
@@ -5636,7 +5557,6 @@
 									"outlettype": [
 										""
 									],
-									"text": "inlet",
 									"comment": "",
 									"index": 6
 								}
@@ -5644,7 +5564,7 @@
 							{
 								"box": {
 									"id": "tl_noise-out-L",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -5653,8 +5573,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 1
 								}
@@ -5662,7 +5580,7 @@
 							{
 								"box": {
 									"id": "tl_noise-out-R",
-									"maxclass": "newobj",
+									"maxclass": "outlet",
 									"numinlets": 1,
 									"numoutlets": 0,
 									"patching_rect": [
@@ -5671,8 +5589,6 @@
 										30,
 										30
 									],
-									"outlettype": [],
-									"text": "outlet~",
 									"comment": "",
 									"index": 2
 								}

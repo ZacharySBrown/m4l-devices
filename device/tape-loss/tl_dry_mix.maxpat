@@ -48,7 +48,7 @@
 			{
 				"box": {
 					"id": "tl_dry_mix-in-L",
-					"maxclass": "newobj",
+					"maxclass": "inlet",
 					"numinlets": 0,
 					"numoutlets": 1,
 					"patching_rect": [
@@ -60,7 +60,6 @@
 					"outlettype": [
 						"signal"
 					],
-					"text": "inlet~",
 					"comment": "",
 					"index": 1
 				}
@@ -68,7 +67,7 @@
 			{
 				"box": {
 					"id": "tl_dry_mix-in-R",
-					"maxclass": "newobj",
+					"maxclass": "inlet",
 					"numinlets": 0,
 					"numoutlets": 1,
 					"patching_rect": [
@@ -80,7 +79,6 @@
 					"outlettype": [
 						"signal"
 					],
-					"text": "inlet~",
 					"comment": "",
 					"index": 2
 				}
@@ -88,7 +86,7 @@
 			{
 				"box": {
 					"id": "tl_dry_mix-pin-0",
-					"maxclass": "newobj",
+					"maxclass": "inlet",
 					"numinlets": 0,
 					"numoutlets": 1,
 					"patching_rect": [
@@ -100,7 +98,6 @@
 					"outlettype": [
 						""
 					],
-					"text": "inlet",
 					"comment": "",
 					"index": 3
 				}
@@ -108,7 +105,7 @@
 			{
 				"box": {
 					"id": "tl_dry_mix-out-L",
-					"maxclass": "newobj",
+					"maxclass": "outlet",
 					"numinlets": 1,
 					"numoutlets": 0,
 					"patching_rect": [
@@ -117,8 +114,6 @@
 						30,
 						30
 					],
-					"outlettype": [],
-					"text": "outlet~",
 					"comment": "",
 					"index": 1
 				}
@@ -126,7 +121,7 @@
 			{
 				"box": {
 					"id": "tl_dry_mix-out-R",
-					"maxclass": "newobj",
+					"maxclass": "outlet",
 					"numinlets": 1,
 					"numoutlets": 0,
 					"patching_rect": [
@@ -135,8 +130,6 @@
 						30,
 						30
 					],
-					"outlettype": [],
-					"text": "outlet~",
 					"comment": "",
 					"index": 2
 				}
@@ -144,7 +137,7 @@
 			{
 				"box": {
 					"id": "tl_dry_mix-dry-in-L",
-					"maxclass": "newobj",
+					"maxclass": "inlet",
 					"numinlets": 0,
 					"numoutlets": 1,
 					"patching_rect": [
@@ -156,7 +149,6 @@
 					"outlettype": [
 						"signal"
 					],
-					"text": "inlet~",
 					"comment": "",
 					"index": 5
 				}
@@ -164,7 +156,7 @@
 			{
 				"box": {
 					"id": "tl_dry_mix-dry-in-R",
-					"maxclass": "newobj",
+					"maxclass": "inlet",
 					"numinlets": 0,
 					"numoutlets": 1,
 					"patching_rect": [
@@ -176,7 +168,6 @@
 					"outlettype": [
 						"signal"
 					],
-					"text": "inlet~",
 					"comment": "",
 					"index": 6
 				}
