@@ -556,10 +556,13 @@ def build_tl_dry_mix() -> dict:
     p, boxes, lines, ids = _mk_module_skeleton(
         name, num_param_inlets=1,  # dry_mode
     )
-    # Add dry inlets (signal) at indices 5, 6
+    # Add dry inlets (signal) at indices 4, 5 — sequential after the
+    # 3 prior inlets (in-L=1, in-R=2, pin-0=dry_mode=3). Earlier code used
+    # 5, 6 which created a gap at index 4 → parent's wire to subpatcher
+    # inlet 4 landed correctly but its wire to inlet 5 went OOR.
     for i, ch in enumerate(("L", "R")):
         dry_id = f"{name}-dry-in-{ch}"
-        boxes.append(inlet_box(dry_id, 5 + i, (200 + 50 * i, 20, 30, 30), signal=True))
+        boxes.append(inlet_box(dry_id, 4 + i, (200 + 50 * i, 20, 30, 30), signal=True))
         ids[f"dry_in_{ch}"] = dry_id
 
     # Per-mode gain table: NONE=0, SMALL=0.3981 (-8dB), UNITY=1.0
@@ -916,7 +919,7 @@ def build_main_patcher(spec: dict, module_patches: dict[str, dict]) -> dict:
     lines.append(P.line("dial-volume", 0, module_box_ids["tl_volume_mix"], 2))
     lines.append(P.line("dip-miso", 0, module_box_ids["tl_volume_mix"], 3))
 
-    # tl_dry_mix: dry_mode → 2, dryL → 4, dryR → 5
+    # tl_dry_mix: dry_mode → 2, dryL → 3, dryR → 4
     lines.append(P.line("tab-dry_mode", 0, module_box_ids["tl_dry_mix"], 2))
 
     # tl_noise: noise_mode → 2, hiss_level → 3, mech_level → 4, hum_bypass → 5
@@ -971,9 +974,9 @@ def build_main_patcher(spec: dict, module_patches: dict[str, dict]) -> dict:
     lines.append(P.line("plugin-in", 1, "dry-tapin-R", 0))
     lines.append(P.line("dry-tapin-L", 0, "dry-tapout-L", 0))
     lines.append(P.line("dry-tapin-R", 0, "dry-tapout-R", 0))
-    # Dry-tap outputs → tl_dry_mix inlets 4, 5 (which are dry_in_L, dry_in_R)
-    lines.append(P.line("dry-tapout-L", 0, module_box_ids["tl_dry_mix"], 4))
-    lines.append(P.line("dry-tapout-R", 0, module_box_ids["tl_dry_mix"], 5))
+    # Dry-tap outputs → tl_dry_mix inlets 3, 4 (which are dry_in_L, dry_in_R)
+    lines.append(P.line("dry-tapout-L", 0, module_box_ids["tl_dry_mix"], 3))
+    lines.append(P.line("dry-tapout-R", 0, module_box_ids["tl_dry_mix"], 4))
 
     return p
 

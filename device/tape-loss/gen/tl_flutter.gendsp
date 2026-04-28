@@ -168,6 +168,9 @@ History aL1_x1, aL1_x2, aL1_y1, aL1_y2;
 History aL2_x1, aL2_x2, aL2_y1, aL2_y2;
 History aR1_x1, aR1_x2, aR1_y1, aR1_y2;
 History aR2_x1, aR2_x2, aR2_y1, aR2_y2;
+Delay delbuf_L(4096);
+Delay delbuf_R(4096);
+
 
 
 
@@ -226,8 +229,6 @@ TWO_PI = 6.28318530717958647693;
 // AM path R — band 2
 
 // --- Variable-delay buffers (PRIVATE — see header) -------------------
-Delay delbuf_L(4096);
-Delay delbuf_R(4096);
 
 // =====================================================================
 // Per-sample DSP

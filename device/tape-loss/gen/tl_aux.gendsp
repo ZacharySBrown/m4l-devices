@@ -188,6 +188,9 @@ History env_e;
 History stop_read_pos;
 History svf_ic1_L, svf_ic2_L;
 History svf_ic1_R, svf_ic2_R;
+Delay stopbuf_L(262144);
+Delay stopbuf_R(262144);
+
 
 
 
@@ -233,8 +236,6 @@ MODE_FAIL_ID   = 2;
 // STOP mode: stereo circular buffers (262144 samples each ≈ 5.46 s @ 48k,
 // covers max 3000 ms onset × 1.5 headroom per design-doc §1.4 / tradeoff
 // #6). Power of 2 for clean wraparound.
-Delay stopbuf_L(262144);
-Delay stopbuf_R(262144);
 
 // STOP mode: fractional read-head delay (samples behind the writer).
 // 0 = read = current write = identity passthrough.

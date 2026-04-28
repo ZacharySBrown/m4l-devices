@@ -150,7 +150,7 @@
 						"signal"
 					],
 					"comment": "",
-					"index": 5
+					"index": 4
 				}
 			},
 			{
@@ -169,7 +169,7 @@
 						"signal"
 					],
 					"comment": "",
-					"index": 6
+					"index": 5
 				}
 			},
 			{

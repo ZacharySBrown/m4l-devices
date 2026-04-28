@@ -207,6 +207,12 @@ History bpf_y1_L(0); History bpf_y2_L(0);
 History bpf_x1_R(0); History bpf_x2_R(0);
 History bpf_y1_R(0); History bpf_y2_R(0);
 
+// Snag delay buffers — used by SUB-ENGINE C1 (snag) variable-delay reads.
+// gen DSL has no delay() operator; explicit Delay objects with .write/.read.
+Delay snag_buf_L(512);
+Delay snag_buf_R(512);
+
+
 
 
 
@@ -513,9 +519,12 @@ snag_dt_L = max(0.5, SNAG_BASE_DELAY + snag_off_for_L);
 snag_dt_R = max(0.5, SNAG_BASE_DELAY + snag_off_for_R);
 
 // Delay max = 512 samples (twice base_delay; gives headroom past round-2's
-// ~159-sample peak excursion at f=1.0, per design doc §5).
-snag_out_L = delay(in1, snag_dt_L, 512);
-snag_out_R = delay(in2, snag_dt_R, 512);
+// ~159-sample peak excursion at f=1.0, per design doc §5). gen DSL has no
+// `delay()` operator — use Delay objects (declared at top) with .write/.read.
+snag_buf_L.write(in1);
+snag_buf_R.write(in2);
+snag_out_L = snag_buf_L.read(snag_dt_L);
+snag_out_R = snag_buf_R.read(snag_dt_R);
 
 
 // =============================================================================

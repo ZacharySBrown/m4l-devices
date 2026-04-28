@@ -87,6 +87,9 @@ History lp1R_a, lp1R_b;
 History lp2R_a, lp2R_b;
 History lpFL_a, lpFL_b;
 History lpFR_a, lpFR_b;
+Delay delbuf_L(8192);
+Delay delbuf_R(8192);
+
 
 
 
@@ -140,8 +143,6 @@ EPS = 1e-6;
 // ≈ 2982 samples. We round up generously to 8192 for headroom and to
 // fit any future depth bump cleanly.
 
-Delay delbuf_L(8192);
-Delay delbuf_R(8192);
 
 // =====================================================================
 // Per-sample DSP
