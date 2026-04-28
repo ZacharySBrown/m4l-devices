@@ -192,20 +192,95 @@
 			},
 			{
 				"box": {
+					"id": "tl_dry_mix-mode-select",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 4,
+					"patching_rect": [
+						40,
+						110,
+						100,
+						22
+					],
+					"outlettype": [
+						"bang",
+						"bang",
+						"bang",
+						""
+					],
+					"text": "select 0 1 2"
+				}
+			},
+			{
+				"box": {
+					"id": "tl_dry_mix-mode-gain-0",
+					"maxclass": "message",
+					"text": "0.0",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					],
+					"patching_rect": [
+						40,
+						140,
+						50,
+						22
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "tl_dry_mix-mode-gain-1",
+					"maxclass": "message",
+					"text": "0.3981",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					],
+					"patching_rect": [
+						100,
+						140,
+						50,
+						22
+					]
+				}
+			},
+			{
+				"box": {
+					"id": "tl_dry_mix-mode-gain-2",
+					"maxclass": "message",
+					"text": "1.0",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"outlettype": [
+						""
+					],
+					"patching_rect": [
+						160,
+						140,
+						50,
+						22
+					]
+				}
+			},
+			{
+				"box": {
 					"id": "tl_dry_mix-mode-to-gain",
 					"maxclass": "newobj",
 					"numinlets": 1,
 					"numoutlets": 1,
 					"patching_rect": [
 						40,
-						110,
-						250,
+						170,
+						50,
 						22
 					],
 					"outlettype": [
-						""
+						"float"
 					],
-					"text": "expr ($i1==0) ? 0. : ($i1==1) ? 0.3981 : 1.0"
+					"text": "t f"
 				}
 			},
 			{
@@ -318,11 +393,83 @@
 			{
 				"patchline": {
 					"source": [
-						"tl_dry_mix-pin-0",
+						"tl_dry_mix-mode-select",
+						0
+					],
+					"destination": [
+						"tl_dry_mix-mode-gain-0",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"tl_dry_mix-mode-select",
+						1
+					],
+					"destination": [
+						"tl_dry_mix-mode-gain-1",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"tl_dry_mix-mode-select",
+						2
+					],
+					"destination": [
+						"tl_dry_mix-mode-gain-2",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"tl_dry_mix-mode-gain-0",
 						0
 					],
 					"destination": [
 						"tl_dry_mix-mode-to-gain",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"tl_dry_mix-mode-gain-1",
+						0
+					],
+					"destination": [
+						"tl_dry_mix-mode-to-gain",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"tl_dry_mix-mode-gain-2",
+						0
+					],
+					"destination": [
+						"tl_dry_mix-mode-to-gain",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"tl_dry_mix-pin-0",
+						0
+					],
+					"destination": [
+						"tl_dry_mix-mode-select",
 						0
 					]
 				}

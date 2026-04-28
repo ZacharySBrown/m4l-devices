@@ -46,7 +46,7 @@ from forge_device import verifiers as V
 REPO_ROOT = Path("/Users/zak/zacharysbrown/m4l-devices")
 DEVICE_DIR = REPO_ROOT / "device" / "tape-loss"
 GEN_DIR = DEVICE_DIR / "gen"
-JS_DIR = DEVICE_DIR / "js"
+JS_DIR = DEVICE_DIR  # .js lives alongside .maxpat for Max search-path resolution
 SPEC_PATH = REPO_ROOT / "specs" / "tape-loss.pedal.yaml"
 AUDIT_PATH = REPO_ROOT / "docs" / "exec-plans" / "active" / "tape-loss-audit.ndjson"
 
@@ -217,6 +217,10 @@ def build_tl_model_eq() -> dict:
     # to the biquad chain on model change or sr change. Pitfall #1: js NOT
     # node.script.
     boxes.append(P.js_box(
+        # Bare filename; the .js lives alongside the .maxpat in
+        # device/tape-loss/ so Max's "search the patcher's directory" rule
+        # resolves it. (Earlier attempt at `js/model_selector.js` failed —
+        # Max's [js] subdir resolution differs from generic file resolution.)
         f"{name}-js", "model_selector.js", (40, 100, 200, 22),
         scripting_name="model_selector",
         numinlets=2,  # 0=model, 1=sr
@@ -565,14 +569,41 @@ def build_tl_dry_mix() -> dict:
         gain_map, "zmap 0 2 0 1", (40, 80, 100, 22),
         numinlets=1, numoutlets=1, outlettype=[""],
     ))
-    # Better: a [coll] or expr maps int mode → gain
-    expr_id = f"{name}-mode-to-gain"
+    # Map int mode → gain via [select] + message boxes. `expr` was the
+    # natural choice but Max's box parser substitutes `$i1` at parse time
+    # (treating it as a positional-arg reference) before expr ever sees
+    # it, so any expr with $iN args ends up syntactically broken at
+    # patcher load. Select-based dispatch sidesteps the whole problem.
+    expr_id = f"{name}-mode-to-gain"  # box id kept for downstream wiring
+    sel_id = f"{name}-mode-select"
     boxes.append(newobj(
-        expr_id, "expr ($i1==0) ? 0. : ($i1==1) ? 0.3981 : 1.0",
-        (40, 110, 250, 22),
-        numinlets=1, numoutlets=1, outlettype=[""],
+        sel_id, "select 0 1 2", (40, 110, 100, 22),
+        numinlets=1, numoutlets=4, outlettype=["bang", "bang", "bang", ""],
     ))
-    lines.append(P.line(ids["param_0"], 0, expr_id, 0))
+    # Three message boxes — one per gain value
+    msg_ids = []
+    for i, gain in enumerate([0.0, 0.3981, 1.0]):
+        mid = f"{name}-mode-gain-{i}"
+        msg_ids.append(mid)
+        boxes.append({"box": {
+            "id": mid,
+            "maxclass": "message",
+            "text": f"{gain}",
+            "numinlets": 2,
+            "numoutlets": 1,
+            "outlettype": [""],
+            "patching_rect": [40 + i * 60, 140, 50, 22],
+        }})
+        lines.append(P.line(sel_id, i, mid, 0))
+    # Funnel all three message outputs into a single "expr_id" passthrough so
+    # the rest of the wiring (expr_id → slide_id) doesn't have to change.
+    boxes.append(newobj(
+        expr_id, "t f", (40, 170, 50, 22),  # `t f` = thru, float type
+        numinlets=1, numoutlets=1, outlettype=["float"],
+    ))
+    for mid in msg_ids:
+        lines.append(P.line(mid, 0, expr_id, 0))
+    lines.append(P.line(ids["param_0"], 0, sel_id, 0))
 
     # Smooth gain transitions over 10ms (~441 samples)
     slide_id = f"{name}-slide"
@@ -981,15 +1012,21 @@ def build_debug_patcher(main_patcher: dict, device_name: str) -> dict:
     lines.append(P.line("dbg-device", 0, "dbg-dac", 0))
     lines.append(P.line("dbg-device", 1, "dbg-dac", 1))
 
-    # loadbang to start audio
+    # loadbang to start audio. `startwindow` is a MESSAGE sent to dac~/
+    # ezdac~ — not an object — so it goes in a [message] box, not [newobj].
     boxes.append(newobj(
         "dbg-loadbang", "loadbang", (200, 240, 80, 22),
         numinlets=1, numoutlets=1, outlettype=["bang"],
     ))
-    boxes.append(newobj(
-        "dbg-msg-startaudio", "startwindow", (200, 270, 100, 22),
-        numinlets=2, numoutlets=1, outlettype=[""],
-    ))
+    boxes.append({"box": {
+        "id": "dbg-msg-startaudio",
+        "maxclass": "message",
+        "text": "startwindow",
+        "numinlets": 2,
+        "numoutlets": 1,
+        "outlettype": [""],
+        "patching_rect": [200, 270, 100, 22],
+    }})
     lines.append(P.line("dbg-loadbang", 0, "dbg-msg-startaudio", 0))
     lines.append(P.line("dbg-msg-startaudio", 0, "dbg-dac", 0))
 

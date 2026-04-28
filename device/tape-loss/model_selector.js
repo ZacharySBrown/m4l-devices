@@ -228,15 +228,22 @@ var IDENTITY_COEFFS = [1.0, 0.0, 0.0, 0.0, 0.0]; // b0,b1,b2,a1,a2
 function emitStage(stageIdx, coeffs) {
     var b0 = coeffs[0], b1 = coeffs[1], b2 = coeffs[2];
     var a1 = coeffs[3], a2 = coeffs[4];
-    // Format (1): 'setcoeff' tagged list (per task spec).
-    outlet(0, "setcoeff", stageIdx, b0, b1, b2, a1, a2);
-    // Format (2): native [biquad~] argument order (a1 a2 b0 b1 b2).
+    // Native [biquad~] argument order (a1 a2 b0 b1 b2). The 'setcoeff'
+    // tagged form is dropped — biquad~ doesn't expose a setcoeff method,
+    // so the build's direct js→biquad~ wiring would error on every emit.
+    // (If a [route setcoeff] is ever added downstream, this can re-emit
+    // both forms.)
     outlet(0, a1, a2, b0, b1, b2);
 }
 
 function emitPitchFloor(modelIdx) {
     var floor = (modelIdx === 11) ? 0.3 : 0.0;
-    outlet(1, "pitch_floor_cents", floor);
+    // Emit the bare float; the receiving inlet (tl_wow's gen~ inlet 2,
+    // bound to in3 = pitch_floor_cents in the DSL) is signal-rate and
+    // accepts numeric messages directly. A method-tagged form like
+    // "pitch_floor_cents 0.3" would be parsed as a method call, which
+    // gen~ doesn't expose for arbitrary param names.
+    outlet(1, floor);
 }
 
 function emitForModel(modelIdx, bypass, sr) {
