@@ -313,3 +313,138 @@ PYTHONPATH=$HARNESS_TOOLS python3 -m forge_device summary docs/exec-plans/active
 ---
 
 *Phase 2 / 2.5 checkpoint generated 2026-04-27. Continues the Phase 1 trajectory above. Next checkpoint: Phase 5 (release) once manual smoke tests pass.*
+
+---
+
+# tape-loss — Phase 3 Checkpoint: Headless Load-Verifier Unlock
+
+**Date:** 2026-04-28
+**Status:** All 9 module subpatchers load cleanly standalone in headless Max. Integrated `tape-loss-debug.maxpat` reports 7 residual errors (down from ~120 manual report). The .amxd has not yet been validated in Live — that's the **next session's primary goal**.
+**Final m4l-devices commit:** `b8c8e2f`
+**Final harness commit:** `26f4d02` (in `~/raindog/harness/`, branch `feat/max-plugin-quickstart`)
+**Final `.amxd` sha256:** see `device.assembled` event in `tape-loss-audit.ndjson` (rebuilt many times this phase; latest is the source of truth)
+
+---
+
+## Score progression (this phase)
+
+The phase opened with the Phase 2.5 .amxd loading and emitting ~120 console errors despite passing 63/0 JSON-shape verifiers. The unlock was **building a headless Max load-verifier** — pitfall #24 in the harness's catalog. With it driving the iteration loop, we drove the error count down across nine commits:
+
+| Commit | Description | Errors |
+|---|---|---|
+| `bff7716` | Phase 2.5 build (entering this phase) | ~120 |
+| `4e6029a` | Bridge inlet/outlet maxclass fix + verifier built | 47 |
+| `38917c3` | gen~ I/O contracts aligned + verifier hardened against killing user's Max | 37 |
+| `4e3887d` | gen~ `in N` / `out N` operator boxes emitted in inner patcher | 31 |
+| `a808c1e` | Fix D (expr ternary `$i1` substitution), E (JS path/format), F (startwindow) | 31→68→26 |
+| `e0fb25b` | tl_aux→tl_failure audio cycle broken with `[send~]`/`[receive~]` pair | 26 |
+| `810c3a5` | **The big one:** codebox DSL goes in `code` field, not `text` | 20 |
+| `d507be0` | Per-module DSL fixes (Param/History hoist, parens-Param, random()→noise(), delay()→Delay.read/write, tl_dry_mix off-by-one) | 7 |
+| `b8c8e2f` | Final audit ndjson | 7 |
+
+---
+
+## What works now
+
+- **All 9 module subpatchers load cleanly standalone.** `python3 tools/verify_max_load.py device/tape-loss/tl_<name>.maxpat` returns 0 errors for every module.
+- **Headless load-verifier is live in the harness** as `quickstarts/max-plugin/tools/forge_device/load_verifier.py`. Opt-in via `FORGE_LOAD_VERIFY=1` env or `--load-verify` flag. Refuses to run if Max is already running (it killed the user's IDE twice early on; that bug is fixed). Tries Ableton-bundled Max first, then `/Applications/Max.app/Contents/MacOS/Max` standalone.
+- **Pitfall #24 proposal filed** at `~/raindog/harness/docs/product-specs/pitfall-24-headless-load-verifier.md`. Pitfalls #21, #22, #23 also filed and committed in the same batch.
+- **Bridge primitives corrected:** `inlet_box`/`outlet_box` now emit canonical Max format (`maxclass:"inlet"/"outlet"`); `gen_codebox` now emits `in N` / `out N` operator boxes inside the inner patcher AND writes DSL source to the codebox's `code` field (not `text`). Self-tests in `stemforge_bridge.patcher` updated.
+
+---
+
+## What's blocking "device works in Live"
+
+7 errors remain in the integrated `tape-loss-debug.maxpat`:
+
+| # | Errors | Source | Fix path |
+|---|---|---|---|
+| 4 | patchcord OOR (2 in + 2 out) | **Debug-harness wrapper artifact.** `build_debug_patcher` wraps the main patcher as `[p tape-loss]` subpatcher with `numinlets=2, numoutlets=2` — but the main uses `[plugin~]`/`[plugout~]` for I/O, not inlet/outlet boxes. So the subpatcher actually exposes 0 inlets/outlets when nested. The debug wires from `dbg-osc → dbg-device inlet 0/1` and `dbg-device outlet 0/1 → dbg-dac` all OOR. | Rework `build_debug_patcher`: instead of wrapping main, build a separate test signal chain that pulls audio through the same module subpatchers OR drop the debug harness entirely and validate via .amxd-in-Ableton only. |
+| 3 | patchcord OOR (1 in + 2 out) | **Main patcher.** Static analysis of the entire .maxpat (recursive, including gen~ inner patchers) finds zero structural issues, yet Max reports 3 OOR. Likely gen~ runtime resolution behaving differently in the integrated context vs standalone-module loads. | Save a 4-in / 2-out gen~ + codebox patch by hand in Max IDE at `device/_reference/gen-ref.maxpat`. Diff against what `gen_codebox()` emits to find any remaining shape difference. |
+
+**Critical uncertainty:** these 7 errors are observed when loading `tape-loss-debug.maxpat` via `verify_max_load.py`. The actual `.amxd` loaded in Ableton does NOT go through the debug-wrapper layer — Live's M4L runtime loads it directly via plugin~/plugout~. So the 4 debug-harness errors may not affect Ableton at all. The 3 main-patcher errors *will* still surface in Ableton.
+
+---
+
+## Pre-existing TODOs surfaced again this phase (still pending)
+
+- **`tl_flutter` private-buffer divergence** — Phase 1.5 contract called for shared `[buffer~ tape_loss_delay]` between wow + flutter. Current build uses private Delay primitives inside each gen~. Audit `phase15.contract.flag` event documents this. Revisit at v1.
+- **Unused parent-side control wires** — modules where the build script wires UI controls (`dial-saturate`, `dip-drop_bypass`, etc.) to subpatcher inlets that don't connect through to gen~ (because their values are gen Params, not signal-rate inlets). When the device loads, those knobs are visually present but won't affect DSP until a [paramname $1] message routing layer is added. Not a load-blocker, but a Phase 5 calibration TODO.
+- **Calibration round 2** (from project memory `project_tape_loss_character_preferences.md`): failure too crackly, flutter weak at noon, dry-mix wet probe regen. Defer until device loads + plays in Ableton.
+
+---
+
+## Audit-trail pointer
+
+`docs/exec-plans/active/tape-loss-audit.ndjson` is now ~700+ events. The Phase 3 events include many `verifier.max_load_*` entries (from when the load-verifier ran during builds), `phase15.contract.flag` (preserved), and the running per-module structural check events.
+
+```bash
+PYTHONPATH=$HOME/raindog/harness/quickstarts/max-plugin/tools python3 -m forge_device summary docs/exec-plans/active/tape-loss-audit.ndjson
+```
+
+---
+
+## Next-session entry point
+
+> **The next session's primary goal: get a functional `tape-loss.amxd` loaded in Ableton Live with audio passing through.**
+
+### First commands the next agent should run
+
+```bash
+cd /Users/zak/zacharysbrown/m4l-devices
+
+# 1. Verify nothing changed since checkpoint — should match d507be0..b8c8e2f
+git log --oneline | head -5
+
+# 2. Re-run the verifier against the current .amxd / debug.maxpat — should
+#    show ~7 errors. Confirms the loop still works.
+pgrep -f 'App-Resources/Max/Max' || python3 tools/verify_max_load.py device/tape-loss/tape-loss-debug.maxpat
+
+# 3. Run per-module verification — should show all 9 modules at 0 errors.
+for mod in tl_saturate tl_model_eq tl_failure tl_wow tl_flutter tl_aux tl_volume_mix tl_dry_mix tl_noise; do
+  python3 tools/verify_max_load.py --json "device/tape-loss/${mod}.maxpat" 2>&1 \
+    | python3 -c "import json,sys; d=json.load(sys.stdin); print(f'{\"$mod\":<18}: {d.get(\"error_count\")} errors')"
+done
+```
+
+### Recommended path to "functional in Live"
+
+**Step 1: Get `tape-loss.maxpat` to verify-clean.** The 3 unattributed errors in the main patcher are the real load-blocker for Live (the debug-wrapper 4 are not). Two approaches in order of preference:
+
+  - **(a) Save a reference patch first** (60 seconds of clicking in Max IDE): create a new patcher, drop a `[gen~ @title test]` object, double-click in, add `in 1`, `in 2`, `in 3`, `in 4`, `out 1`, `out 2` operator boxes plus a `[codebox]` containing `out1=in1; out2=in2; out1=out1+in3; out1=out1+in4;` (just to reference all four inlets). Save as `device/_reference/gen-ref.maxpat`. Then diff its inner patcher against what `stemforge_bridge.gen_codebox()` emits with `numinlets=4, numoutlets=2`. Any difference is the bug.
+  - **(b) Skip diagnosis and just try the .amxd in Live.** Drop `device/tape-loss/tape-loss.amxd` on an Ableton track. Live's M4L runtime may tolerate the 3 errors silently (they may be "warnings" Max-IDE-only), or may fail audibly. Either way you get information cheaper than diagnosing first.
+
+  My recommendation: **try (b) first**. The 3 errors might be cosmetic in Ableton's loader. ~30 seconds to learn vs ~10 minutes for (a). Drop on track, play test signal (any audio clip), watch Live's status bar / Max console for errors.
+
+**Step 2: If audio passes through but knobs don't work**, that's the unused-parent-control-wires issue — fixable at the build script. Each module that uses gen Params (`Param saturate(0)` style) needs the parent UI control routed via `[prepend <paramname>]` into the gen~ left inlet, not via signal wire. Apply per module.
+
+**Step 3: If audio doesn't pass through at all**, the gen~ codeboxes may compile but not produce output. Most likely cause: the `out1 = ...` / `out2 = ...` assignments in the DSL aren't reaching the right places, or the audio inputs `in1`/`in2` aren't connected to anything Live is actually feeding. Check by replacing one module's DSL with a trivial passthrough (`out1 = in1; out2 = in2;`) and verifying audio appears at that point.
+
+**Step 4: Don't tackle calibration until load is clean.** The "failure too crackly" / "flutter weak at noon" feedback in `project_tape_loss_character_preferences.md` is real but premature.
+
+### Tools the next agent should use
+
+- **`tools/verify_max_load.py`** — already in this repo, fully working. Iterate with this.
+- **`tools/render_fixtures.py`** + **`docs/fixtures-viewer/`** — Phase 1 numpy reference renderer. Don't touch unless calibration is the active task.
+- **`forge_device.load_verifier`** — already promoted into the harness but tape-loss isn't using the harness-version yet (it has its own copy at `tools/verify_max_load.py`). When this device-specific copy diverges from the harness copy, port the local copy back to harness.
+
+### Known footguns
+
+- **The verifier kills any Max process it finds AT THE START via the safety check ("refuse if Max already running"); that's the safe behavior. But if the next agent runs the verifier rapid-fire while the user has Max IDE open, the user's session won't be killed but the verifier will refuse to run.** Always check `pgrep -f 'App-Resources/Max/Max'` first.
+- **`open -a Max` with a path opens the patcher in the Ableton-bundled Max (the same binary used as the M4L runtime).** If the user has standalone Max IDE installed separately, things may behave differently.
+- **The `harness` repo's git state has lots of unrelated untracked files** (.dolt, .env, beads_*, etc.). Only commit explicit tape-loss / max-plugin deliverables; don't `git add -A` over there.
+- **Build determinism:** every `python3 build/build_tape_loss.py` run produces an identical `.amxd` sha256 if the inputs are unchanged. If sha differs after a no-op rebuild, something non-deterministic crept in.
+
+### Memory pointers (in `~/.claude/projects/-Users-zak-zacharysbrown-m4l-devices/memory/`)
+
+Read these in this order on session entry:
+
+1. `MEMORY.md` — index
+2. `reference_phase1_checkpoint.md` — points back at THIS checkpoint file
+3. `feedback_return_to_headless_max_verifier.md` — was a hard deferral; now resolved (verifier built and shipped)
+4. `project_tape_loss_character_preferences.md` — calibration TODOs for after load works
+5. `project_phase2_findings.md` — phase 2 stub state (now obsolete; Phase 2.5 + 3 superseded)
+
+---
+
+*Phase 3 checkpoint generated 2026-04-28. Verifier loop is the durable artifact; the device build is now empirically guided by Max-itself. Next checkpoint: Phase 5 (release) once functional in Live.*
