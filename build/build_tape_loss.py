@@ -928,11 +928,20 @@ def build_main_patcher(spec: dict, module_patches: dict[str, dict]) -> dict:
     # ── Cross-module contracts ──────────────────────────────────────────
 
     # Contract #1: tl_aux outlet 2 (failure_override signal) → tl_failure inlet 7
-    # tl_aux extra outlet is at position 2 (after L,R)
-    lines.append(P.line(
-        module_box_ids["tl_aux"], 2,
-        module_box_ids["tl_failure"], 7,  # the failure_override audio inlet
+    # tl_aux is downstream of tl_failure in the chain, so a direct wire
+    # creates an MSP audio cycle (no 1-sample delay → "MSP object inputs
+    # not satisfied, infinite recursion"). [send~]/[receive~] introduces
+    # the implicit 1-sample feedback delay MSP needs to schedule the cycle.
+    boxes.append(newobj(
+        "fov-send", "send~ tl_failure_override", (40, 360, 180, 22),
+        numinlets=1, numoutlets=0, outlettype=[],
     ))
+    boxes.append(newobj(
+        "fov-recv", "receive~ tl_failure_override", (240, 360, 180, 22),
+        numinlets=1, numoutlets=1, outlettype=["signal"],
+    ))
+    lines.append(P.line(module_box_ids["tl_aux"], 2, "fov-send", 0))
+    lines.append(P.line("fov-recv", 0, module_box_ids["tl_failure"], 7))
 
     # Contract #2: tl_model_eq outlet 2 (pitch_floor_cents) → tl_wow inlet 3
     lines.append(P.line(

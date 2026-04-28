@@ -6341,6 +6341,40 @@
 			},
 			{
 				"box": {
+					"id": "fov-send",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						40,
+						360,
+						180,
+						22
+					],
+					"outlettype": [],
+					"text": "send~ tl_failure_override"
+				}
+			},
+			{
+				"box": {
+					"id": "fov-recv",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 1,
+					"patching_rect": [
+						240,
+						360,
+						180,
+						22
+					],
+					"outlettype": [
+						"signal"
+					],
+					"text": "receive~ tl_failure_override"
+				}
+			},
+			{
+				"box": {
 					"id": "dry-tapin-L",
 					"maxclass": "newobj",
 					"numinlets": 1,
@@ -6922,6 +6956,18 @@
 					"source": [
 						"box-tl_aux",
 						2
+					],
+					"destination": [
+						"fov-send",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"fov-recv",
+						0
 					],
 					"destination": [
 						"box-tl_failure",
