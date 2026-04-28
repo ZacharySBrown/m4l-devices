@@ -80,7 +80,15 @@
 //     design-doc §9 ("Per-vector LFO peak-normalize in Python only").
 // =====================================================================
 
-Param wow 0.0;
+Param wow(0.0);
+History lp1L_a, lp1L_b;   // 0.5 Hz cascade (stages a, b)
+History lp2L_a, lp2L_b;   // 0.7 Hz cascade
+History lp1R_a, lp1R_b;
+History lp2R_a, lp2R_b;
+History lpFL_a, lpFL_b;
+History lpFR_a, lpFR_b;
+
+
 
 // --- Constants -------------------------------------------------------
 
@@ -119,18 +127,12 @@ EPS = 1e-6;
 // uncorrelated L/R LFOs without any seed plumbing.
 
 // Main wow path, channel L — two cascaded 1-pole stages × two cutoffs.
-History lp1L_a, lp1L_b;   // 0.5 Hz cascade (stages a, b)
-History lp2L_a, lp2L_b;   // 0.7 Hz cascade
 
 // Main wow path, channel R.
-History lp1R_a, lp1R_b;
-History lp2R_a, lp2R_b;
 
 // Floor (pitch_floor) path, channel L — single cascaded 1-pole at 0.4 Hz.
-History lpFL_a, lpFL_b;
 
 // Floor path, channel R.
-History lpFR_a, lpFR_b;
 
 // --- Delay buffers ---------------------------------------------------
 //

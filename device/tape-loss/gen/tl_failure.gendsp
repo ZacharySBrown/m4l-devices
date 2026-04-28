@@ -156,10 +156,58 @@
 // them as inlets in compiled @param mode but here they are control values
 // stable across the buffer)
 // -----------------------------------------------------------------------------
-Param drop_bypass 0;
-Param snag_bypass 0;
-Param spread 0;
-Param crinkle_level 0.5;
+Param drop_bypass(0);
+Param snag_bypass(0);
+Param spread(0);
+Param crinkle_level(0.5);
+History snag_countdown_L(0);
+History snag_phase_L(0);
+History snag_phase_left_L(0);
+History snag_hold_n_L(0);
+History snag_peak_off_L(0);
+History snag_countdown_R(0);
+History snag_phase_R(0);
+History snag_phase_left_R(0);
+History snag_hold_n_R(0);
+History snag_peak_off_R(0);
+History flut_chunk_left_L(0);
+History flut_f1_L(30);
+History flut_f2_L(20);
+History flut_phase1_L(0);
+History flut_phase2_L(0);
+History flut_chunk_left_R(0);
+History flut_f1_R(30);
+History flut_f2_R(20);
+History flut_phase1_R(0);
+History flut_phase2_R(0);
+History drop_countdown_L(0);
+History drop_phase_L(0);
+History drop_phase_left_L(0);
+History drop_hold_n_L(0);
+History drop_countdown_R(0);
+History drop_phase_R(0);
+History drop_phase_left_R(0);
+History drop_hold_n_R(0);
+History crinkle_countdown_L(0);
+History crinkle_env_L(0);
+History crinkle_env_phase_L(0);     // 0=idle, 1=attack, 2=release
+History crinkle_env_left_L(0);
+History crinkle_amp_L(0);
+History crinkle_a_n_L(0);
+History crinkle_r_n_L(0);
+History crinkle_countdown_R(0);
+History crinkle_env_R(0);
+History crinkle_env_phase_R(0);
+History crinkle_env_left_R(0);
+History crinkle_amp_R(0);
+History crinkle_a_n_R(0);
+History crinkle_r_n_R(0);
+History bpf_x1_L(0); History bpf_x2_L(0);
+History bpf_y1_L(0); History bpf_y2_L(0);
+History bpf_x1_R(0); History bpf_x2_R(0);
+History bpf_y1_R(0); History bpf_y2_R(0);
+
+
 
 
 // -----------------------------------------------------------------------------
@@ -233,23 +281,18 @@ release_n = max(1, SNAG_RELEASE_MS * 1e-3 * samplerate);
 // =========================
 // Snag scheduler — channel L
 // =========================
-History snag_countdown_L(0);
-History snag_phase_L(0);
-History snag_phase_left_L(0);
-History snag_hold_n_L(0);
-History snag_peak_off_L(0);
 
 // Tick: when phase==0 (idle), decrement countdown; on hit, sample new event.
 // random() returns [0, 1). Use -ln(1-u)/lambda for stable inverse CDF (avoids
 // log(0) when u==0); equivalently sample u_safe = max(u, 1e-12) and use -ln(u).
-u_dt_L = max(random(), 1e-12);
+u_dt_L = max(((noise() + 1.0) * 0.5), 1e-12);
 
 // Compute "next inter-arrival" (in samples) from current effective rate.
 new_dt_L = -log(u_dt_L) * snag_mean_dt_samp;
 
 // Per-event params (sampled at event-fire time):
-u_cents_L = random();   // 0..1 → uniform(0.8, 1.2) below
-u_hold_L  = random();   // 0..1 → uniform(15, 80) ms
+u_cents_L = ((noise() + 1.0) * 0.5);   // 0..1 → uniform(0.8, 1.2) below
+u_hold_L  = ((noise() + 1.0) * 0.5);   // 0..1 → uniform(15, 80) ms
 event_cents_L = (SNAG_CENTS_BASE + SNAG_CENTS_F * effective) * (0.8 + 0.4 * u_cents_L);
 event_hold_n_L = max(1, (SNAG_HOLD_LO_MS + (SNAG_HOLD_HI_MS - SNAG_HOLD_LO_MS) * u_hold_L) * 1e-3 * samplerate);
 event_peak_off_L = (event_cents_L / 1200) * samplerate * SNAG_DELAY_SCALE;
@@ -375,16 +418,11 @@ snag_offset_L = (snag_bypass + short_circuit > 0) ? 0 : snag_offset_L;
 // History instances. Under spread=0, the routing stage below ignores
 // snag_offset_R and broadcasts snag_offset_L to both delay reads.
 
-History snag_countdown_R(0);
-History snag_phase_R(0);
-History snag_phase_left_R(0);
-History snag_hold_n_R(0);
-History snag_peak_off_R(0);
 
-u_dt_R = max(random(), 1e-12);
+u_dt_R = max(((noise() + 1.0) * 0.5), 1e-12);
 new_dt_R = -log(u_dt_R) * snag_mean_dt_samp;
-u_cents_R = random();
-u_hold_R = random();
+u_cents_R = ((noise() + 1.0) * 0.5);
+u_hold_R = ((noise() + 1.0) * 0.5);
 event_cents_R = (SNAG_CENTS_BASE + SNAG_CENTS_F * effective) * (0.8 + 0.4 * u_cents_R);
 event_hold_n_R = max(1, (SNAG_HOLD_LO_MS + (SNAG_HOLD_HI_MS - SNAG_HOLD_LO_MS) * u_hold_R) * 1e-3 * samplerate);
 event_peak_off_R = (event_cents_R / 1200) * samplerate * SNAG_DELAY_SCALE;
@@ -493,18 +531,13 @@ flut_depth = 0.35 * effective;
 flut_chunk_n = max(64, 0.05 * samplerate);   // 50 ms
 
 // ---- L ----
-History flut_chunk_left_L(0);
-History flut_f1_L(30);
-History flut_f2_L(20);
-History flut_phase1_L(0);
-History flut_phase2_L(0);
 
 // Re-roll rates when chunk countdown hits 0. f1 ∈ uniform(20, 60+60*f),
 // f2 = uniform(20, 60+60*f) * 0.7  (matching numpy ref decorrelation factor).
 flut_chunk_dec_L = flut_chunk_left_L - 1;
 flut_reroll_L = flut_chunk_dec_L <= 0;
-u_f1_L = random();
-u_f2_L = random();
+u_f1_L = ((noise() + 1.0) * 0.5);
+u_f2_L = ((noise() + 1.0) * 0.5);
 new_f1_L = 20 + (40 + 60 * effective) * u_f1_L;
 new_f2_L = (20 + (40 + 60 * effective) * u_f2_L) * 0.7;
 
@@ -523,16 +556,11 @@ flut_mod_L = 1 + flut_depth * flut_mod_L_raw;
 // When effective==0 (depth=0), this naturally collapses to 1.0 (no AM).
 
 // ---- R ----
-History flut_chunk_left_R(0);
-History flut_f1_R(30);
-History flut_f2_R(20);
-History flut_phase1_R(0);
-History flut_phase2_R(0);
 
 flut_chunk_dec_R = flut_chunk_left_R - 1;
 flut_reroll_R = flut_chunk_dec_R <= 0;
-u_f1_R = random();
-u_f2_R = random();
+u_f1_R = ((noise() + 1.0) * 0.5);
+u_f2_R = ((noise() + 1.0) * 0.5);
 new_f1_R = 20 + (40 + 60 * effective) * u_f1_R;
 new_f2_R = (20 + (40 + 60 * effective) * u_f2_R) * 0.7;
 
@@ -583,14 +611,10 @@ drop_mean_dt_samp = samplerate / drop_lambda_safe;
 drop_ramp_n = max(1, DROP_RAMP_MS * 1e-3 * samplerate);
 
 // ---- L ----
-History drop_countdown_L(0);
-History drop_phase_L(0);
-History drop_phase_left_L(0);
-History drop_hold_n_L(0);
 
-u_drop_dt_L = max(random(), 1e-12);
+u_drop_dt_L = max(((noise() + 1.0) * 0.5), 1e-12);
 new_drop_dt_L = -log(u_drop_dt_L) * drop_mean_dt_samp;
-u_drop_dur_L = random();
+u_drop_dur_L = ((noise() + 1.0) * 0.5);
 event_drop_dur_n_L = (DROP_DUR_BASE_MS + DROP_DUR_F_MS * effective) * (0.7 + 0.6 * u_drop_dur_L) * 1e-3 * samplerate;
 // Hold = total - 2*ramp. Numpy clamps total >= 2*ramp+1; same here.
 event_drop_hold_n_L = max(1, event_drop_dur_n_L - 2 * drop_ramp_n);
@@ -661,14 +685,10 @@ drop_env_L = (drop_bypass + short_circuit > 0) ? 1 : drop_env_L;
 
 
 // ---- R ----
-History drop_countdown_R(0);
-History drop_phase_R(0);
-History drop_phase_left_R(0);
-History drop_hold_n_R(0);
 
-u_drop_dt_R = max(random(), 1e-12);
+u_drop_dt_R = max(((noise() + 1.0) * 0.5), 1e-12);
 new_drop_dt_R = -log(u_drop_dt_R) * drop_mean_dt_samp;
-u_drop_dur_R = random();
+u_drop_dur_R = ((noise() + 1.0) * 0.5);
 event_drop_dur_n_R = (DROP_DUR_BASE_MS + DROP_DUR_F_MS * effective) * (0.7 + 0.6 * u_drop_dur_R) * 1e-3 * samplerate;
 event_drop_hold_n_R = max(1, event_drop_dur_n_R - 2 * drop_ramp_n);
 
@@ -797,18 +817,11 @@ crinkle_lambda_safe = max(crinkle_rate_per_sec, 1e-9);
 crinkle_mean_dt_samp = samplerate / crinkle_lambda_safe;
 
 // ---- L ----
-History crinkle_countdown_L(0);
-History crinkle_env_L(0);
-History crinkle_env_phase_L(0);     // 0=idle, 1=attack, 2=release
-History crinkle_env_left_L(0);
-History crinkle_amp_L(0);
-History crinkle_a_n_L(0);
-History crinkle_r_n_L(0);
 
-u_cr_dt_L = max(random(), 1e-12);
+u_cr_dt_L = max(((noise() + 1.0) * 0.5), 1e-12);
 new_cr_dt_L = -log(u_cr_dt_L) * crinkle_mean_dt_samp;
-u_cr_amp_L = random();
-u_cr_dur_L = random();
+u_cr_amp_L = ((noise() + 1.0) * 0.5);
+u_cr_dur_L = ((noise() + 1.0) * 0.5);
 event_cr_amp_L = CRINKLE_AMP_LO + (CRINKLE_AMP_HI - CRINKLE_AMP_LO) * u_cr_amp_L;
 event_cr_dur_n_L = max(2, (CRINKLE_DUR_LO_MS + (CRINKLE_DUR_HI_MS - CRINKLE_DUR_LO_MS) * u_cr_dur_L) * 1e-3 * samplerate);
 event_cr_a_n_L = max(1, event_cr_dur_n_L * 0.25);
@@ -883,18 +896,11 @@ crinkle_env_L = crinkle_env_value_L;
 cr_noise_L = noise() * crinkle_env_L;
 
 // ---- R ----
-History crinkle_countdown_R(0);
-History crinkle_env_R(0);
-History crinkle_env_phase_R(0);
-History crinkle_env_left_R(0);
-History crinkle_amp_R(0);
-History crinkle_a_n_R(0);
-History crinkle_r_n_R(0);
 
-u_cr_dt_R = max(random(), 1e-12);
+u_cr_dt_R = max(((noise() + 1.0) * 0.5), 1e-12);
 new_cr_dt_R = -log(u_cr_dt_R) * crinkle_mean_dt_samp;
-u_cr_amp_R = random();
-u_cr_dur_R = random();
+u_cr_amp_R = ((noise() + 1.0) * 0.5);
+u_cr_dur_R = ((noise() + 1.0) * 0.5);
 event_cr_amp_R = CRINKLE_AMP_LO + (CRINKLE_AMP_HI - CRINKLE_AMP_LO) * u_cr_amp_R;
 event_cr_dur_n_R = max(2, (CRINKLE_DUR_LO_MS + (CRINKLE_DUR_HI_MS - CRINKLE_DUR_LO_MS) * u_cr_dur_R) * 1e-3 * samplerate);
 event_cr_a_n_R = max(1, event_cr_dur_n_R * 0.25);
@@ -974,8 +980,6 @@ bpf_a1 = (-2 * bpf_cos_w0) / bpf_a0;
 bpf_a2 = (1 - bpf_alpha) / bpf_a0;
 
 // Direct Form I biquad, channel L.
-History bpf_x1_L(0); History bpf_x2_L(0);
-History bpf_y1_L(0); History bpf_y2_L(0);
 
 bpf_y_L_raw = bpf_b0 * cr_noise_L + bpf_b1 * bpf_x1_L + bpf_b2 * bpf_x2_L
               - bpf_a1 * bpf_y1_L - bpf_a2 * bpf_y2_L;
@@ -991,8 +995,6 @@ bpf_y1_L = bpf_y_L;
 crinkle_out_L = (bpf_y_L / CRINKLE_PEAK_EST) * CRINKLE_HEADROOM * crinkle_level;
 
 // Direct Form I biquad, channel R.
-History bpf_x1_R(0); History bpf_x2_R(0);
-History bpf_y1_R(0); History bpf_y2_R(0);
 
 bpf_y_R_raw = bpf_b0 * cr_noise_R + bpf_b1 * bpf_x1_R + bpf_b2 * bpf_x2_R
               - bpf_a1 * bpf_y1_R - bpf_a2 * bpf_y2_R;

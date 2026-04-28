@@ -183,7 +183,13 @@
 //     gain compensation choices encoded here verbatim.
 // =====================================================================
 
-Param aux_mode 0;
+Param aux_mode(0);
+History env_e;
+History stop_read_pos;
+History svf_ic1_L, svf_ic2_L;
+History svf_ic1_R, svf_ic2_R;
+
+
 
 // --- Constants -------------------------------------------------------
 
@@ -223,7 +229,6 @@ MODE_FAIL_ID   = 2;
 // --- State (History + Delay) -----------------------------------------
 
 // Shared onset envelope state — single e[n] consumed by all three modes.
-History env_e;
 
 // STOP mode: stereo circular buffers (262144 samples each ≈ 5.46 s @ 48k,
 // covers max 3000 ms onset × 1.5 headroom per design-doc §1.4 / tradeoff
@@ -233,12 +238,9 @@ Delay stopbuf_R(262144);
 
 // STOP mode: fractional read-head delay (samples behind the writer).
 // 0 = read = current write = identity passthrough.
-History stop_read_pos;
 
 // FILTER mode: TPT-SVF integrator state, separate per channel
 // (Simper/Zavalishin "ic1eq, ic2eq").
-History svf_ic1_L, svf_ic2_L;
-History svf_ic1_R, svf_ic2_R;
 
 // =====================================================================
 // Per-sample DSP

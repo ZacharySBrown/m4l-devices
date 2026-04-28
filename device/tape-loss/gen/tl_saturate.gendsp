@@ -154,30 +154,78 @@
 // Parameter declarations
 // -----------------------------------------------------------------------------
 
-// saturate (in3) and input_gain (in4) come via signal-rate inlets from
-// the parent maxpat (dial-saturate → subpatcher inlet 2 → gen~ inlet 2,
-// tab-input_gain → subpatcher inlet 3 → gen~ inlet 3). These are
-// per-sample control values; they vary continuously when the user
-// touches the knob, but are otherwise constant.
-saturate = in3;
-input_gain = in4;
-
 // Pre-emphasis biquad coefficients (44.1 kHz; hot-swappable via [js])
 Param pre_b0(1.4796626808353215);
 Param pre_b1(-2.168322256291102);
 Param pre_b2(0.857216222713986);
 Param pre_a1(-1.3370165564518925);
 Param pre_a2(0.5055732037100982);
-
-// De-emphasis biquad coefficients (44.1 kHz; hot-swappable via [js])
 Param de_b0(0.6758297096710346);
 Param de_b1(-0.9035955111722491);
 Param de_b2(0.3416813914808506);
 Param de_a1(-1.4654166009424578);
 Param de_a2(0.5793321909220942);
+Param dcr_R(0.9971545388743885);
+History pre_x1_L(0.0);
+History pre_x2_L(0.0);
+History pre_y1_L(0.0);
+History pre_y2_L(0.0);
+History uxL_0(0.0); History uxL_1(0.0); History uxL_2(0.0); History uxL_3(0.0);
+History uxL_4(0.0); History uxL_5(0.0); History uxL_6(0.0); History uxL_7(0.0);
+History uxL_8(0.0); History uxL_9(0.0); History uxL_10(0.0); History uxL_11(0.0);
+History uxL_12(0.0); History uxL_13(0.0); History uxL_14(0.0);
+History uxL_15(0.0);
+History dxL_0(0.0);  History dxL_1(0.0);  History dxL_2(0.0);  History dxL_3(0.0);
+History dxL_4(0.0);  History dxL_5(0.0);  History dxL_6(0.0);  History dxL_7(0.0);
+History dxL_8(0.0);  History dxL_9(0.0);  History dxL_10(0.0); History dxL_11(0.0);
+History dxL_12(0.0); History dxL_13(0.0); History dxL_14(0.0); History dxL_15(0.0);
+History dxL_16(0.0); History dxL_17(0.0); History dxL_18(0.0); History dxL_19(0.0);
+History dxL_20(0.0); History dxL_21(0.0); History dxL_22(0.0); History dxL_23(0.0);
+History dxL_24(0.0); History dxL_25(0.0); History dxL_26(0.0); History dxL_27(0.0);
+History dxL_28(0.0); History dxL_29(0.0); History dxL_30(0.0);
+History de_x1_L(0.0); History de_x2_L(0.0);
+History de_y1_L(0.0); History de_y2_L(0.0);
+History dc_x1_L(0.0);
+History dc_y1_L(0.0);
+History pre_x1_R(0.0);
+History pre_x2_R(0.0);
+History pre_y1_R(0.0);
+History pre_y2_R(0.0);
+History uxR_0(0.0); History uxR_1(0.0); History uxR_2(0.0); History uxR_3(0.0);
+History uxR_4(0.0); History uxR_5(0.0); History uxR_6(0.0); History uxR_7(0.0);
+History uxR_8(0.0); History uxR_9(0.0); History uxR_10(0.0); History uxR_11(0.0);
+History uxR_12(0.0); History uxR_13(0.0); History uxR_14(0.0); History uxR_15(0.0);
+History dxR_0(0.0);  History dxR_1(0.0);  History dxR_2(0.0);  History dxR_3(0.0);
+History dxR_4(0.0);  History dxR_5(0.0);  History dxR_6(0.0);  History dxR_7(0.0);
+History dxR_8(0.0);  History dxR_9(0.0);  History dxR_10(0.0); History dxR_11(0.0);
+History dxR_12(0.0); History dxR_13(0.0); History dxR_14(0.0); History dxR_15(0.0);
+History dxR_16(0.0); History dxR_17(0.0); History dxR_18(0.0); History dxR_19(0.0);
+History dxR_20(0.0); History dxR_21(0.0); History dxR_22(0.0); History dxR_23(0.0);
+History dxR_24(0.0); History dxR_25(0.0); History dxR_26(0.0); History dxR_27(0.0);
+History dxR_28(0.0); History dxR_29(0.0); History dxR_30(0.0);
+History de_x1_R(0.0); History de_x2_R(0.0);
+History de_y1_R(0.0); History de_y2_R(0.0);
+History dc_x1_R(0.0);
+History dc_y1_R(0.0);
+
+
+
+// De-emphasis biquad coefficients (44.1 kHz; hot-swappable via [js])
 
 // DC blocker pole radius (44.1 kHz; hot-swappable via [js])
-Param dcr_R(0.9971545388743885);
+
+// -----------------------------------------------------------------------------
+// Inlet bindings — saturate and input_gain come via signal-rate inlets from
+// the parent maxpat (dial-saturate → subpatcher inlet 2 → gen~ inlet 2,
+// tab-input_gain → subpatcher inlet 3 → gen~ inlet 3). Per-sample control
+// values that vary continuously when the user touches the knob.
+//
+// IMPORTANT: gen~ requires all declarations (Param/History/Buffer) to
+// precede any expressions. These assignments must therefore live *after*
+// the Param block above.
+// -----------------------------------------------------------------------------
+saturate = in3;
+input_gain = in4;
 
 // -----------------------------------------------------------------------------
 // Halfband FIR taps (31 taps, Kaiser beta=8.0, sample-rate-independent)
@@ -244,10 +292,6 @@ is_bypass = (saturate <= 0.0);
 xL = in1 * g_in;
 
 // Stage 2: pre-emphasis biquad (Direct Form I)
-History pre_x1_L(0.0);
-History pre_x2_L(0.0);
-History pre_y1_L(0.0);
-History pre_y2_L(0.0);
 
 pre_yL = pre_b0*xL + pre_b1*pre_x1_L + pre_b2*pre_x2_L
        - pre_a1*pre_y1_L - pre_a2*pre_y2_L;
@@ -273,10 +317,6 @@ pre_y1_L = pre_yL;
 //   y_odd[2n+1]  = sum over odd k:  h[k] * x[n - floor((k-1)/2)]
 // We then double both samples (to match the ref's *2.0 normalization).
 
-History uxL_0(0.0); History uxL_1(0.0); History uxL_2(0.0); History uxL_3(0.0);
-History uxL_4(0.0); History uxL_5(0.0); History uxL_6(0.0); History uxL_7(0.0);
-History uxL_8(0.0); History uxL_9(0.0); History uxL_10(0.0); History uxL_11(0.0);
-History uxL_12(0.0); History uxL_13(0.0); History uxL_14(0.0);
 
 // Even-phase output  (sample @ time 2n)
 //   delay 7 from current input  -> x[n-7]  -> uxL_6 (since after the shift below
@@ -288,7 +328,6 @@ History uxL_12(0.0); History uxL_13(0.0); History uxL_14(0.0);
 // We need x[n-15] for the lower bound of the odd-phase sum. Easiest to use
 // 16 delays. But we already have 15 here. Add one more:
 
-History uxL_15(0.0);
 
 // Even phase: tap h[15] * x[n-7]  with *2.0 normalization
 yEven_L = 2.0 * hb_15 * uxL_7;
@@ -357,14 +396,6 @@ uxL_0  = pre_yL;
 // Push order each sample: even sample (older time index), then odd sample
 // (newer). After both pushes, output one native sample = sum h[k]*v[k].
 
-History dxL_0(0.0);  History dxL_1(0.0);  History dxL_2(0.0);  History dxL_3(0.0);
-History dxL_4(0.0);  History dxL_5(0.0);  History dxL_6(0.0);  History dxL_7(0.0);
-History dxL_8(0.0);  History dxL_9(0.0);  History dxL_10(0.0); History dxL_11(0.0);
-History dxL_12(0.0); History dxL_13(0.0); History dxL_14(0.0); History dxL_15(0.0);
-History dxL_16(0.0); History dxL_17(0.0); History dxL_18(0.0); History dxL_19(0.0);
-History dxL_20(0.0); History dxL_21(0.0); History dxL_22(0.0); History dxL_23(0.0);
-History dxL_24(0.0); History dxL_25(0.0); History dxL_26(0.0); History dxL_27(0.0);
-History dxL_28(0.0); History dxL_29(0.0); History dxL_30(0.0);
 
 // Push the two oversampled-shaped samples (FIFO, oldest off the back).
 // Two-sample shift in one go. Because the decimator outputs every other
@@ -407,8 +438,6 @@ yDecim_L =
     + hb_13 * (dxL_13 + dxL_17);
 
 // Stage 6: de-emphasis biquad (Direct Form I)
-History de_x1_L(0.0); History de_x2_L(0.0);
-History de_y1_L(0.0); History de_y2_L(0.0);
 
 de_yL = de_b0*yDecim_L + de_b1*de_x1_L + de_b2*de_x2_L
       - de_a1*de_y1_L - de_a2*de_y2_L;
@@ -420,8 +449,6 @@ de_y2_L = de_y1_L;
 de_y1_L = de_yL;
 
 // Stage 7: DC blocker  y[n] = x[n] - x[n-1] + R*y[n-1]
-History dc_x1_L(0.0);
-History dc_y1_L(0.0);
 
 dc_yL = de_yL - dc_x1_L + dcr_R * dc_y1_L;
 dc_x1_L = de_yL;
@@ -446,10 +473,6 @@ out1 = is_bypass * y_dry_L + (1.0 - is_bypass) * y_wet_L;
 
 xR = in2 * g_in;
 
-History pre_x1_R(0.0);
-History pre_x2_R(0.0);
-History pre_y1_R(0.0);
-History pre_y2_R(0.0);
 
 pre_yR = pre_b0*xR + pre_b1*pre_x1_R + pre_b2*pre_x2_R
        - pre_a1*pre_y1_R - pre_a2*pre_y2_R;
@@ -460,10 +483,6 @@ pre_x1_R = xR;
 pre_y2_R = pre_y1_R;
 pre_y1_R = pre_yR;
 
-History uxR_0(0.0); History uxR_1(0.0); History uxR_2(0.0); History uxR_3(0.0);
-History uxR_4(0.0); History uxR_5(0.0); History uxR_6(0.0); History uxR_7(0.0);
-History uxR_8(0.0); History uxR_9(0.0); History uxR_10(0.0); History uxR_11(0.0);
-History uxR_12(0.0); History uxR_13(0.0); History uxR_14(0.0); History uxR_15(0.0);
 
 yEven_R = 2.0 * hb_15 * uxR_7;
 
@@ -503,14 +522,6 @@ uxR_2  = uxR_1;
 uxR_1  = uxR_0;
 uxR_0  = pre_yR;
 
-History dxR_0(0.0);  History dxR_1(0.0);  History dxR_2(0.0);  History dxR_3(0.0);
-History dxR_4(0.0);  History dxR_5(0.0);  History dxR_6(0.0);  History dxR_7(0.0);
-History dxR_8(0.0);  History dxR_9(0.0);  History dxR_10(0.0); History dxR_11(0.0);
-History dxR_12(0.0); History dxR_13(0.0); History dxR_14(0.0); History dxR_15(0.0);
-History dxR_16(0.0); History dxR_17(0.0); History dxR_18(0.0); History dxR_19(0.0);
-History dxR_20(0.0); History dxR_21(0.0); History dxR_22(0.0); History dxR_23(0.0);
-History dxR_24(0.0); History dxR_25(0.0); History dxR_26(0.0); History dxR_27(0.0);
-History dxR_28(0.0); History dxR_29(0.0); History dxR_30(0.0);
 
 dxR_30 = dxR_28; dxR_29 = dxR_27;
 dxR_28 = dxR_26; dxR_27 = dxR_25;
@@ -540,8 +551,6 @@ yDecim_R =
     + hb_11 * (dxR_11 + dxR_19)
     + hb_13 * (dxR_13 + dxR_17);
 
-History de_x1_R(0.0); History de_x2_R(0.0);
-History de_y1_R(0.0); History de_y2_R(0.0);
 
 de_yR = de_b0*yDecim_R + de_b1*de_x1_R + de_b2*de_x2_R
       - de_a1*de_y1_R - de_a2*de_y2_R;
@@ -552,8 +561,6 @@ de_x1_R = yDecim_R;
 de_y2_R = de_y1_R;
 de_y1_R = de_yR;
 
-History dc_x1_R(0.0);
-History dc_y1_R(0.0);
 
 dc_yR = de_yR - dc_x1_R + dcr_R * dc_y1_R;
 dc_x1_R = de_yR;

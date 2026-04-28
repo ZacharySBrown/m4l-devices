@@ -186,6 +186,33 @@ Param noise_mode(0);
 Param hiss_level(0.5);
 Param mechanical_level(0.5);
 Param hum_bypass(0);
+History pinkCounter(0.0);
+History pBinL_0(0.0);  History pBinL_1(0.0);  History pBinL_2(0.0);  History pBinL_3(0.0);
+History pBinL_4(0.0);  History pBinL_5(0.0);  History pBinL_6(0.0);  History pBinL_7(0.0);
+History pBinL_8(0.0);  History pBinL_9(0.0);  History pBinL_10(0.0); History pBinL_11(0.0);
+History pBinL_12(0.0); History pBinL_13(0.0); History pBinL_14(0.0); History pBinL_15(0.0);
+History pBinR_0(0.0);  History pBinR_1(0.0);  History pBinR_2(0.0);  History pBinR_3(0.0);
+History pBinR_4(0.0);  History pBinR_5(0.0);  History pBinR_6(0.0);  History pBinR_7(0.0);
+History pBinR_8(0.0);  History pBinR_9(0.0);  History pBinR_10(0.0); History pBinR_11(0.0);
+History pBinR_12(0.0); History pBinR_13(0.0); History pBinR_14(0.0); History pBinR_15(0.0);
+History hpfL_x1(0.0); History hpfL_x2(0.0);
+History hpfL_y1(0.0); History hpfL_y2(0.0);
+History lpfL_x1(0.0); History lpfL_x2(0.0);
+History lpfL_y1(0.0); History lpfL_y2(0.0);
+History hpfR_x1(0.0); History hpfR_x2(0.0);
+History hpfR_y1(0.0); History hpfR_y2(0.0);
+History lpfR_x1(0.0); History lpfR_x2(0.0);
+History lpfR_y1(0.0); History lpfR_y2(0.0);
+History vcrL_x1(0.0); History vcrL_x2(0.0);
+History vcrL_y1(0.0); History vcrL_y2(0.0);
+History vcrR_x1(0.0); History vcrR_x2(0.0);
+History vcrR_y1(0.0); History vcrR_y2(0.0);
+History amL_a(0.0); History amL_b(0.0);
+History amR_a(0.0); History amR_b(0.0);
+History humPh1(0.0); History humPh2(0.0); History humPh3(0.0);
+History humPh4(0.0); History humPh5(0.0); History humPh7(0.0);
+
+
 
 // ---------------------------------------------------------------------
 // Constants
@@ -288,7 +315,6 @@ hiss_gain = hl * hl * HISS_TARGET_PEAK_AMP;
 // ---------------------------------------------------------------------
 
 // --- Counter (shared) ---
-History pinkCounter(0.0);
 
 // Advance counter once per sample, modulo 65536 (= 2^16). The bin index
 // repeats with period 2^16 samples (~1.486 s @ 44.1 kHz) which is
@@ -356,10 +382,6 @@ PINK_NORM = 0.25;
 
 // --- Pink generator macro for L channel ---
 
-History pBinL_0(0.0);  History pBinL_1(0.0);  History pBinL_2(0.0);  History pBinL_3(0.0);
-History pBinL_4(0.0);  History pBinL_5(0.0);  History pBinL_6(0.0);  History pBinL_7(0.0);
-History pBinL_8(0.0);  History pBinL_9(0.0);  History pBinL_10(0.0); History pBinL_11(0.0);
-History pBinL_12(0.0); History pBinL_13(0.0); History pBinL_14(0.0); History pBinL_15(0.0);
 
 // Sixteen independent noise() draws (decorrelated by call site).
 nL_0  = noise();  nL_1  = noise();  nL_2  = noise();  nL_3  = noise();
@@ -400,10 +422,6 @@ pinkL = (pBinL_0  + pBinL_1  + pBinL_2  + pBinL_3
 
 // --- Pink generator macro for R channel (independent noise() streams) ---
 
-History pBinR_0(0.0);  History pBinR_1(0.0);  History pBinR_2(0.0);  History pBinR_3(0.0);
-History pBinR_4(0.0);  History pBinR_5(0.0);  History pBinR_6(0.0);  History pBinR_7(0.0);
-History pBinR_8(0.0);  History pBinR_9(0.0);  History pBinR_10(0.0); History pBinR_11(0.0);
-History pBinR_12(0.0); History pBinR_13(0.0); History pBinR_14(0.0); History pBinR_15(0.0);
 
 nR_0  = noise();  nR_1  = noise();  nR_2  = noise();  nR_3  = noise();
 nR_4  = noise();  nR_5  = noise();  nR_6  = noise();  nR_7  = noise();
@@ -483,8 +501,6 @@ vcr_a2     = (1.0 - vcr_alpha)         / vcr_a0;
 // =====================================================================
 
 // --- HPF Channel L ---
-History hpfL_x1(0.0); History hpfL_x2(0.0);
-History hpfL_y1(0.0); History hpfL_y2(0.0);
 
 hpfL_y = hpf_b0*pinkL + hpf_b1*hpfL_x1 + hpf_b2*hpfL_x2
        - hpf_a1*hpfL_y1 - hpf_a2*hpfL_y2;
@@ -496,8 +512,6 @@ hpfL_y2 = hpfL_y1;
 hpfL_y1 = hpfL_y;
 
 // --- LPF Channel L ---
-History lpfL_x1(0.0); History lpfL_x2(0.0);
-History lpfL_y1(0.0); History lpfL_y2(0.0);
 
 lpfL_y = lpf_b0*hpfL_y + lpf_b1*lpfL_x1 + lpf_b2*lpfL_x2
        - lpf_a1*lpfL_y1 - lpf_a2*lpfL_y2;
@@ -511,8 +525,6 @@ lpfL_y1 = lpfL_y;
 shapedHissL = lpfL_y;
 
 // --- HPF Channel R ---
-History hpfR_x1(0.0); History hpfR_x2(0.0);
-History hpfR_y1(0.0); History hpfR_y2(0.0);
 
 hpfR_y = hpf_b0*pinkR + hpf_b1*hpfR_x1 + hpf_b2*hpfR_x2
        - hpf_a1*hpfR_y1 - hpf_a2*hpfR_y2;
@@ -524,8 +536,6 @@ hpfR_y2 = hpfR_y1;
 hpfR_y1 = hpfR_y;
 
 // --- LPF Channel R ---
-History lpfR_x1(0.0); History lpfR_x2(0.0);
-History lpfR_y1(0.0); History lpfR_y2(0.0);
 
 lpfR_y = lpf_b0*hpfR_y + lpf_b1*lpfR_x1 + lpf_b2*lpfR_x2
        - lpf_a1*lpfR_y1 - lpf_a2*lpfR_y2;
@@ -554,8 +564,6 @@ whiteVcrL = noise() * SQRT3;   // U(-1,1) -> match unit-variance scale
 whiteVcrR = noise() * SQRT3;
 
 // --- VCR LPF Channel L (Direct Form I) ---
-History vcrL_x1(0.0); History vcrL_x2(0.0);
-History vcrL_y1(0.0); History vcrL_y2(0.0);
 
 vcrLpfL = vcr_b0*whiteVcrL + vcr_b1*vcrL_x1 + vcr_b2*vcrL_x2
         - vcr_a1*vcrL_y1   - vcr_a2*vcrL_y2;
@@ -567,8 +575,6 @@ vcrL_y2 = vcrL_y1;
 vcrL_y1 = vcrLpfL;
 
 // --- VCR LPF Channel R ---
-History vcrR_x1(0.0); History vcrR_x2(0.0);
-History vcrR_y1(0.0); History vcrR_y2(0.0);
 
 vcrLpfR = vcr_b0*whiteVcrR + vcr_b1*vcrR_x1 + vcr_b2*vcrR_x2
         - vcr_a1*vcrR_y1   - vcr_a2*vcrR_y2;
@@ -588,14 +594,12 @@ vcrR = vcrLpfR * VCR_GAIN_FIX;
 // Coefficient: a = 1 - exp(-2*pi*fc/sr).
 am_a = 1.0 - exp(-TWO_PI * VCR_AM_LFO_HZ / samplerate);
 
-History amL_a(0.0); History amL_b(0.0);
 nAmL = noise();                               // independent stream
 amL_a = amL_a + am_a * (nAmL  - amL_a);
 amL_b = amL_b + am_a * (amL_a - amL_b);       // 12 dB/oct cascade
 walkL = clamp(amL_b, -1.0, 1.0);
 amMultL = VCR_AM_CENTER + (VCR_AM_DEPTH * 0.5) * walkL;
 
-History amR_a(0.0); History amR_b(0.0);
 nAmR = noise();
 amR_a = amR_a + am_a * (nAmR  - amR_a);
 amR_b = amR_b + am_a * (amR_a - amR_b);
@@ -622,8 +626,6 @@ phinc4 = TWO_PI * (HUM_FUNDAMENTAL_HZ * 4.0) / samplerate;
 phinc5 = TWO_PI * (HUM_FUNDAMENTAL_HZ * 5.0) / samplerate;
 phinc7 = TWO_PI * (HUM_FUNDAMENTAL_HZ * 7.0) / samplerate;
 
-History humPh1(0.0); History humPh2(0.0); History humPh3(0.0);
-History humPh4(0.0); History humPh5(0.0); History humPh7(0.0);
 
 // Advance + wrap to [-pi, pi].
 nph1 = humPh1 + phinc1;
