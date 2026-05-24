@@ -429,29 +429,199 @@ function bypassFx() {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  LiveAPI Helpers
+//  LiveAPI Integration
 // ═══════════════════════════════════════════════════════════
 
 var liveApi = null;
+var stemTrackIds = {};   // stemName -> Live track id path
+var stemTrackIndices = {}; // stemName -> track index in live_set
 
 function initLiveApi() {
     try {
         liveApi = new LiveAPI("live_set");
+        post("setforge-loader: LiveAPI ready, tracks=" + liveApi.get("tracks").length + "\n");
     } catch (e) {
         post("setforge-loader: LiveAPI init failed: " + e + "\n");
     }
 }
 
+/**
+ * Find or create audio tracks for the 4 stems.
+ * Track names: "sf-drums", "sf-bass", "sf-other", "sf-vox"
+ */
+function ensureStemTracks() {
+    if (!liveApi) { post("setforge-loader: no LiveAPI\n"); return false; }
+
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var trackName = "sf-" + stem;
+        var trackIdx = findTrackByName(trackName);
+
+        if (trackIdx < 0) {
+            // Create the track
+            post("setforge-loader: creating track '" + trackName + "'\n");
+            try {
+                var numTracks = liveApi.get("tracks").length / 2; // id pairs
+                liveApi.call("create_audio_track", numTracks);
+                // Newly created track is at the end
+                trackIdx = findTrackByName(""); // find unnamed
+                if (trackIdx >= 0) {
+                    var tApi = new LiveAPI("live_set tracks " + trackIdx);
+                    tApi.set("name", trackName);
+                    post("setforge-loader: created track '" + trackName + "' at index " + trackIdx + "\n");
+                }
+            } catch (e) {
+                post("setforge-loader: error creating track: " + e + "\n");
+                continue;
+            }
+        } else {
+            post("setforge-loader: found track '" + trackName + "' at index " + trackIdx + "\n");
+        }
+
+        stemTrackIndices[stem] = trackIdx;
+        stemTrackIds[stem] = "live_set tracks " + trackIdx;
+    }
+    return true;
+}
+
+function findTrackByName(name) {
+    if (!liveApi) return -1;
+    try {
+        var trackIds = liveApi.get("tracks");
+        // trackIds is flat array of [id, "id", id, "id", ...]
+        var numTracks = trackIds.length / 2;
+        for (var i = 0; i < numTracks; i++) {
+            var tApi = new LiveAPI("live_set tracks " + i);
+            var tName = tApi.get("name").toString();
+            if (tName === name) return i;
+        }
+    } catch (e) {
+        post("setforge-loader: findTrackByName error: " + e + "\n");
+    }
+    return -1;
+}
+
+/**
+ * Load clips into stem tracks for a preset.
+ * Each stem gets 8 clip slots (one per chop column).
+ */
+function loadClipsForPreset(slotIndex) {
+    var slot = presetSlots[slotIndex];
+    if (!slot || !slot.chops) return;
+
+    post("setforge-loader: loading clips for preset " + slotIndex + " (" + slot.trackId + ")\n");
+
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var chopList = slot.chops[stem];
+        if (!chopList) {
+            post("  " + stem + ": no stems\n");
+            continue;
+        }
+
+        var trackPath = stemTrackIds[stem];
+        if (!trackPath) {
+            post("  " + stem + ": no track created\n");
+            continue;
+        }
+
+        var loaded = 0;
+        for (var c = 0; c < chopList.length; c++) {
+            var chop = chopList[c];
+            if (chop.disabled) continue;
+
+            // Each preset gets its own clip slot range: slotIndex * 8 + column
+            var clipSlot = slotIndex * NUM_CHOPS + (chop.column - 1);
+
+            try {
+                var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
+
+                // Check if file exists before trying to load
+                var stemFile = new File(chop.stemPath, "r");
+                if (stemFile.isopen) {
+                    stemFile.close();
+                    // Load the audio file into this clip slot
+                    csApi.call("create_clip", chop.clipLength);
+                    var clipApi = new LiveAPI(trackPath + " clip_slots " + clipSlot + " clip");
+                    if (clipApi.id !== "0") {
+                        clipApi.set("name", slot.trackId + "-" + stem + "-" + chop.column);
+                        clipApi.set("launch_quantization", ROW_QUANT[stem]);
+                        clipApi.set("loop_start", 0);
+                        clipApi.set("loop_end", chop.clipLength);
+                        loaded++;
+                    }
+                } else {
+                    post("  " + stem + " col " + chop.column + ": file not found: " + chop.stemPath + "\n");
+                }
+            } catch (e) {
+                post("  " + stem + " col " + chop.column + ": clip error: " + e + "\n");
+            }
+        }
+        post("  " + stem + ": " + loaded + "/" + chopList.length + " clips loaded\n");
+    }
+}
+
+/**
+ * Launch a clip in a stem track.
+ */
 function launchClipInTrack(stemName, slotIndex, chop) {
-    outlet(2, "launch", stemName, slotIndex, chop.clipStart, chop.clipLength);
+    if (!deviceReady) return;
+
+    var trackPath = stemTrackIds[stemName];
+    if (!trackPath) {
+        post("setforge-loader: no track for " + stemName + "\n");
+        return;
+    }
+
+    // Clip slot = active preset * 8 + column
+    var clipSlot = activeSlotIndex * NUM_CHOPS + (chop.column - 1);
+
+    post("setforge-loader: launch " + stemName + " slot=" + clipSlot +
+         " start=" + chop.clipStart.toFixed(2) + " len=" + chop.clipLength.toFixed(2) + "\n");
+
+    try {
+        var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
+        csApi.call("fire");
+    } catch (e) {
+        post("setforge-loader: launch error: " + e + "\n");
+    }
 }
 
+/**
+ * Stop a clip in a stem track.
+ */
 function stopClipInTrack(stemName, slotIndex) {
-    outlet(2, "stop", stemName, slotIndex);
+    if (!deviceReady) return;
+
+    var trackPath = stemTrackIds[stemName];
+    if (!trackPath) return;
+
+    var clipSlot = activeSlotIndex * NUM_CHOPS + slotIndex;
+
+    try {
+        var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
+        csApi.call("stop");
+    } catch (e) {
+        post("setforge-loader: stop error: " + e + "\n");
+    }
 }
 
+/**
+ * Stop all clips in all stem tracks.
+ */
 function stopAllClips() {
-    outlet(2, "stop_all");
+    if (!deviceReady) return;
+
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var trackPath = stemTrackIds[STEM_NAMES[s]];
+        if (!trackPath) continue;
+        try {
+            var tApi = new LiveAPI(trackPath);
+            tApi.call("stop_all_clips");
+        } catch (e) {
+            post("setforge-loader: stopAll error: " + e + "\n");
+        }
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -486,11 +656,28 @@ function loadSet(path) {
         mFile.close();
         manifest = JSON.parse(mStr);
 
+        // Ensure stem tracks exist in Live
+        if (deviceReady) {
+            ensureStemTracks();
+        }
+
         populateBanks();
+
+        // Load clips for all populated slots
+        if (deviceReady) {
+            for (var pi = 0; pi < TOTAL_SLOTS; pi++) {
+                if (presetSlots[pi].state === "loaded_idle") {
+                    loadClipsForPreset(pi);
+                }
+            }
+        }
+
         updateStatus();
         updateAllPadColors();
 
+        // Debug: dump state
         post("setforge-loader: set loaded (" + (manifest.tracks ? manifest.tracks.length : 0) + " tracks)\n");
+        dumpState();
     } catch (e) {
         post("setforge-loader: load error: " + e + "\n");
     }
@@ -1040,7 +1227,69 @@ function anything() {
     } else if (msg === "bar_tick") {
         flushRgb(1);
         flushRgb(2);
+    } else if (msg === "debug") {
+        dumpState();
     }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Debug
+// ═══════════════════════════════════════════════════════════
+
+function dumpState() {
+    post("\n=== setforge-loader state ===\n");
+    post("deviceReady: " + deviceReady + "\n");
+    post("manifest: " + (manifest ? manifest.tracks.length + " tracks" : "null") + "\n");
+    post("setData: " + (setData ? setData.name : "null") + "\n");
+    post("activeSlot: " + activeSlotIndex + "\n");
+
+    // Preset slots
+    for (var i = 0; i < TOTAL_SLOTS; i++) {
+        var s = presetSlots[i];
+        if (s.state !== "empty") {
+            post("  slot[" + i + "] " + s.bank + ": " + s.trackId + " (" + s.state + ")");
+            if (s.chops) {
+                var stemCount = 0;
+                for (var j = 0; j < STEM_NAMES.length; j++) {
+                    if (s.chops[STEM_NAMES[j]]) stemCount++;
+                }
+                post(" " + stemCount + " stems");
+            }
+            post("\n");
+        }
+    }
+
+    // Playing chops
+    var held = getHeldChops();
+    post("playing: " + (held.length > 0 ? held.map(function(h) { return h.stem + ":" + h.col; }).join(", ") : "none") + "\n");
+
+    // Modifiers
+    var activeMods = [];
+    for (var i = 0; i < MODIFIERS.length; i++) {
+        if (modState[MODIFIERS[i]] !== "idle") {
+            activeMods.push(MODIFIERS[i] + "=" + modState[MODIFIERS[i]]);
+        }
+    }
+    post("modifiers: " + (activeMods.length > 0 ? activeMods.join(", ") : "none") + "\n");
+
+    // Scenes
+    var builtScenes = [];
+    for (var i = 0; i < NUM_SCENES; i++) {
+        if (scenes[i].state !== "empty") {
+            builtScenes.push(String.fromCharCode(65 + i) + "=" + scenes[i].state);
+        }
+    }
+    post("scenes: " + (builtScenes.length > 0 ? builtScenes.join(", ") : "none") + "\n");
+
+    // FX
+    post("fx: target=" + fxTarget + " filter=" + fxFilterCol + (fxFilterLatched ? "(latched)" : "") + " throw=" + fxThrowCol + "\n");
+
+    // Stem tracks
+    for (var i = 0; i < STEM_NAMES.length; i++) {
+        var stem = STEM_NAMES[i];
+        post("  track[" + stem + "]: " + (stemTrackIds[stem] || "not created") + "\n");
+    }
+    post("=== end state ===\n\n");
 }
 
 // ═══════════════════════════════════════════════════════════

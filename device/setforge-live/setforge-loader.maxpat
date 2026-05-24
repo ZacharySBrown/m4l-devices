@@ -234,12 +234,86 @@
 			},
 			{
 				"box": {
+					"id": "opendialog",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						500,
+						160,
+						120,
+						22
+					],
+					"outlettype": [
+						"",
+						"bang"
+					],
+					"text": "opendialog JSON"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-browse",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						500,
+						130,
+						120,
+						22
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						500,
+						10,
+						80,
+						20
+					],
+					"varname": "browse",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "browse",
+							"parameter_shortname": "browse",
+							"parameter_type": 1
+						}
+					},
+					"text": "browse...",
+					"texton": "browse...",
+					"textoff": "browse...",
+					"mode": 0
+				}
+			},
+			{
+				"box": {
+					"id": "prepend-load",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 1,
+					"patching_rect": [
+						500,
+						190,
+						100,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "prepend load"
+				}
+			},
+			{
+				"box": {
 					"id": "msg-test-load",
 					"maxclass": "message",
 					"numinlets": 2,
 					"numoutlets": 1,
 					"patching_rect": [
-						500,
+						650,
 						190,
 						600,
 						22
@@ -257,7 +331,7 @@
 					"numinlets": 2,
 					"numoutlets": 1,
 					"patching_rect": [
-						500,
+						650,
 						220,
 						80,
 						22
@@ -275,7 +349,7 @@
 					"numinlets": 2,
 					"numoutlets": 1,
 					"patching_rect": [
-						600,
+						750,
 						220,
 						80,
 						22
@@ -829,6 +903,42 @@
 				"patchline": {
 					"source": [
 						"msg-init",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-browse",
+						0
+					],
+					"destination": [
+						"opendialog",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"opendialog",
+						0
+					],
+					"destination": [
+						"prepend-load",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"prepend-load",
 						0
 					],
 					"destination": [

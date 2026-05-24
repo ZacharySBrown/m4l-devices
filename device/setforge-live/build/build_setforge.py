@@ -112,11 +112,50 @@ def build_loader():
     lines.append(P.line("loadbang", 0, "msg-init", 0))
     lines.append(P.line("msg-init", 0, "js-loader", 2))
 
+    # ── File browser for set loading ──
+    boxes.append(P.newobj(
+        "opendialog", "opendialog JSON",
+        rect=(500, 160, 120, 22),
+        numinlets=1, numoutlets=2, outlettype=["", "bang"],
+    ))
+    # Button to trigger file dialog
+    boxes.append(P.box(
+        "btn-browse", "live.text",
+        rect=(500, 130, 120, 22),
+        presentation=True,
+        presentation_rect=(500, 10, 80, 20),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+        extras={
+            "varname": "browse",
+            "saved_attribute_attributes": {
+                "valueof": {
+                    "parameter_longname": "browse",
+                    "parameter_shortname": "browse",
+                    "parameter_type": 1,
+                }
+            },
+            "text": "browse...",
+            "texton": "browse...",
+            "textoff": "browse...",
+            "mode": 0,
+        },
+    ))
+    lines.append(P.line("btn-browse", 0, "opendialog", 0))
+
+    # opendialog → prepend "load" → js
+    boxes.append(P.newobj(
+        "prepend-load", "prepend load",
+        rect=(500, 190, 100, 22),
+        numinlets=1, numoutlets=1, outlettype=[""],
+    ))
+    lines.append(P.line("opendialog", 0, "prepend-load", 0))
+    lines.append(P.line("prepend-load", 0, "js-loader", 2))
+
     # ── Test fixture loader (click to test without Launchpads) ──
     fixture_path = str(DEVICE_DIR / "tests" / "fixtures" / "manifests" / "hiphop_v3.set.json")
     boxes.append(P.box(
         "msg-test-load", "message",
-        rect=(500, 190, 600, 22),
+        rect=(650, 190, 600, 22),
         numinlets=2, numoutlets=1, outlettype=[""],
         extras={"text": f"load {fixture_path}"},
     ))
@@ -124,7 +163,7 @@ def build_loader():
 
     boxes.append(P.box(
         "msg-test-panic", "message",
-        rect=(500, 220, 80, 22),
+        rect=(650, 220, 80, 22),
         numinlets=2, numoutlets=1, outlettype=[""],
         extras={"text": "panic"},
     ))
@@ -132,7 +171,7 @@ def build_loader():
 
     boxes.append(P.box(
         "msg-test-eject", "message",
-        rect=(600, 220, 80, 22),
+        rect=(750, 220, 80, 22),
         numinlets=2, numoutlets=1, outlettype=[""],
         extras={"text": "eject"},
     ))
