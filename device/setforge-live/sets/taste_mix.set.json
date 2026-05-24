@@ -1,0 +1,95 @@
+{
+  "schema_version": "1.0",
+  "name": "taste_mix",
+  "global_tempo": 136.0,
+  "preset_bank_A": [
+    {
+      "track_id": "5131",
+      "scenes": []
+    },
+    {
+      "track_id": "29681",
+      "scenes": []
+    },
+    {
+      "track_id": "6134",
+      "scenes": []
+    },
+    {
+      "track_id": "2099",
+      "scenes": []
+    },
+    {
+      "track_id": "3849",
+      "scenes": []
+    },
+    {
+      "track_id": "5819",
+      "scenes": []
+    },
+    {
+      "track_id": "2777",
+      "scenes": []
+    },
+    {
+      "track_id": "3797",
+      "scenes": []
+    }
+  ],
+  "preset_bank_B": [
+    {
+      "track_id": "6086",
+      "scenes": []
+    },
+    {
+      "track_id": "6093",
+      "scenes": []
+    },
+    {
+      "track_id": "6097",
+      "scenes": []
+    },
+    {
+      "track_id": "8337",
+      "scenes": []
+    },
+    {
+      "track_id": "3794",
+      "scenes": []
+    },
+    {
+      "track_id": "1095",
+      "scenes": []
+    },
+    {
+      "track_id": "6100",
+      "scenes": []
+    },
+    {
+      "track_id": "1952",
+      "scenes": []
+    }
+  ],
+  "setlist": [
+    "2609",
+    "2113",
+    "6108",
+    "523",
+    "5131",
+    "29681",
+    "6134",
+    "2099",
+    "3849",
+    "5819",
+    "2777",
+    "3797",
+    "6086",
+    "6093",
+    "6097",
+    "8337",
+    "3794",
+    "1095",
+    "6100",
+    "1952"
+  ]
+}
