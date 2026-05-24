@@ -473,12 +473,37 @@ var liveApi = null;
 var stemTrackIds = {};   // stemName -> Live track id path
 var stemTrackIndices = {}; // stemName -> track index in live_set
 
+// Warp modes per stem (matches stemforge convention)
+var WARP_MODES = { drums: 0, bass: 0, other: 4, vox: 4 }; // 0=Beats, 4=Complex
+
 function initLiveApi() {
     try {
         liveApi = new LiveAPI("live_set");
         post("setforge-loader: LiveAPI ready, tracks=" + liveApi.get("tracks").length + "\n");
     } catch (e) {
         post("setforge-loader: LiveAPI init failed: " + e + "\n");
+    }
+}
+
+/**
+ * Ensure at least N scenes exist in the Live set.
+ * Clip slots only exist if there's a corresponding scene.
+ */
+function ensureScenes(n) {
+    if (!liveApi) return;
+    try {
+        var current = liveApi.getcount("scenes");
+        var created = 0;
+        while (current < n) {
+            liveApi.call("create_scene", current);
+            current++;
+            created++;
+        }
+        if (created > 0) {
+            post("setforge-loader: created " + created + " scenes (total: " + current + ")\n");
+        }
+    } catch (e) {
+        post("setforge-loader: ensureScenes error: " + e + "\n");
     }
 }
 
@@ -578,65 +603,37 @@ function loadClipsForPreset(slotIndex) {
 
             // Each preset gets its own clip slot range: slotIndex * 8 + column
             var clipSlot = slotIndex * NUM_CHOPS + (chop.column - 1);
+            var csPath = trackPath + " clip_slots " + clipSlot;
 
             try {
-                // Verify clip slot exists (needs enough scenes in the set)
-                var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
-                if (!csApi || csApi.id === "0") {
-                    post("  " + stem + " col " + chop.column + ": clip_slot " + clipSlot + " doesn't exist (need more scenes)\n");
-                    continue;
-                }
-
-                // Check if file exists
-                var stemFile = new File(chop.stemPath, "r");
-                if (!stemFile.isopen) {
-                    post("  " + stem + " col " + chop.column + ": file not found: " + chop.stemPath + "\n");
-                    continue;
-                }
-                stemFile.close();
+                var csApi = new LiveAPI(csPath);
 
                 // Delete existing clip if any
-                var hasClip = csApi.get("has_clip");
-                if (hasClip && hasClip.toString() === "1") {
-                    csApi.call("delete_clip");
-                }
-
-                // Load the audio sample into the clip slot
-                // Live 12 API: ClipSlot.load_sample(file_path) is not available
-                // Instead we create a clip and set its file_path,
-                // or use the Live.Object approach
-                //
-                // Actually, the correct M4L approach for loading audio:
-                // 1. Use live.drop or drag-and-drop (not scriptable)
-                // 2. Use the undocumented clip_slot.load_sample (Live 12+)
-                // Let's try both approaches
                 try {
-                    csApi.call("load_sample", chop.stemPath);
-                } catch (e2) {
-                    // Fallback: create an empty MIDI clip as placeholder
-                    // (audio loading requires a different approach)
-                    post("  " + stem + " col " + chop.column + ": load_sample not available, trying create_clip\n");
-                    try {
-                        csApi.call("create_clip", chop.clipLength);
-                    } catch (e3) {
-                        post("  " + stem + " col " + chop.column + ": create_clip also failed: " + e3 + "\n");
-                        continue;
+                    var hasClip = csApi.get("has_clip");
+                    if (hasClip && hasClip.toString() === "1") {
+                        csApi.call("delete_clip");
                     }
-                }
+                } catch (_) {}
 
-                // Configure the clip if it was created
-                var clipPath = trackPath + " clip_slots " + clipSlot + " clip";
-                var clipApi = new LiveAPI(clipPath);
+                // Load audio via create_audio_clip (POSIX path, no "Macintosh HD:" prefix)
+                var wavPath = String(chop.stemPath);
+                csApi.call("create_audio_clip", wavPath);
+
+                // Configure the clip
+                var clipApi = new LiveAPI(csPath + " clip");
                 if (clipApi && clipApi.id !== "0") {
                     clipApi.set("name", slot.trackId + "-" + stem + "-" + chop.column);
+                    clipApi.set("warping", 1);
+                    clipApi.set("warp_mode", WARP_MODES[stem] || 0);
+                    clipApi.set("looping", 1);
                     clipApi.set("launch_quantization", ROW_QUANT[stem]);
 
-                    // Set loop points to the chop's 4-bar window
+                    // Set loop region to the chop's 4-bar window
                     clipApi.set("loop_start", chop.clipStart);
                     clipApi.set("loop_end", chop.clipStart + chop.clipLength);
                     clipApi.set("start_marker", chop.clipStart);
                     clipApi.set("end_marker", chop.clipStart + chop.clipLength);
-                    clipApi.set("looping", 1);
 
                     loaded++;
                 }
@@ -743,8 +740,10 @@ function loadSet(path) {
         mFile.close();
         manifest = JSON.parse(mStr);
 
-        // Ensure stem tracks exist in Live
+        // Ensure enough scenes + stem tracks exist in Live
         if (deviceReady) {
+            // 16 presets × 8 chops = 128 scenes needed
+            ensureScenes(TOTAL_SLOTS * NUM_CHOPS);
             ensureStemTracks();
         }
 
