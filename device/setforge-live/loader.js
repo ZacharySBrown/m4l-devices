@@ -37,8 +37,32 @@ var ROW_QUANT = {
     vox:   LAUNCH_QUANT["1/2"]
 };
 
-// Launchpad Pro mk3 SysEx header for RGB LED control
-var LP_SYSEX_HEADER = [240, 0, 32, 41, 2, 14, 3];
+// Launchpad Pro SysEx headers
+// MK2: F0 00 20 29 02 10 0B ... F7 (RGB direct mode)
+// MK3: F0 00 20 29 02 0E 03 ... F7 (RGB LED lighting)
+var LP_MODEL = "mk2"; // "mk2" or "mk3"
+var LP_SYSEX_RGB = {
+    mk2: [240, 0, 32, 41, 2, 16, 11],   // 02 10 0B
+    mk3: [240, 0, 32, 41, 2, 14, 3],    // 02 0E 03
+};
+var LP_SYSEX_PROGRAMMER_MODE = {
+    mk2_enter: [240, 0, 32, 41, 2, 16, 44, 3, 247],   // 02 10 2C 03
+    mk2_leave: [240, 0, 32, 41, 2, 16, 44, 0, 247],   // 02 10 2C 00
+    mk3_enter: [240, 0, 32, 41, 2, 14, 14, 1, 247],    // 02 0E 0E 01
+    mk3_leave: [240, 0, 32, 41, 2, 14, 14, 0, 247],    // 02 0E 0E 00
+};
+
+// Side button note numbers (MK2 programmer mode, left column top-to-bottom)
+var SIDE_BUTTONS_LEFT = [80, 70, 60, 50, 40, 30, 20, 10];
+// Single-grid mode: side button assignments (left, top-to-bottom)
+// [0] MODE_TOGGLE, [1] TAP, [2] SYNC, [3] BPM-, [4] BPM+, [5] LOOP_IN, [6] LOOP_OUT, [7] PANIC
+var SIDE_FUNC = ["MODE_TOGGLE", "TAP", "SYNC", "BPM_DOWN", "BPM_UP", "LOOP_IN", "LOOP_OUT", "PANIC"];
+
+// Grid view mode (single-grid only)
+var viewMode = "performance"; // "performance" or "control"
+var viewModeLatched = false;
+var viewModeLastPress = 0;
+var singleGridMode = true; // true until second Launchpad detected
 
 // Stem colors [R, G, B] in 0-127 (Launchpad 7-bit)
 var STEM_COLORS = {
@@ -160,13 +184,26 @@ function queueRgb(grid, row, col, rgb) {
 function flushRgb(grid) {
     var writes = pendingRgb[grid];
     if (!writes || writes.length === 0) return;
-    var msg = LP_SYSEX_HEADER.slice();
-    for (var i = 0; i < writes.length; i++) {
-        msg.push(3, writes[i].note, writes[i].rgb[0], writes[i].rgb[1], writes[i].rgb[2]);
+
+    var header = LP_SYSEX_RGB[LP_MODEL] || LP_SYSEX_RGB.mk2;
+
+    // MK2 max ~78 pads per SysEx; chunk if needed
+    var chunkSize = 70;
+    for (var start = 0; start < writes.length; start += chunkSize) {
+        var end = Math.min(start + chunkSize, writes.length);
+        var msg = header.slice();
+        for (var i = start; i < end; i++) {
+            // MK2 format: <pad_note> <r7> <g7> <b7> (no leading 0x03)
+            // MK3 format: 03 <pad_note> <r7> <g7> <b7>
+            if (LP_MODEL === "mk3") msg.push(3);
+            msg.push(writes[i].note, writes[i].rgb[0], writes[i].rgb[1], writes[i].rgb[2]);
+        }
+        msg.push(247);
+
+        // In single-grid mode, all output goes to outlet 0
+        var outletIdx = (singleGridMode || grid === 1) ? 0 : 1;
+        outlet(outletIdx, msg);
     }
-    msg.push(247);
-    var outletIdx = (grid === 1) ? 0 : 1;
-    outlet(outletIdx, msg);
     pendingRgb[grid] = [];
 }
 
@@ -748,10 +785,80 @@ function resolveTrack(trackId) {
 // ═══════════════════════════════════════════════════════════
 
 function updateAllPadColors() {
-    updateGrid1Colors();
-    updateGrid2Colors();
-    flushRgb(1);
-    flushRgb(2);
+    if (singleGridMode) {
+        if (viewMode === "performance") {
+            updateGrid1Colors();
+        } else {
+            // Control view: rows 1-7 show Grid 2 content, row 8 stays scenes
+            updateControlViewColors();
+        }
+        flushRgb(1);
+    } else {
+        updateGrid1Colors();
+        updateGrid2Colors();
+        flushRgb(1);
+        flushRgb(2);
+    }
+}
+
+function updateControlViewColors() {
+    // Rows 1-7: Grid 2 content rendered on Grid 1's physical pads
+    // (reuse Grid 2 color logic but write to grid 1 pending buffer)
+    // Rows 1-4: Setlist
+    for (var i = 0; i < 32; i++) {
+        var r = Math.floor(i / 8) + 1;
+        var c = (i % 8) + 1;
+        if (setData && setData.setlist && i < setData.setlist.length) {
+            var trackId = setData.setlist[i];
+            var track = resolveTrack(trackId);
+            if (track) {
+                var color = genreColor(track.genre, track.color_hue);
+                color = scaleBrightness(color, track.energy || 0.5);
+                var inSlot = false;
+                for (var si = 0; si < TOTAL_SLOTS; si++) {
+                    if (presetSlots[si].trackId === trackId) { inSlot = true; break; }
+                }
+                if (!inSlot) color = scaleBrightness(color, 0.5);
+                queueRgb(1, r, c, color);
+            } else {
+                queueRgb(1, r, c, STATE_COLORS.empty);
+            }
+        } else {
+            queueRgb(1, r, c, STATE_COLORS.off);
+        }
+    }
+
+    // Row 5: FX target
+    var targetColors = [
+        STEM_COLORS.drums.bright, STEM_COLORS.bass.bright,
+        STEM_COLORS.other.bright, STEM_COLORS.vox.bright,
+        [127, 127, 127], [127, 127, 0], [127, 127, 0], [127, 0, 0]
+    ];
+    var targetIdx = FX_TARGETS.indexOf(fxTarget);
+    for (var c = 1; c <= 8; c++) {
+        var isBright = (c - 1 === targetIdx);
+        var tc = targetColors[c - 1];
+        queueRgb(1, 5, c, isBright ? tc : scaleBrightness(tc, 0.3));
+    }
+
+    // Row 6: Filter
+    for (var c = 1; c <= 8; c++) {
+        var isActive = (c === fxFilterCol);
+        if (isActive && fxFilterLatched) queueRgb(1, 6, c, [127, 127, 127]);
+        else if (isActive) queueRgb(1, 6, c, [64, 64, 64]);
+        else queueRgb(1, 6, c, [16, 16, 16]);
+    }
+
+    // Row 7: Throws
+    for (var c = 1; c <= 8; c++) {
+        queueRgb(1, 7, c, (c === fxThrowCol) ? [127, 80, 0] : [16, 16, 16]);
+    }
+
+    // Row 8: Scenes (always scenes in both views)
+    for (var c = 1; c <= 8; c++) {
+        var scene = scenes[c - 1];
+        queueRgb(1, 8, c, SCENE_COLORS[scene.state] || SCENE_COLORS.empty);
+    }
 }
 
 function updateGrid1Colors() {
@@ -976,17 +1083,111 @@ function processMidiByte(b, grid, buffer) {
 }
 
 function handleNoteOn(grid, note, velocity) {
+    // Check for side buttons (MK2: notes ending in 0 on left side)
+    var sideIdx = SIDE_BUTTONS_LEFT.indexOf(note);
+    if (sideIdx >= 0) {
+        handleSideButtonPress(sideIdx);
+        return;
+    }
+
     var pos = noteToRowCol(note);
     if (!pos) return;
-    if (grid === 1) handleGrid1Press(pos.row, pos.col);
-    else handleGrid2Press(pos.row, pos.col);
+
+    if (singleGridMode && viewMode === "control") {
+        // In control view, pad presses route to Grid 2 handlers
+        // But row 8 always stays scenes
+        if (pos.row === 8) {
+            handleGrid1Press(pos.row, pos.col);
+        } else {
+            handleGrid2Press(pos.row, pos.col);
+        }
+    } else if (grid === 1) {
+        handleGrid1Press(pos.row, pos.col);
+    } else {
+        handleGrid2Press(pos.row, pos.col);
+    }
 }
 
 function handleNoteOff(grid, note) {
+    var sideIdx = SIDE_BUTTONS_LEFT.indexOf(note);
+    if (sideIdx >= 0) {
+        handleSideButtonRelease(sideIdx);
+        return;
+    }
+
     var pos = noteToRowCol(note);
     if (!pos) return;
-    if (grid === 1) handleGrid1Release(pos.row, pos.col);
-    else handleGrid2Release(pos.row, pos.col);
+
+    if (singleGridMode && viewMode === "control") {
+        if (pos.row === 8) {
+            handleGrid1Release(pos.row, pos.col);
+        } else {
+            handleGrid2Release(pos.row, pos.col);
+        }
+    } else if (grid === 1) {
+        handleGrid1Release(pos.row, pos.col);
+    } else {
+        handleGrid2Release(pos.row, pos.col);
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Side Button Handlers (single-grid transport)
+// ═══════════════════════════════════════════════════════════
+
+function handleSideButtonPress(sideIdx) {
+    var func = SIDE_FUNC[sideIdx];
+
+    if (func === "MODE_TOGGLE") {
+        var now = Date.now();
+        var delta = now - viewModeLastPress;
+        if (delta < DOUBLE_TAP_WINDOW_MS && delta > 0) {
+            // Double-tap: latch toggle
+            viewModeLatched = !viewModeLatched;
+            post("setforge-loader: view mode " + (viewModeLatched ? "latched" : "unlatched") + " to " + viewMode + "\n");
+        } else {
+            // Single press: momentary toggle
+            if (!viewModeLatched) {
+                viewMode = (viewMode === "performance") ? "control" : "performance";
+                post("setforge-loader: view mode -> " + viewMode + " (momentary)\n");
+            }
+        }
+        viewModeLastPress = now;
+        updateAllPadColors();
+    } else if (func === "TAP") {
+        outlet(2, "tap_tempo");
+    } else if (func === "SYNC") {
+        outlet(2, "sync");
+    } else if (func === "BPM_DOWN") {
+        outlet(2, "bpm_nudge", -0.1);
+    } else if (func === "BPM_UP") {
+        outlet(2, "bpm_nudge", 0.1);
+    } else if (func === "LOOP_IN") {
+        outlet(2, "loop_in");
+    } else if (func === "LOOP_OUT") {
+        outlet(2, "loop_out");
+    } else if (func === "PANIC") {
+        var now = Date.now();
+        if (now - panicLastTap > 1000) panicTapCount = 1;
+        else panicTapCount++;
+        panicLastTap = now;
+        if (panicTapCount >= 3) {
+            executePanic();
+            panicTapCount = 0;
+        } else {
+            post("setforge-loader: panic " + panicTapCount + "/3\n");
+        }
+    }
+}
+
+function handleSideButtonRelease(sideIdx) {
+    var func = SIDE_FUNC[sideIdx];
+    if (func === "MODE_TOGGLE" && !viewModeLatched) {
+        // Momentary: return to performance view on release
+        viewMode = "performance";
+        post("setforge-loader: view mode -> performance (released)\n");
+        updateAllPadColors();
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1308,9 +1509,18 @@ function doInit() {
 
 // Called by [live.thisdevice] bang — device is fully wired
 function bang() {
+    if (deviceReady) return; // only init once
     deviceReady = true;
-    post("setforge-loader: device ready\n");
+    post("setforge-loader: device ready (model=" + LP_MODEL + ", single-grid=" + singleGridMode + ")\n");
     initLiveApi();
+
+    // Enter programmer mode on Launchpad
+    var enterCmd = LP_SYSEX_PROGRAMMER_MODE[LP_MODEL + "_enter"];
+    if (enterCmd) {
+        outlet(0, enterCmd);
+        post("setforge-loader: sent programmer mode enter\n");
+    }
+
     updateAllPadColors();
     updateStatus();
 }
