@@ -572,43 +572,50 @@ function findTrackByName(name) {
     return -1;
 }
 
-/**
- * Load clips into stem tracks for a preset.
- * Each stem gets 8 clip slots (one per chop column).
- */
-function loadClipsForPreset(slotIndex) {
-    var slot = presetSlots[slotIndex];
-    if (!slot || !slot.chops) return;
+// ── Dual slot-set A/B architecture ──
+// Each stem track has 16 clip slots: set A (0-7) and set B (8-15).
+// One set is "active" (playing), the other is "staging" (pre-loading).
+// On preset swap, the incoming preset loads into staging, then we
+// fire staging clips at the boundary and swap labels.
+var activeClipSet = "A";  // "A" uses slots 0-7, "B" uses slots 8-15
+var stagingPresetIndex = -1; // preset currently being staged
+var stagingReady = false;
 
-    post("setforge-loader: loading clips for preset " + slotIndex + " (" + slot.trackId + ")\n");
+function activeSetOffset() { return activeClipSet === "A" ? 0 : 8; }
+function stagingSetOffset() { return activeClipSet === "A" ? 8 : 0; }
+
+/**
+ * Load clips for a preset into a specific slot-set offset (0 or 8).
+ * Returns number of clips loaded.
+ */
+function loadClipsToSlotSet(presetIdx, offset) {
+    var slot = presetSlots[presetIdx];
+    if (!slot || !slot.chops) return 0;
+
+    var totalLoaded = 0;
+    post("setforge-loader: loading clips for " + slot.trackId + " into set " +
+         (offset === 0 ? "A" : "B") + " (slots " + offset + "-" + (offset + 7) + ")\n");
 
     for (var s = 0; s < STEM_NAMES.length; s++) {
         var stem = STEM_NAMES[s];
         var chopList = slot.chops[stem];
-        if (!chopList) {
-            post("  " + stem + ": no stems\n");
-            continue;
-        }
+        if (!chopList) { continue; }
 
         var trackPath = stemTrackIds[stem];
-        if (!trackPath) {
-            post("  " + stem + ": no track created\n");
-            continue;
-        }
+        if (!trackPath) { continue; }
 
         var loaded = 0;
         for (var c = 0; c < chopList.length; c++) {
             var chop = chopList[c];
             if (chop.disabled) continue;
 
-            // Each preset gets its own clip slot range: slotIndex * 8 + column
-            var clipSlot = slotIndex * NUM_CHOPS + (chop.column - 1);
+            var clipSlot = offset + (chop.column - 1);
             var csPath = trackPath + " clip_slots " + clipSlot;
 
             try {
                 var csApi = new LiveAPI(csPath);
 
-                // Delete existing clip if any
+                // Delete existing clip
                 try {
                     var hasClip = csApi.get("has_clip");
                     if (hasClip && hasClip.toString() === "1") {
@@ -616,11 +623,10 @@ function loadClipsForPreset(slotIndex) {
                     }
                 } catch (_) {}
 
-                // Load audio via create_audio_clip (POSIX path, no "Macintosh HD:" prefix)
-                var wavPath = String(chop.stemPath);
-                csApi.call("create_audio_clip", wavPath);
+                // Load audio (POSIX path)
+                csApi.call("create_audio_clip", String(chop.stemPath));
 
-                // Configure the clip
+                // Configure
                 var clipApi = new LiveAPI(csPath + " clip");
                 if (clipApi && clipApi.id !== "0") {
                     clipApi.set("name", slot.trackId + "-" + stem + "-" + chop.column);
@@ -628,13 +634,10 @@ function loadClipsForPreset(slotIndex) {
                     clipApi.set("warp_mode", WARP_MODES[stem] || 0);
                     clipApi.set("looping", 1);
                     clipApi.set("launch_quantization", ROW_QUANT[stem]);
-
-                    // Set loop region to the chop's 4-bar window
                     clipApi.set("loop_start", chop.clipStart);
                     clipApi.set("loop_end", chop.clipStart + chop.clipLength);
                     clipApi.set("start_marker", chop.clipStart);
                     clipApi.set("end_marker", chop.clipStart + chop.clipLength);
-
                     loaded++;
                 }
             } catch (e) {
@@ -642,7 +645,38 @@ function loadClipsForPreset(slotIndex) {
             }
         }
         post("  " + stem + ": " + loaded + "/" + chopList.length + " clips\n");
+        totalLoaded += loaded;
     }
+    return totalLoaded;
+}
+
+/**
+ * Load clips for the initial/active preset into the active set.
+ */
+function loadClipsForPreset(presetIdx) {
+    loadClipsToSlotSet(presetIdx, activeSetOffset());
+}
+
+/**
+ * Pre-load clips for an incoming preset into the staging set.
+ */
+function stagePreset(presetIdx) {
+    stagingPresetIndex = presetIdx;
+    stagingReady = false;
+    var loaded = loadClipsToSlotSet(presetIdx, stagingSetOffset());
+    stagingReady = (loaded > 0);
+    post("setforge-loader: staging " + (stagingReady ? "ready" : "failed") +
+         " for preset " + presetIdx + "\n");
+}
+
+/**
+ * Commit the staged preset: swap A/B labels so staging becomes active.
+ */
+function commitStagedPreset() {
+    activeClipSet = (activeClipSet === "A") ? "B" : "A";
+    stagingPresetIndex = -1;
+    stagingReady = false;
+    post("setforge-loader: committed, active set now " + activeClipSet + "\n");
 }
 
 /**
@@ -657,11 +691,10 @@ function launchClipInTrack(stemName, slotIndex, chop) {
         return;
     }
 
-    // Clip slot = active preset * 8 + column
-    var clipSlot = activeSlotIndex * NUM_CHOPS + (chop.column - 1);
+    var clipSlot = activeSetOffset() + (chop.column - 1);
 
     post("setforge-loader: launch " + stemName + " slot=" + clipSlot +
-         " start=" + chop.clipStart.toFixed(2) + " len=" + chop.clipLength.toFixed(2) + "\n");
+         " start=" + chop.clipStart.toFixed(2) + "\n");
 
     try {
         var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
@@ -672,7 +705,26 @@ function launchClipInTrack(stemName, slotIndex, chop) {
 }
 
 /**
- * Stop a clip in a stem track.
+ * Launch a clip from the STAGING set (used during hot-swap transition).
+ */
+function launchStagingClip(stemName, chop) {
+    if (!deviceReady) return;
+
+    var trackPath = stemTrackIds[stemName];
+    if (!trackPath) return;
+
+    var clipSlot = stagingSetOffset() + (chop.column - 1);
+
+    try {
+        var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
+        csApi.call("fire");
+    } catch (e) {
+        post("setforge-loader: staging launch error: " + e + "\n");
+    }
+}
+
+/**
+ * Stop a clip in a stem track (active set).
  */
 function stopClipInTrack(stemName, slotIndex) {
     if (!deviceReady) return;
@@ -680,8 +732,7 @@ function stopClipInTrack(stemName, slotIndex) {
     var trackPath = stemTrackIds[stemName];
     if (!trackPath) return;
 
-    var clipSlot = activeSlotIndex * NUM_CHOPS + slotIndex;
-
+    var clipSlot = activeSetOffset() + slotIndex;
     try {
         var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
         csApi.call("stop");
@@ -740,23 +791,13 @@ function loadSet(path) {
         mFile.close();
         manifest = JSON.parse(mStr);
 
-        // Ensure enough scenes + stem tracks exist in Live
+        // Ensure 16 scenes (8 per slot-set A/B) + stem tracks
         if (deviceReady) {
-            // 16 presets × 8 chops = 128 scenes needed
-            ensureScenes(TOTAL_SLOTS * NUM_CHOPS);
+            ensureScenes(NUM_CHOPS * 2);
             ensureStemTracks();
         }
 
         populateBanks();
-
-        // Load clips for all populated slots
-        if (deviceReady) {
-            for (var pi = 0; pi < TOTAL_SLOTS; pi++) {
-                if (presetSlots[pi].state === "loaded_idle") {
-                    loadClipsForPreset(pi);
-                }
-            }
-        }
 
         updateStatus();
         updateAllPadColors();
@@ -1271,23 +1312,42 @@ function onPresetPress(slotIndex) {
     var slot = presetSlots[slotIndex];
     if (!slot || slot.state === "empty" || slot.state === "loading" || slot.state === "error") return;
 
+    var isFirstActivation = (activeSlotIndex < 0);
     var shiftMode = (modState.HOLD === "held" || modState.HOLD === "latched");
     var result = activatePreset(slotIndex);
     if (!result) return;
 
-    if (!shiftMode) {
-        var migrations = hotSwapChops(presetSlots[slotIndex].chops);
-        for (var i = 0; i < migrations.length; i++) {
-            var m = migrations[i];
-            if (m.newChop) launchClipInTrack(m.stem, m.column - 1, m.newChop);
-            else stopClipInTrack(m.stem, m.column - 1);
+    if (isFirstActivation) {
+        // First preset activation: load directly into active set
+        loadClipsForPreset(slotIndex);
+    } else if (!shiftMode) {
+        // Hot-swap: pre-load into staging, fire staging clips for held chops,
+        // then commit (swap A/B labels)
+        stagePreset(slotIndex);
+
+        if (stagingReady) {
+            var migrations = hotSwapChops(presetSlots[slotIndex].chops);
+            for (var i = 0; i < migrations.length; i++) {
+                var m = migrations[i];
+                if (m.newChop) {
+                    // Fire from staging set (already loaded, zero latency)
+                    launchStagingClip(m.stem, m.newChop);
+                } else {
+                    stopClipInTrack(m.stem, m.column - 1);
+                }
+            }
+            // Commit: staging becomes active
+            commitStagedPreset();
         }
     } else {
+        // Shift mode: hard switch, stop everything, load fresh
         var held = getHeldChops();
         for (var i = 0; i < held.length; i++) {
             stopClipInTrack(held[i].stem, held[i].col - 1);
         }
         stopAllChops();
+        stagePreset(slotIndex);
+        if (stagingReady) commitStagedPreset();
     }
 
     updateAllPadColors();

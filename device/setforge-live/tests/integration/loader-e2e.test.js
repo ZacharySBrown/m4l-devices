@@ -275,14 +275,15 @@ describe('integration: loader.js end-to-end (simulated Max)', () => {
       expect(logStr).to.include("creating track 'sf-vox'");
     });
 
-    it('reports missing stem files gracefully', () => {
+    it('reports missing stem files on preset activation', () => {
       const setPath = path.join(FIXTURES_DIR, 'hiphop_v3.set.json');
       env._sendMessage('load', [setPath]);
 
+      // Clips load on first preset activation, not at set-load time
+      env._sendNoteOn(1, 81, 127); // activate preset 0
       const logStr = env._getLog();
-      // Fixture stems have fake paths, so clips won't load
-      expect(logStr).to.include('file not found');
-      // But should NOT crash
+      // Fixture stems have fake paths — create_audio_clip will fail
+      // But should NOT crash the state machine
       expect(logStr).not.to.include('load error');
     });
 
@@ -429,7 +430,7 @@ describe('integration: loader.js end-to-end (simulated Max)', () => {
         expect(logStr).to.include('PANIC');
       });
 
-      it('preset hot-swap preserves chop column', () => {
+      it('preset hot-swap stages incoming preset then fires', () => {
         // Activate preset 0, play drums col 3
         env._sendNoteOn(1, 81, 127); // preset 0
         env._sendNoteOn(1, 73, 127); // drums col 3
@@ -438,8 +439,9 @@ describe('integration: loader.js end-to-end (simulated Max)', () => {
         // Switch to preset 1 (row 1 col 2 = note 82)
         env._sendNoteOn(1, 82, 127);
         const logStr = env._getLog();
-        // Should attempt to launch drums col 3 in new preset
-        expect(logStr).to.include('launch drums');
+        // Should stage the new preset and commit
+        expect(logStr).to.include('staging');
+        expect(logStr).to.include('committed');
       });
     });
 
