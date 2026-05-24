@@ -62,16 +62,19 @@ build on `--confirm-tested` for each.
 
 **Test totals: 121 passing, 0 failing, 29ms**
 
-## Phase 5 — Max patch wiring (NEXT — requires human)
+## Phase 5 — Max patch generation + build pipeline ✅
 
-- [ ] Create `setforge-loader.amxd` shell in Max IDE
-- [ ] Wire `loader.js` as top-level JS controller via `[js]` object
-- [ ] Add `[plugin~ 2]` / `[plugout~ 2]` (pitfall #7)
-- [ ] Add presentation-mode UI per spec §2.1 (set chooser, status panel, panic button)
-- [ ] Wire MIDI I/O for two Launchpad Pro mk3s
-- [ ] Create `setforge-calibrate.amxd` shell in Max IDE
-- [ ] Wire `calibrate.js` as top-level controller
-- [ ] Add presentation-mode UI per spec §4.1
+- [x] `build/build_setforge.py` — reproducible build via stemforge_bridge.patcher
+- [x] `setforge-loader.amxd` — generated, 9/9 patcher verifiers pass, 2/2 AMXD verifiers pass
+  - plugin~/plugout~ canonical shape (pitfall #27)
+  - [js loader.js] with 3 inlets / 4 outlets
+  - midiin/midiout for two Launchpad Pro mk3s
+  - Presentation UI: set chooser, load/reload/eject, status panel, panic
+  - project.searchpath present (pitfall #25)
+- [x] `setforge-calibrate.amxd` — generated, 9/9 patcher + 2/2 AMXD pass
+  - [js calibrate.js] with 2 inlets / 3 outlets
+  - Presentation UI: track chooser, stem selector, audition/validated/revert
+- [x] `loader.js` + `calibrate.js` — JS controller stubs with message routing skeleton
 
 ## Phase 6 — Live integration test (requires human)
 
