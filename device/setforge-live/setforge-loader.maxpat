@@ -197,7 +197,7 @@
 			{
 				"box": {
 					"id": "msg-init",
-					"maxclass": "newobj",
+					"maxclass": "message",
 					"numinlets": 2,
 					"numoutlets": 1,
 					"patching_rect": [

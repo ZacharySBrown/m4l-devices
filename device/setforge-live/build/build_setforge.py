@@ -94,7 +94,7 @@ def build_loader():
         rect=(150, 160, 60, 22),
         numinlets=1, numoutlets=1, outlettype=["bang"],
     ))
-    boxes.append(P.newobj(
+    boxes.append(P.box(
         "msg-init", "message",
         rect=(150, 190, 60, 22),
         numinlets=2, numoutlets=1, outlettype=[""],
@@ -264,7 +264,7 @@ def build_calibrator():
         rect=(150, 100, 60, 22),
         numinlets=1, numoutlets=1, outlettype=["bang"],
     ))
-    boxes.append(P.newobj(
+    boxes.append(P.box(
         "msg-init", "message",
         rect=(150, 130, 60, 22),
         numinlets=2, numoutlets=1, outlettype=[""],
@@ -608,11 +608,20 @@ def main():
         print("  ✘ Patcher verification failed — skipping pack")
 
     # ── Write JS controller stubs ──
+    # JS files must be in the same directory as the .amxd for Max to find them.
+    # We also keep a copy in src/ for development reference.
     print("\n▸ Writing JS controllers...")
     loader_js = write_loader_js()
     print(f"  Wrote {loader_js}")
     cal_js = write_calibrate_js()
     print(f"  Wrote {cal_js}")
+
+    # Copy to device root (next to .amxd) for Max search path resolution
+    import shutil
+    shutil.copy2(loader_js, OUT_DIR / "loader.js")
+    print(f"  Copied loader.js → {OUT_DIR / 'loader.js'}")
+    shutil.copy2(cal_js, OUT_DIR / "calibrate.js")
+    print(f"  Copied calibrate.js → {OUT_DIR / 'calibrate.js'}")
 
     print("\n" + "=" * 60)
     if loader_ok and cal_ok:
