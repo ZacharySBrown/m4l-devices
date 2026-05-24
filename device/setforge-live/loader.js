@@ -495,20 +495,29 @@ function ensureStemTracks() {
         var trackIdx = findTrackByName(trackName);
 
         if (trackIdx < 0) {
-            // Create the track
             post("setforge-loader: creating track '" + trackName + "'\n");
             try {
-                var numTracks = liveApi.get("tracks").length / 2; // id pairs
-                liveApi.call("create_audio_track", numTracks);
-                // Newly created track is at the end
-                trackIdx = findTrackByName(""); // find unnamed
-                if (trackIdx >= 0) {
-                    var tApi = new LiveAPI("live_set tracks " + trackIdx);
-                    tApi.set("name", trackName);
-                    post("setforge-loader: created track '" + trackName + "' at index " + trackIdx + "\n");
-                }
+                // Get current track count, insert at end (before return/master)
+                var trackCount = liveApi.get("tracks").length / 2;
+                // create_audio_track inserts at the given index
+                // Use trackCount - 1 to insert before master (last track is master)
+                var insertIdx = Math.max(0, trackCount - 1);
+                liveApi.call("create_audio_track", insertIdx);
+
+                // The new track is now at insertIdx
+                // But track indices may shift — re-count and find it
+                var newCount = liveApi.get("tracks").length / 2;
+                // The new track should be at insertIdx
+                trackIdx = insertIdx;
+
+                var tApi = new LiveAPI("live_set tracks " + trackIdx);
+                tApi.set("name", trackName);
+
+                // Verify it stuck
+                var verifyName = tApi.get("name").toString();
+                post("setforge-loader: created '" + trackName + "' at index " + trackIdx + " (verify: " + verifyName + ")\n");
             } catch (e) {
-                post("setforge-loader: error creating track: " + e + "\n");
+                post("setforge-loader: error creating track '" + trackName + "': " + e + "\n");
                 continue;
             }
         } else {
@@ -571,30 +580,71 @@ function loadClipsForPreset(slotIndex) {
             var clipSlot = slotIndex * NUM_CHOPS + (chop.column - 1);
 
             try {
+                // Verify clip slot exists (needs enough scenes in the set)
                 var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
+                if (!csApi || csApi.id === "0") {
+                    post("  " + stem + " col " + chop.column + ": clip_slot " + clipSlot + " doesn't exist (need more scenes)\n");
+                    continue;
+                }
 
-                // Check if file exists before trying to load
+                // Check if file exists
                 var stemFile = new File(chop.stemPath, "r");
-                if (stemFile.isopen) {
-                    stemFile.close();
-                    // Load the audio file into this clip slot
-                    csApi.call("create_clip", chop.clipLength);
-                    var clipApi = new LiveAPI(trackPath + " clip_slots " + clipSlot + " clip");
-                    if (clipApi.id !== "0") {
-                        clipApi.set("name", slot.trackId + "-" + stem + "-" + chop.column);
-                        clipApi.set("launch_quantization", ROW_QUANT[stem]);
-                        clipApi.set("loop_start", 0);
-                        clipApi.set("loop_end", chop.clipLength);
-                        loaded++;
-                    }
-                } else {
+                if (!stemFile.isopen) {
                     post("  " + stem + " col " + chop.column + ": file not found: " + chop.stemPath + "\n");
+                    continue;
+                }
+                stemFile.close();
+
+                // Delete existing clip if any
+                var hasClip = csApi.get("has_clip");
+                if (hasClip && hasClip.toString() === "1") {
+                    csApi.call("delete_clip");
+                }
+
+                // Load the audio sample into the clip slot
+                // Live 12 API: ClipSlot.load_sample(file_path) is not available
+                // Instead we create a clip and set its file_path,
+                // or use the Live.Object approach
+                //
+                // Actually, the correct M4L approach for loading audio:
+                // 1. Use live.drop or drag-and-drop (not scriptable)
+                // 2. Use the undocumented clip_slot.load_sample (Live 12+)
+                // Let's try both approaches
+                try {
+                    csApi.call("load_sample", chop.stemPath);
+                } catch (e2) {
+                    // Fallback: create an empty MIDI clip as placeholder
+                    // (audio loading requires a different approach)
+                    post("  " + stem + " col " + chop.column + ": load_sample not available, trying create_clip\n");
+                    try {
+                        csApi.call("create_clip", chop.clipLength);
+                    } catch (e3) {
+                        post("  " + stem + " col " + chop.column + ": create_clip also failed: " + e3 + "\n");
+                        continue;
+                    }
+                }
+
+                // Configure the clip if it was created
+                var clipPath = trackPath + " clip_slots " + clipSlot + " clip";
+                var clipApi = new LiveAPI(clipPath);
+                if (clipApi && clipApi.id !== "0") {
+                    clipApi.set("name", slot.trackId + "-" + stem + "-" + chop.column);
+                    clipApi.set("launch_quantization", ROW_QUANT[stem]);
+
+                    // Set loop points to the chop's 4-bar window
+                    clipApi.set("loop_start", chop.clipStart);
+                    clipApi.set("loop_end", chop.clipStart + chop.clipLength);
+                    clipApi.set("start_marker", chop.clipStart);
+                    clipApi.set("end_marker", chop.clipStart + chop.clipLength);
+                    clipApi.set("looping", 1);
+
+                    loaded++;
                 }
             } catch (e) {
-                post("  " + stem + " col " + chop.column + ": clip error: " + e + "\n");
+                post("  " + stem + " col " + chop.column + ": error: " + e + "\n");
             }
         }
-        post("  " + stem + ": " + loaded + "/" + chopList.length + " clips loaded\n");
+        post("  " + stem + ": " + loaded + "/" + chopList.length + " clips\n");
     }
 }
 
