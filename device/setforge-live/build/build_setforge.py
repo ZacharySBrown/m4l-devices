@@ -112,6 +112,32 @@ def build_loader():
     lines.append(P.line("loadbang", 0, "msg-init", 0))
     lines.append(P.line("msg-init", 0, "js-loader", 2))
 
+    # ── Test fixture loader (click to test without Launchpads) ──
+    fixture_path = str(DEVICE_DIR / "tests" / "fixtures" / "manifests" / "hiphop_v3.set.json")
+    boxes.append(P.box(
+        "msg-test-load", "message",
+        rect=(500, 190, 600, 22),
+        numinlets=2, numoutlets=1, outlettype=[""],
+        extras={"text": f"load {fixture_path}"},
+    ))
+    lines.append(P.line("msg-test-load", 0, "js-loader", 2))
+
+    boxes.append(P.box(
+        "msg-test-panic", "message",
+        rect=(500, 220, 80, 22),
+        numinlets=2, numoutlets=1, outlettype=[""],
+        extras={"text": "panic"},
+    ))
+    lines.append(P.line("msg-test-panic", 0, "js-loader", 2))
+
+    boxes.append(P.box(
+        "msg-test-eject", "message",
+        rect=(600, 220, 80, 22),
+        numinlets=2, numoutlets=1, outlettype=[""],
+        extras={"text": "eject"},
+    ))
+    lines.append(P.line("msg-test-eject", 0, "js-loader", 2))
+
     # ── Presentation UI (front panel per spec §2.1) ──
 
     # Set chooser (umenu)

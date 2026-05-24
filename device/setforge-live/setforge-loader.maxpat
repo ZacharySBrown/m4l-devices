@@ -234,6 +234,60 @@
 			},
 			{
 				"box": {
+					"id": "msg-test-load",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						500,
+						190,
+						600,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "load /Users/zak/zacharysbrown/m4l-devices/.claude/worktrees/setforge-live/device/setforge-live/tests/fixtures/manifests/hiphop_v3.set.json"
+				}
+			},
+			{
+				"box": {
+					"id": "msg-test-panic",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						500,
+						220,
+						80,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "panic"
+				}
+			},
+			{
+				"box": {
+					"id": "msg-test-eject",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						600,
+						220,
+						80,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "eject"
+				}
+			},
+			{
+				"box": {
 					"id": "umenu-set",
 					"maxclass": "live.menu",
 					"numinlets": 1,
@@ -775,6 +829,42 @@
 				"patchline": {
 					"source": [
 						"msg-init",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-test-load",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-test-panic",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-test-eject",
 						0
 					],
 					"destination": [
