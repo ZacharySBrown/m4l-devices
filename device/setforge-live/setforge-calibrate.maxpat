@@ -109,12 +109,32 @@
 			},
 			{
 				"box": {
-					"id": "loadbang",
+					"id": "thisdevice-cal",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"patching_rect": [
+						150,
+						100,
+						100,
+						22
+					],
+					"outlettype": [
+						"",
+						"",
+						""
+					],
+					"text": "live.thisdevice"
+				}
+			},
+			{
+				"box": {
+					"id": "loadbang-cal",
 					"maxclass": "newobj",
 					"numinlets": 1,
 					"numoutlets": 1,
 					"patching_rect": [
-						150,
+						300,
 						100,
 						60,
 						22
@@ -127,12 +147,12 @@
 			},
 			{
 				"box": {
-					"id": "msg-init",
+					"id": "msg-init-cal",
 					"maxclass": "message",
 					"numinlets": 2,
 					"numoutlets": 1,
 					"patching_rect": [
-						150,
+						300,
 						130,
 						60,
 						22
@@ -570,11 +590,11 @@
 			{
 				"patchline": {
 					"source": [
-						"loadbang",
+						"thisdevice-cal",
 						0
 					],
 					"destination": [
-						"msg-init",
+						"js-calibrate",
 						0
 					]
 				}
@@ -582,7 +602,19 @@
 			{
 				"patchline": {
 					"source": [
-						"msg-init",
+						"loadbang-cal",
+						0
+					],
+					"destination": [
+						"msg-init-cal",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-init-cal",
 						0
 					],
 					"destination": [

@@ -178,12 +178,32 @@
 			},
 			{
 				"box": {
+					"id": "thisdevice",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 3,
+					"patching_rect": [
+						150,
+						160,
+						100,
+						22
+					],
+					"outlettype": [
+						"",
+						"",
+						""
+					],
+					"text": "live.thisdevice"
+				}
+			},
+			{
+				"box": {
 					"id": "loadbang",
 					"maxclass": "newobj",
 					"numinlets": 1,
 					"numoutlets": 1,
 					"patching_rect": [
-						150,
+						300,
 						160,
 						60,
 						22
@@ -201,7 +221,7 @@
 					"numinlets": 2,
 					"numoutlets": 1,
 					"patching_rect": [
-						150,
+						300,
 						190,
 						60,
 						22
@@ -724,6 +744,18 @@
 					"destination": [
 						"midiout-grid2",
 						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"thisdevice",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
 					]
 				}
 			},

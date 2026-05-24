@@ -1047,16 +1047,25 @@ function anything() {
 //  Init
 // ═══════════════════════════════════════════════════════════
 
+var deviceReady = false;
+
 function doInit() {
     post("setforge-loader: init\n");
     initPresetBanks();
     initModifiers();
     initScenes();
     bypassFx();
+}
+
+// Called by [live.thisdevice] bang — device is fully wired
+function bang() {
+    deviceReady = true;
+    post("setforge-loader: device ready\n");
     initLiveApi();
     updateAllPadColors();
     updateStatus();
 }
 
+// Init data structures only (no outlet calls at load time)
 doInit();
 post("setforge-loader.js loaded\n");

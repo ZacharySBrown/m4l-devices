@@ -293,6 +293,8 @@ function anything() {
 //  Init
 // ═══════════════════════════════════════════════════════════
 
+var deviceReady = false;
+
 function doInit() {
     post("setforge-calibrate: init\n");
     tracks = [];
@@ -303,5 +305,12 @@ function doInit() {
     validationState = {};
 }
 
+// Called by [live.thisdevice] bang
+function bang() {
+    deviceReady = true;
+    post("setforge-calibrate: device ready\n");
+}
+
+// Init data structures only (no outlet calls at load time)
 doInit();
 post("setforge-calibrate.js loaded\n");
