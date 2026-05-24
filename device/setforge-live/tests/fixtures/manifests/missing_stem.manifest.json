@@ -1,0 +1,23 @@
+{
+  "schema_version": "2.0",
+  "set_id": "missing_stem_test",
+  "global_tempo_hint": 120.0,
+  "tracks": [
+    {
+      "id": "partial_track",
+      "display_name": "partial track",
+      "artist": "test",
+      "bpm": 120.0,
+      "downbeat_sec": 0.0,
+      "varying": false,
+      "energy": 0.5,
+      "genre": "rock",
+      "stems": {
+        "bass":  { "path": "/fixtures/stems/partial/bass.wav", "sha": "b1" },
+        "other": { "path": "/fixtures/stems/partial/other.wav", "sha": "o1" },
+        "vox":   { "path": "/fixtures/stems/partial/vox.wav", "sha": "v1" }
+      },
+      "validated": true
+    }
+  ]
+}
