@@ -13,7 +13,7 @@
 			100.0,
 			100.0,
 			900.0,
-			400.0
+			500.0
 		],
 		"openinpresentation": 1,
 		"default_fontsize": 12.0,
@@ -110,70 +110,36 @@
 			},
 			{
 				"box": {
-					"id": "midiin-grid1",
+					"id": "recv-grid-in",
 					"maxclass": "newobj",
-					"numinlets": 1,
+					"numinlets": 0,
 					"numoutlets": 1,
 					"patching_rect": [
 						150,
 						20,
-						300,
+						150,
 						22
 					],
 					"outlettype": [
-						"int"
+						""
 					],
-					"text": "midiin \"Launchpad Pro MK3 LPProMK3 MIDI\""
+					"text": "receive sf-grid-in"
 				}
 			},
 			{
 				"box": {
-					"id": "midiout-grid1",
+					"id": "send-grid-out",
 					"maxclass": "newobj",
 					"numinlets": 1,
 					"numoutlets": 0,
 					"patching_rect": [
 						150,
 						120,
-						300,
+						150,
 						22
 					],
 					"outlettype": [],
-					"text": "midiout \"Launchpad Pro MK3 LPProMK3 MIDI\""
-				}
-			},
-			{
-				"box": {
-					"id": "midiin-grid2",
-					"maxclass": "newobj",
-					"numinlets": 1,
-					"numoutlets": 1,
-					"patching_rect": [
-						500,
-						20,
-						300,
-						22
-					],
-					"outlettype": [
-						"int"
-					],
-					"text": "midiin \"Launchpad Pro MK3 LPProMK3 MIDI 2\""
-				}
-			},
-			{
-				"box": {
-					"id": "midiout-grid2",
-					"maxclass": "newobj",
-					"numinlets": 1,
-					"numoutlets": 0,
-					"patching_rect": [
-						500,
-						120,
-						300,
-						22
-					],
-					"outlettype": [],
-					"text": "midiout \"Launchpad Pro MK3 LPProMK3 MIDI 2\""
+					"text": "send sf-grid-out"
 				}
 			},
 			{
@@ -530,15 +496,15 @@
 					"patching_rect": [
 						20,
 						300,
-						780,
+						400,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
 						10,
-						40,
-						780,
-						18
+						35,
+						400,
+						16
 					],
 					"text": "bank A: \u2014",
 					"fontsize": 10.0
@@ -553,15 +519,15 @@
 					"patching_rect": [
 						20,
 						325,
-						780,
+						400,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
 						10,
-						58,
-						780,
-						18
+						50,
+						400,
+						16
 					],
 					"text": "bank B: \u2014",
 					"fontsize": 10.0
@@ -576,15 +542,15 @@
 					"patching_rect": [
 						20,
 						350,
-						780,
+						400,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
 						10,
-						76,
-						780,
-						18
+						65,
+						400,
+						16
 					],
 					"text": "active preset: \u2014",
 					"fontsize": 10.0
@@ -605,57 +571,11 @@
 					"presentation": 1,
 					"presentation_rect": [
 						10,
-						94,
+						80,
 						400,
-						18
+						16
 					],
 					"text": "active scene: \u2014",
-					"fontsize": 10.0
-				}
-			},
-			{
-				"box": {
-					"id": "status-lp1",
-					"maxclass": "live.comment",
-					"numinlets": 1,
-					"numoutlets": 0,
-					"patching_rect": [
-						20,
-						400,
-						400,
-						18
-					],
-					"presentation": 1,
-					"presentation_rect": [
-						10,
-						112,
-						400,
-						18
-					],
-					"text": "launchpad 1: not connected",
-					"fontsize": 10.0
-				}
-			},
-			{
-				"box": {
-					"id": "status-lp2",
-					"maxclass": "live.comment",
-					"numinlets": 1,
-					"numoutlets": 0,
-					"patching_rect": [
-						20,
-						425,
-						400,
-						18
-					],
-					"presentation": 1,
-					"presentation_rect": [
-						10,
-						130,
-						400,
-						18
-					],
-					"text": "launchpad 2: not connected",
 					"fontsize": 10.0
 				}
 			},
@@ -667,16 +587,16 @@
 					"numoutlets": 0,
 					"patching_rect": [
 						20,
-						450,
+						400,
 						400,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
 						10,
-						148,
+						95,
 						400,
-						18
+						16
 					],
 					"text": "tempo: \u2014 bpm",
 					"fontsize": 10.0
@@ -700,7 +620,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						10,
-						175,
+						115,
 						80,
 						20
 					],
@@ -737,7 +657,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						700,
-						175,
+						115,
 						80,
 						20
 					],
@@ -770,35 +690,12 @@
 					"presentation": 1,
 					"presentation_rect": [
 						400,
-						175,
+						115,
 						200,
 						18
 					],
 					"text": "fx target: all",
 					"fontsize": 10.0
-				}
-			},
-			{
-				"box": {
-					"id": "title",
-					"maxclass": "live.comment",
-					"numinlets": 1,
-					"numoutlets": 0,
-					"patching_rect": [
-						20,
-						550,
-						300,
-						22
-					],
-					"presentation": 1,
-					"presentation_rect": [
-						10,
-						200,
-						300,
-						22
-					],
-					"text": "setforge-loader",
-					"fontsize": 14.0
 				}
 			}
 		],
@@ -830,7 +727,7 @@
 			{
 				"patchline": {
 					"source": [
-						"midiin-grid1",
+						"recv-grid-in",
 						0
 					],
 					"destination": [
@@ -846,20 +743,8 @@
 						0
 					],
 					"destination": [
-						"midiout-grid1",
+						"send-grid-out",
 						0
-					]
-				}
-			},
-			{
-				"patchline": {
-					"source": [
-						"midiin-grid2",
-						0
-					],
-					"destination": [
-						"js-loader",
-						1
 					]
 				}
 			},
@@ -870,7 +755,7 @@
 						1
 					],
 					"destination": [
-						"midiout-grid2",
+						"send-grid-out",
 						0
 					]
 				}

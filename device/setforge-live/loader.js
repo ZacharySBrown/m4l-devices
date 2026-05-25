@@ -1139,6 +1139,7 @@ var midiBytes2 = [];
 
 function msg_int(v) {
     var inletIdx = inlet;
+    if (v >= 128) post("MIDI byte: " + v + " (inlet " + inletIdx + ")\n");
     if (inletIdx === 0) {
         processMidiByte(v, 1, midiBytes1);
     } else if (inletIdx === 1) {
@@ -1623,7 +1624,7 @@ function bang() {
     post("setforge-loader: device ready (model=" + LP_MODEL + ", single-grid=" + singleGridMode + ")\n");
     initLiveApi();
 
-    // Enter programmer mode on Launchpad
+    // Enter programmer mode on Launchpad (via send/receive bridge to grid device)
     var enterCmd = LP_SYSEX_PROGRAMMER_MODE[LP_MODEL + "_enter"];
     if (enterCmd) {
         outlet(0, enterCmd);

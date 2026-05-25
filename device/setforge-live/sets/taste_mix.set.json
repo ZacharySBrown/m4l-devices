@@ -11,30 +11,7 @@
       "track_id": "29681",
       "scenes": []
     },
-    {
-      "track_id": "6134",
-      "scenes": []
-    },
-    {
-      "track_id": "2099",
-      "scenes": []
-    },
-    {
-      "track_id": "3849",
-      "scenes": []
-    },
-    {
-      "track_id": "5819",
-      "scenes": []
-    },
-    {
-      "track_id": "2777",
-      "scenes": []
-    },
-    {
-      "track_id": "3797",
-      "scenes": []
-    }
+    null, null, null, null, null, null
   ],
   "preset_bank_B": [
     {
@@ -45,51 +22,12 @@
       "track_id": "6093",
       "scenes": []
     },
-    {
-      "track_id": "6097",
-      "scenes": []
-    },
-    {
-      "track_id": "8337",
-      "scenes": []
-    },
-    {
-      "track_id": "3794",
-      "scenes": []
-    },
-    {
-      "track_id": "1095",
-      "scenes": []
-    },
-    {
-      "track_id": "6100",
-      "scenes": []
-    },
-    {
-      "track_id": "1952",
-      "scenes": []
-    }
+    null, null, null, null, null, null
   ],
   "setlist": [
-    "2609",
-    "2113",
-    "6108",
-    "523",
     "5131",
     "29681",
-    "6134",
-    "2099",
-    "3849",
-    "5819",
-    "2777",
-    "3797",
     "6086",
-    "6093",
-    "6097",
-    "8337",
-    "3794",
-    "1095",
-    "6100",
-    "1952"
+    "6093"
   ]
 }

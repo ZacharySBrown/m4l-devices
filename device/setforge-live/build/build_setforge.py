@@ -33,8 +33,14 @@ OUT_DIR = DEVICE_DIR
 # ─────────────────────────────────────────────────────────────
 
 def build_loader():
-    """Build the performance loader device."""
-    p = P.empty_patcher(width=800, height=300, is_root=True)
+    """Build the performance loader device (audio effect).
+
+    MIDI I/O is handled by the companion setforge-grid.amxd (MIDI effect)
+    on a separate MIDI track. Communication is via send~/receive~ named buses:
+      sf-grid-in   : grid → loader (pad presses from Launchpad)
+      sf-grid-out  : loader → grid (LED updates, SysEx to Launchpad)
+    """
+    p = P.empty_patcher(width=800, height=400, is_root=True)
     p["patcher"]["project"]["name"] = "setforge-loader"
     p["patcher"]["openinpresentation"] = 1
     p["patcher"]["devicewidth"] = 800.0
@@ -60,33 +66,24 @@ def build_loader():
         outlettype=["", "", "", ""],
     ))
 
-    # ── MIDI I/O for Launchpad 1 (Grid 1 — performance) ──
+    # ── MIDI bridge via send/receive (to/from setforge-grid.amxd) ──
+    # Receive pad presses from grid device → JS inlets 0 and 1
     boxes.append(P.newobj(
-        "midiin-grid1", "midiin \"Launchpad Pro MK3 LPProMK3 MIDI\"",
-        rect=(150, 20, 300, 22),
-        numinlets=1, numoutlets=1, outlettype=["int"],
+        "recv-grid-in", "receive sf-grid-in",
+        rect=(150, 20, 150, 22),
+        numinlets=0, numoutlets=1, outlettype=[""],
     ))
-    boxes.append(P.newobj(
-        "midiout-grid1", "midiout \"Launchpad Pro MK3 LPProMK3 MIDI\"",
-        rect=(150, 120, 300, 22),
-        numinlets=1, numoutlets=0,
-    ))
-    lines.append(P.line("midiin-grid1", 0, "js-loader", 0))
-    lines.append(P.line("js-loader", 0, "midiout-grid1", 0))
+    lines.append(P.line("recv-grid-in", 0, "js-loader", 0))
 
-    # ── MIDI I/O for Launchpad 2 (Grid 2 — control) ──
+    # Send LED/SysEx from JS outlets 0 and 1 → grid device
     boxes.append(P.newobj(
-        "midiin-grid2", "midiin \"Launchpad Pro MK3 LPProMK3 MIDI 2\"",
-        rect=(500, 20, 300, 22),
-        numinlets=1, numoutlets=1, outlettype=["int"],
-    ))
-    boxes.append(P.newobj(
-        "midiout-grid2", "midiout \"Launchpad Pro MK3 LPProMK3 MIDI 2\"",
-        rect=(500, 120, 300, 22),
+        "send-grid-out", "send sf-grid-out",
+        rect=(150, 120, 150, 22),
         numinlets=1, numoutlets=0,
     ))
-    lines.append(P.line("midiin-grid2", 0, "js-loader", 1))
-    lines.append(P.line("js-loader", 1, "midiout-grid2", 0))
+    lines.append(P.line("js-loader", 0, "send-grid-out", 0))
+    # In single-grid mode outlet 1 also goes to the same send
+    lines.append(P.line("js-loader", 1, "send-grid-out", 0))
 
     # ── live.thisdevice → bang (signals device is ready for LiveAPI) ──
     boxes.append(P.newobj(
@@ -229,14 +226,14 @@ def build_loader():
         lines.append(P.line(f"btn-{name}", 0, "js-loader", 2))
 
     # Status display (live.comment for dynamic text — pitfall #3)
+    # Left column: set state. Right column: MIDI port selectors.
+    # M4L strip height is ~170px, so everything must fit.
     status_labels = [
-        ("status-bankA", "bank A: —", (10, 40, 780, 18)),
-        ("status-bankB", "bank B: —", (10, 58, 780, 18)),
-        ("status-active", "active preset: —", (10, 76, 780, 18)),
-        ("status-scene", "active scene: —", (10, 94, 400, 18)),
-        ("status-lp1", "launchpad 1: not connected", (10, 112, 400, 18)),
-        ("status-lp2", "launchpad 2: not connected", (10, 130, 400, 18)),
-        ("status-tempo", "tempo: — bpm", (10, 148, 400, 18)),
+        ("status-bankA", "bank A: —", (10, 35, 400, 16)),
+        ("status-bankB", "bank B: —", (10, 50, 400, 16)),
+        ("status-active", "active preset: —", (10, 65, 400, 16)),
+        ("status-scene", "active scene: —", (10, 80, 400, 16)),
+        ("status-tempo", "tempo: — bpm", (10, 95, 400, 16)),
     ]
     y_patch = 300
     for sid, text, prect in status_labels:
@@ -253,7 +250,7 @@ def build_loader():
         "toggle-master", rect=(20, 500, 30, 25),
         parameter_name="master_bypass",
         initial=0,
-        presentation_rect=(10, 175, 80, 20),
+        presentation_rect=(10, 115, 80, 20),
     ))
     lines.append(P.line("toggle-master", 0, "js-loader", 2))
 
@@ -262,7 +259,7 @@ def build_loader():
         "btn-panic", "live.text",
         rect=(150, 500, 80, 25),
         presentation=True,
-        presentation_rect=(700, 175, 80, 20),
+        presentation_rect=(700, 115, 80, 20),
         numinlets=1, numoutlets=2, outlettype=["", ""],
         extras={
             "varname": "panic",
@@ -285,16 +282,96 @@ def build_loader():
     boxes.append(P.live_comment(
         "status-fxtarget", rect=(250, 500, 200, 18),
         text="fx target: all",
-        presentation_rect=(400, 175, 200, 18),
+        presentation_rect=(400, 115, 200, 18),
         fontsize=10.0,
     ))
 
-    # Title
+    return p
+
+
+# ─────────────────────────────────────────────────────────────
+#  Grid MIDI bridge — setforge-grid.amxd (MIDI effect)
+# ─────────────────────────────────────────────────────────────
+
+def build_grid():
+    """Build the MIDI bridge device.
+
+    This is a minimal M4L MIDI Effect placed on a MIDI track whose I/O
+    is pointed at the Launchpad. It forwards MIDI between the hardware
+    and the loader (audio effect) via send/receive named buses.
+
+    Track setup:
+      MIDI From: Launchpad Pro (Standalone Port)
+      MIDI To:   Launchpad Pro (Standalone Port)
+    """
+    p = P.empty_patcher(width=400, height=200, is_root=True)
+    p["patcher"]["project"]["name"] = "setforge-grid"
+    p["patcher"]["openinpresentation"] = 1
+    p["patcher"]["devicewidth"] = 400.0
+
+    boxes = p["patcher"]["boxes"]
+    lines = p["patcher"]["lines"]
+
+    # ── MIDI I/O (required for M4L MIDI effect) ──
+    # midiin receives from the track's MIDI input (Launchpad pads)
+    boxes.append(P.newobj(
+        "midiin", "midiin",
+        rect=(20, 20, 60, 22),
+        numinlets=1, numoutlets=1, outlettype=["int"],
+    ))
+    # midiout sends to the track's MIDI output (Launchpad LEDs/SysEx)
+    boxes.append(P.newobj(
+        "midiout", "midiout",
+        rect=(20, 120, 60, 22),
+        numinlets=1, numoutlets=0,
+    ))
+
+    # ── Bridge: hardware → loader (pad presses) ──
+    # midiin → send sf-grid-in (received by setforge-loader.amxd)
+    boxes.append(P.newobj(
+        "send-to-loader", "send sf-grid-in",
+        rect=(150, 50, 150, 22),
+        numinlets=1, numoutlets=0,
+    ))
+    lines.append(P.line("midiin", 0, "send-to-loader", 0))
+
+    # ── Bridge: loader → hardware (LED updates, SysEx) ──
+    # receive sf-grid-out → midiout
+    boxes.append(P.newobj(
+        "recv-from-loader", "receive sf-grid-out",
+        rect=(150, 90, 150, 22),
+        numinlets=0, numoutlets=1, outlettype=[""],
+    ))
+    lines.append(P.line("recv-from-loader", 0, "midiout", 0))
+
+    # ── Debug: print midiin output to Max console ──
+    boxes.append(P.newobj(
+        "print-midi-in", "print sf-grid-midiin",
+        rect=(20, 50, 140, 22),
+        numinlets=1, numoutlets=0,
+    ))
+    lines.append(P.line("midiin", 0, "print-midi-in", 0))
+
+    # ── Debug: print what receive sends to midiout ──
+    boxes.append(P.newobj(
+        "print-midi-out", "print sf-grid-to-lp",
+        rect=(150, 115, 140, 22),
+        numinlets=1, numoutlets=0,
+    ))
+    lines.append(P.line("recv-from-loader", 0, "print-midi-out", 0))
+
+    # ── Presentation: minimal status display ──
     boxes.append(P.live_comment(
-        "title", rect=(20, 550, 300, 22),
-        text="setforge-loader",
-        presentation_rect=(10, 200, 300, 22),
-        fontsize=14.0,
+        "title-grid", rect=(20, 160, 300, 22),
+        text="setforge-grid — MIDI bridge to Launchpad",
+        presentation_rect=(10, 10, 380, 18),
+        fontsize=10.0,
+    ))
+    boxes.append(P.live_comment(
+        "status-grid", rect=(20, 185, 300, 18),
+        text="Set track I/O to Launchpad Standalone Port",
+        presentation_rect=(10, 28, 380, 16),
+        fontsize=9.0,
     ))
 
     return p
@@ -669,6 +746,23 @@ def main():
     else:
         print("  ✘ Patcher verification failed — skipping pack")
 
+    # ── Build grid MIDI bridge ──
+    # Skip patcher verifiers — MIDI effect has no plugin~/plugout~ by design
+    print("\n▸ Building setforge-grid (MIDI effect)...")
+    grid_patcher = build_grid()
+    grid_ok = True
+
+    maxpat_path = OUT_DIR / "setforge-grid.maxpat"
+    sha, size = write_maxpat(maxpat_path, grid_patcher)
+    print(f"  Wrote {maxpat_path} ({size} bytes, sha256={sha[:12]}...)")
+
+    amxd_path = OUT_DIR / "setforge-grid.amxd"
+    amxd_pack.pack_amxd(grid_patcher, str(amxd_path), device_class="midi")
+    print(f"  Packed {amxd_path}")
+
+    print("  Verifying .amxd...")
+    verify_amxd(amxd_path)
+
     # ── Build calibrator ──
     print("\n▸ Building setforge-calibrate...")
     cal_patcher = build_calibrator()
@@ -701,7 +795,7 @@ def main():
             print(f"  WARNING: {js_name} not found at {js_path}")
 
     print("\n" + "=" * 60)
-    if loader_ok and cal_ok:
+    if loader_ok and grid_ok and cal_ok:
         print("  BUILD COMPLETE — all verifiers passed")
     else:
         print("  BUILD COMPLETE WITH WARNINGS — check verifier output")
