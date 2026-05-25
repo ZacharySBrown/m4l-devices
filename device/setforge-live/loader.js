@@ -65,19 +65,21 @@ var viewModeLastPress = 0;
 var singleGridMode = true; // true until second Launchpad detected
 
 // Stem colors [R, G, B] in 0-127 (Launchpad 7-bit)
+// Saturated and punchy — need to pop on stage, not look like a spreadsheet
 var STEM_COLORS = {
-    drums: { soft: [64, 45, 35], bright: [127, 90, 70] },
-    bass:  { soft: [35, 47, 64], bright: [70, 94, 127] },
-    other: { soft: [48, 48, 37], bright: [96, 96, 74] },
-    vox:   { soft: [35, 60, 44], bright: [70, 120, 88] }
+    drums: { soft: [64, 20, 0],   bright: [127, 40, 0] },     // warm orange-red
+    bass:  { soft: [0, 20, 64],   bright: [0, 40, 127] },     // deep blue
+    other: { soft: [50, 50, 0],   bright: [100, 100, 0] },    // yellow-gold
+    vox:   { soft: [0, 50, 20],   bright: [0, 127, 40] }      // bright green
 };
 
+// Genre colors — vivid, distinguishable at a glance
 var GENRE_COLORS = {
-    hiphop:  [127, 56, 36],
-    idm:     [36, 64, 127],
-    ambient: [36, 82, 56],
-    rock:    [64, 64, 64],
-    funk:    [127, 102, 31]
+    hiphop:  [127, 50, 0],     // hot orange
+    idm:     [0, 60, 127],     // electric blue
+    ambient: [0, 127, 50],     // neon green
+    rock:    [100, 100, 100],  // bright grey
+    funk:    [127, 100, 0]     // golden yellow
 };
 
 var STATE_COLORS = {
@@ -1055,8 +1057,7 @@ function presetSlotColor(slot) {
     if (slot.state === "empty") return STATE_COLORS.empty;
     if (slot.state === "error") return STATE_COLORS.error;
     if (slot.state === "loading") return [64, 64, 64];
-    var track = slot.track;
-    var color = genreColor(track ? track.genre : null, track ? track.color_hue : null);
+    var color = presetColor(slot.index);
     if (slot.state === "loaded_active") return color;
     return scaleBrightness(color, 0.4);
 }
@@ -1074,10 +1075,20 @@ function chopPadColor(stem, col, activeSlot) {
     return STEM_COLORS[stem].soft;
 }
 
-function genreColor(genre, colorHue) {
-    if (genre && GENRE_COLORS[genre]) return GENRE_COLORS[genre];
-    if (colorHue) return hexToRgb7(colorHue);
-    return STATE_COLORS.empty;
+// Preset colors cycle through a fixed palette so each slot is visually distinct
+var PRESET_PALETTE = [
+    [127, 40, 0],    // orange
+    [0, 40, 127],    // blue
+    [0, 127, 40],    // green
+    [127, 0, 80],    // magenta
+    [127, 100, 0],   // gold
+    [0, 100, 127],   // cyan
+    [80, 0, 127],    // purple
+    [127, 80, 80],   // salmon
+];
+
+function presetColor(slotIndex) {
+    return PRESET_PALETTE[slotIndex % PRESET_PALETTE.length];
 }
 
 function hexToRgb7(hex) {
@@ -1139,7 +1150,6 @@ var midiBytes2 = [];
 
 function msg_int(v) {
     var inletIdx = inlet;
-    if (v >= 128) post("MIDI byte: " + v + " (inlet " + inletIdx + ")\n");
     if (inletIdx === 0) {
         processMidiByte(v, 1, midiBytes1);
     } else if (inletIdx === 1) {
