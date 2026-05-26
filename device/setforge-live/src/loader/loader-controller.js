@@ -133,7 +133,6 @@ function chopClipLength(bpm) {
 
 function computeTrackChops(track) {
     var result = {};
-    var length = track.varying ? 0 : chopClipLength(track.bpm);
     for (var s = 0; s < STEM_NAMES.length; s++) {
         var stemName = STEM_NAMES[s];
         var stem = track.stems ? track.stems[stemName] : null;
@@ -141,20 +140,59 @@ function computeTrackChops(track) {
             result[stemName] = null;
             continue;
         }
+
         var chops = [];
-        for (var c = 1; c <= NUM_CHOPS; c++) {
-            if (track.varying) {
-                chops.push({ column: c, clipStart: 0, clipLength: 0, stemPath: stem.path, disabled: true });
-            } else {
+
+        // Use manifest chops if available (variable-length, song-structure-aware)
+        if (stem.chops && stem.chops.length > 0) {
+            var numChops = Math.min(stem.chops.length, NUM_CHOPS);
+            for (var c = 0; c < numChops; c++) {
+                var mc = stem.chops[c];
+                // Prefer materialized chop WAV (chop_path) over stem + loop markers
+                var chopPath = mc.chop_path || stem.path;
+                var loopStart, loopEnd;
+                if (mc.chop_path && mc.loop_start_sec !== undefined) {
+                    // Materialized chop: loop region within the pre-cut WAV
+                    loopStart = mc.loop_start_sec;
+                    loopEnd = mc.loop_end_sec;
+                } else {
+                    // Fallback: loop into full stem
+                    loopStart = mc.start_sec || 0;
+                    loopEnd = (mc.start_sec || 0) + (mc.length_sec || 0);
+                }
                 chops.push({
-                    column: c,
-                    clipStart: chopClipStart(c, track.bpm, track.downbeat_sec || 0),
-                    clipLength: length,
-                    stemPath: stem.path,
-                    disabled: false
+                    column: c + 1,
+                    clipStart: loopStart,
+                    clipLength: loopEnd - loopStart,
+                    stemPath: chopPath,
+                    disabled: false,
+                    label: mc.label || "",
+                    kind: mc.kind || "",
+                    lengthBars: mc.length_bars || 0
                 });
             }
+            // Fill remaining columns as disabled
+            for (var c = numChops; c < NUM_CHOPS; c++) {
+                chops.push({ column: c + 1, clipStart: 0, clipLength: 0, stemPath: stem.path, disabled: true });
+            }
+        } else {
+            // Fallback: fixed 4-bar grid from downbeat + BPM
+            var length = track.varying ? 0 : chopClipLength(track.bpm);
+            for (var c = 1; c <= NUM_CHOPS; c++) {
+                if (track.varying) {
+                    chops.push({ column: c, clipStart: 0, clipLength: 0, stemPath: stem.path, disabled: true });
+                } else {
+                    chops.push({
+                        column: c,
+                        clipStart: chopClipStart(c, track.bpm, track.downbeat_sec || 0),
+                        clipLength: length,
+                        stemPath: stem.path,
+                        disabled: false
+                    });
+                }
+            }
         }
+
         result[stemName] = chops;
     }
     return result;
@@ -573,15 +611,55 @@ function loadClipsToSlotSet(presetIdx, offset) {
 
                 var clipApi = new LiveAPI(csPath + " clip");
                 if (clipApi && clipApi.id !== "0") {
-                    clipApi.set("name", slot.trackId + "-" + stem + "-" + chop.column);
+                    var clipLabel = (chop.label ? chop.label : "chop") +
+                        (chop.kind ? " [" + chop.kind + "]" : "");
+                    clipApi.set("name", slot.trackId + "-" + stem + "-" + clipLabel);
                     clipApi.set("warping", 1);
                     clipApi.set("warp_mode", WARP_MODES[stem] || 0);
                     clipApi.set("looping", 1);
                     clipApi.set("launch_quantization", ROW_QUANT[stem]);
-                    clipApi.set("loop_start", chop.clipStart);
-                    clipApi.set("loop_end", chop.clipStart + chop.clipLength);
-                    clipApi.set("start_marker", chop.clipStart);
-                    clipApi.set("end_marker", chop.clipStart + chop.clipLength);
+
+                    // Compute beats-per-second slope from known BPM
+                    var trackBpm = slot.track.bpm || 95;
+                    var secToBeat = trackBpm / 60.0;
+                    var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
+
+                    // Place two warp markers to define the tempo grid:
+                    // marker 0: file start → beat 0
+                    // marker 1: loop end (seconds) → correct beat position
+                    if (beatCount > 0) {
+                        var loopStartSec = chop.clipStart;
+                        var loopEndSec = chop.clipStart + chop.clipLength;
+                        var loopStartBeat = loopStartSec * secToBeat;
+                        var loopEndBeat = loopStartBeat + beatCount;
+
+                        // Set warp markers (add_warp_marker takes a Dict)
+                        try {
+                            var wm0 = new Dict();
+                            wm0.set("beat_time", loopStartBeat);
+                            wm0.set("sample_time", loopStartSec);
+                            clipApi.call("add_warp_marker", wm0);
+
+                            var wm1 = new Dict();
+                            wm1.set("beat_time", loopEndBeat);
+                            wm1.set("sample_time", loopEndSec);
+                            clipApi.call("add_warp_marker", wm1);
+                        } catch (eWm) {
+                            post("  " + stem + " col " + chop.column + ": warp marker error: " + eWm + "\n");
+                        }
+
+                        // All positions in beats (warped clip convention)
+                        clipApi.set("start_marker", loopStartBeat);
+                        clipApi.set("end_marker", loopEndBeat);
+                        clipApi.set("loop_start", loopStartBeat);
+                        clipApi.set("loop_end", loopEndBeat);
+                    } else {
+                        // Oneshot: no loop, positions in seconds (unwarped)
+                        clipApi.set("warping", 0);
+                        clipApi.set("looping", 0);
+                        clipApi.set("start_marker", chop.clipStart);
+                        clipApi.set("end_marker", chop.clipStart + chop.clipLength);
+                    }
                     loaded++;
                 }
             } catch (e) {
@@ -615,7 +693,7 @@ function commitStagedPreset() {
 }
 
 function launchClipInTrack(stemName, slotIndex, chop) {
-    if (!deviceReady) return;
+    if (!liveApi) return;
 
     var trackPath = stemTrackIds[stemName];
     if (!trackPath) {
@@ -637,7 +715,7 @@ function launchClipInTrack(stemName, slotIndex, chop) {
 }
 
 function launchStagingClip(stemName, chop) {
-    if (!deviceReady) return;
+    if (!liveApi) return;
 
     var trackPath = stemTrackIds[stemName];
     if (!trackPath) return;
@@ -653,7 +731,7 @@ function launchStagingClip(stemName, chop) {
 }
 
 function stopClipInTrack(stemName, slotIndex) {
-    if (!deviceReady) return;
+    if (!liveApi) return;
 
     var trackPath = stemTrackIds[stemName];
     if (!trackPath) return;
@@ -668,7 +746,7 @@ function stopClipInTrack(stemName, slotIndex) {
 }
 
 function stopAllClips() {
-    if (!deviceReady) return;
+    if (!liveApi) return;
 
     for (var s = 0; s < STEM_NAMES.length; s++) {
         var trackPath = stemTrackIds[STEM_NAMES[s]];
@@ -688,6 +766,7 @@ function stopAllClips() {
 
 var manifest = null;
 var setData = null;
+var manifestFilePath = null;
 
 function loadSet(path) {
     post("setforge-loader: loading set from " + path + "\n");
@@ -704,20 +783,28 @@ function loadSet(path) {
 
         var setDir = path.replace(/[^\/\\]*$/, "");
         var manifestPath = setDir + setData.name + ".manifest.json";
+        manifestFilePath = manifestPath;
 
         var mFile = new File(manifestPath, "r");
         if (!mFile.isopen) {
             post("setforge-loader: cannot open manifest: " + manifestPath + "\n");
             return;
         }
-        var mStr = mFile.readstring(mFile.eof);
+        // Read in chunks — Max's readstring has a ~64KB buffer limit
+        var mStr = "";
+        var chunkSize = 16384;
+        while (mFile.position < mFile.eof) {
+            mStr += mFile.readstring(chunkSize);
+        }
         mFile.close();
+        post("setforge-loader: manifest read " + mStr.length + " chars\n");
         manifest = JSON.parse(mStr);
 
-        if (deviceReady) {
-            ensureScenes(NUM_CHOPS * 2);
-            ensureStemTracks();
-        }
+        // Always try to init LiveAPI and find/create stem tracks.
+        // After autowatch reload, deviceReady is false but LiveAPI still works.
+        if (!liveApi) initLiveApi();
+        ensureScenes(NUM_CHOPS * 2);
+        ensureStemTracks();
 
         populateBanks();
 
@@ -1207,6 +1294,11 @@ function onPresetPress(slotIndex) {
     var slot = presetSlots[slotIndex];
     if (!slot || slot.state === "empty" || slot.state === "loading" || slot.state === "error") return;
 
+    // Auto-save manifest on preset switch (persists any nudged downbeats/bpms)
+    if (manifestFilePath && activeSlotIndex >= 0) {
+        saveManifest();
+    }
+
     var isFirstActivation = (activeSlotIndex < 0);
     var shiftMode = (modState.HOLD === "held" || modState.HOLD === "latched");
     var result = activatePreset(slotIndex);
@@ -1237,6 +1329,17 @@ function onPresetPress(slotIndex) {
         stopAllChops();
         stagePreset(slotIndex);
         if (stagingReady) commitStagedPreset();
+    }
+
+    // Sync session tempo to the active preset's BPM
+    var activePreset = getActivePreset();
+    if (activePreset && activePreset.track && activePreset.track.bpm && liveApi) {
+        try {
+            liveApi.set("tempo", activePreset.track.bpm);
+            post("setforge-loader: tempo → " + activePreset.track.bpm.toFixed(1) + "\n");
+        } catch (e) {
+            post("setforge-loader: tempo set error: " + e + "\n");
+        }
     }
 
     updateAllPadColors();
@@ -1391,6 +1494,109 @@ function executePanic() {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  Downbeat Nudge + Save
+// ═══════════════════════════════════════════════════════════
+
+// Nudge active preset's downbeat_sec by delta (seconds).
+// Recomputes chops and reloads clips in the active set.
+function nudgeDownbeat(delta) {
+    var active = getActivePreset();
+    if (!active || !active.track) {
+        post("setforge-loader: nudge — no active preset\n");
+        return;
+    }
+
+    var track = active.track;
+    var oldDown = track.downbeat_sec || 0;
+    track.downbeat_sec = Math.max(0, oldDown + delta);
+
+    // Also update the manifest's copy
+    var mTrack = resolveTrack(active.trackId);
+    if (mTrack) mTrack.downbeat_sec = track.downbeat_sec;
+
+    // Recompute chops
+    active.chops = computeTrackChops(track);
+
+    post("setforge-loader: nudge " + active.trackId +
+         " downbeat " + oldDown.toFixed(3) + " → " + track.downbeat_sec.toFixed(3) +
+         " (" + (delta >= 0 ? "+" : "") + delta.toFixed(3) + "s)\n");
+
+    // Reload clips
+    loadClipsForPreset(active.index);
+    updateAllPadColors();
+}
+
+// Set the active preset's downbeat_sec to an absolute value.
+function setDownbeat(sec) {
+    var active = getActivePreset();
+    if (!active || !active.track) {
+        post("setforge-loader: set_downbeat — no active preset\n");
+        return;
+    }
+
+    var track = active.track;
+    var oldDown = track.downbeat_sec || 0;
+    track.downbeat_sec = Math.max(0, sec);
+
+    var mTrack = resolveTrack(active.trackId);
+    if (mTrack) mTrack.downbeat_sec = track.downbeat_sec;
+
+    active.chops = computeTrackChops(track);
+
+    post("setforge-loader: set_downbeat " + active.trackId +
+         " " + oldDown.toFixed(3) + " → " + track.downbeat_sec.toFixed(3) + "\n");
+
+    loadClipsForPreset(active.index);
+    updateAllPadColors();
+}
+
+// Set the active preset's BPM.
+function setBpm(bpm) {
+    var active = getActivePreset();
+    if (!active || !active.track) {
+        post("setforge-loader: set_bpm — no active preset\n");
+        return;
+    }
+
+    var track = active.track;
+    var oldBpm = track.bpm;
+    track.bpm = bpm;
+
+    var mTrack = resolveTrack(active.trackId);
+    if (mTrack) mTrack.bpm = bpm;
+
+    active.chops = computeTrackChops(track);
+
+    post("setforge-loader: set_bpm " + active.trackId +
+         " " + oldBpm.toFixed(2) + " → " + bpm.toFixed(2) + "\n");
+
+    loadClipsForPreset(active.index);
+    updateAllPadColors();
+}
+
+// Save manifest back to disk with all modified downbeats/bpms.
+function saveManifest() {
+    if (!manifest || !manifestFilePath) {
+        post("setforge-loader: save — no manifest loaded\n");
+        return;
+    }
+
+    try {
+        var jsonStr = JSON.stringify(manifest, null, 2);
+        var f = new File(manifestFilePath, "w");
+        if (!f.isopen) {
+            post("setforge-loader: save — cannot open " + manifestFilePath + "\n");
+            return;
+        }
+        f.writestring(jsonStr);
+        f.close();
+        post("setforge-loader: saved manifest to " + manifestFilePath + "\n");
+    } catch (e) {
+        post("setforge-loader: save error: " + e + "\n");
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
 //  Message Handling (from UI / Max)
 // ═══════════════════════════════════════════════════════════
 
@@ -1421,6 +1627,17 @@ function anything() {
         updateAllPadColors();
         updateStatus();
         post("setforge-loader: ejected\n");
+    } else if (msg === "nudge") {
+        // nudge <seconds> — e.g. "nudge 0.05" or "nudge -0.1"
+        nudgeDownbeat(args.length > 0 ? parseFloat(args[0]) : 0.05);
+    } else if (msg === "set_downbeat") {
+        // set_downbeat <seconds> — absolute
+        if (args.length > 0) setDownbeat(parseFloat(args[0]));
+    } else if (msg === "set_bpm") {
+        // set_bpm <bpm> — change active preset's BPM
+        if (args.length > 0) setBpm(parseFloat(args[0]));
+    } else if (msg === "save") {
+        saveManifest();
     } else if (msg === "panic") {
         executePanic();
     } else if (msg === "bar_tick") {
