@@ -861,52 +861,72 @@ function loadClipsToSlotSet(presetIdx, offset) {
                 if (clipApi && clipApi.id !== "0") {
                     var clipLabel = (chop.label ? chop.label : "chop") +
                         (chop.kind ? " [" + chop.kind + "]" : "");
-                    clipApi.set("name", slot.trackId + "-" + stem + "-" + clipLabel);
-                    clipApi.set("warping", 1);
-                    clipApi.set("warp_mode", WARP_MODES[stem] || 0);
-                    clipApi.set("looping", 1);
-                    clipApi.set("launch_quantization", ROW_QUANT[stem]);
 
-                    // Compute beats-per-second slope from known BPM
-                    var trackBpm = slot.track.bpm || 95;
-                    var secToBeat = trackBpm / 60.0;
                     var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
 
-                    // Place two warp markers to define the tempo grid:
-                    // marker 0: file start → beat 0
-                    // marker 1: loop end (seconds) → correct beat position
+                    clipApi.set("name", slot.trackId + "-" + stem + "-" + clipLabel);
+
                     if (beatCount > 0) {
+                        // Pre-cut chop with buffer padding.
+                        // Live auto-generates a marker at sample=0. We can't move
+                        // its sample_time, only its beat_time. So we set the beat
+                        // at sample=0 to a NEGATIVE value such that the slope
+                        // (secToBeat) maps loopStartSec → beat 0, loopEndSec → beat N.
+                        //
+                        // marker at sample=0        → beat = -(padSec * secToBeat)
+                        // marker at sample=fileDur  → beat = (fileDur - padSec) * secToBeat
+                        //
+                        // This way beat 0 = downbeat = loopStartSec.
                         var loopStartSec = chop.clipStart;
                         var loopEndSec = chop.clipStart + chop.clipLength;
-                        var loopStartBeat = loopStartSec * secToBeat;
-                        var loopEndBeat = loopStartBeat + beatCount;
+                        var secToBeat = beatCount / (loopEndSec - loopStartSec);
+                        var beatAtSampleZero = -(loopStartSec * secToBeat);
 
-                        // Set warp markers (add_warp_marker takes a Dict)
+                        clipApi.set("warping", 1);
+                        clipApi.set("warp_mode", WARP_MODES[stem] || 0);
+                        clipApi.set("looping", 1);
+
+                        // Read existing warp markers
+                        var existingMarkers = [];
                         try {
-                            var wm0 = new Dict();
-                            wm0.set("beat_time", loopStartBeat);
-                            wm0.set("sample_time", loopStartSec);
-                            clipApi.call("add_warp_marker", wm0);
+                            var rawWm = clipApi.get("warp_markers");
+                            if (rawWm && rawWm.length > 0) {
+                                var wmStr = (typeof rawWm[0] === "string") ? rawWm[0] : String(rawWm[0]);
+                                var wmParsed = JSON.parse(wmStr);
+                                if (wmParsed && wmParsed.warp_markers) {
+                                    existingMarkers = wmParsed.warp_markers;
+                                } else if (wmParsed && wmParsed.length) {
+                                    existingMarkers = wmParsed;
+                                }
+                            }
+                        } catch (_) {}
 
-                            var wm1 = new Dict();
-                            wm1.set("beat_time", loopEndBeat);
-                            wm1.set("sample_time", loopEndSec);
-                            clipApi.call("add_warp_marker", wm1);
-                        } catch (eWm) {
-                            post("  " + stem + " col " + chop.column + ": warp marker error: " + eWm + "\n");
+                        // Move every existing marker to match our tempo slope.
+                        // Each marker at sample_time S should be at beat (S - loopStartSec) * secToBeat
+                        for (var ei = 0; ei < existingMarkers.length; ei++) {
+                            var em = existingMarkers[ei];
+                            var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
+                            var delta = correctBeat - em.beat_time;
+                            if (Math.abs(delta) >= 0.0001) {
+                                try {
+                                    clipApi.call("move_warp_marker", em.beat_time, delta);
+                                } catch (_) {}
+                            }
                         }
 
-                        // All positions in beats (warped clip convention)
-                        clipApi.set("start_marker", loopStartBeat);
-                        clipApi.set("end_marker", loopEndBeat);
-                        clipApi.set("loop_start", loopStartBeat);
-                        clipApi.set("loop_end", loopEndBeat);
+                        // Set clip boundaries: beat 0 = downbeat (after pad)
+                        clipApi.set("start_marker", 0);
+                        clipApi.set("end_marker", beatCount);
+                        clipApi.set("loop_start", 0);
+                        clipApi.set("loop_end", beatCount);
+                        clipApi.set("launch_quantization", ROW_QUANT[stem]);
                     } else {
-                        // Oneshot: no loop, positions in seconds (unwarped)
+                        // Oneshot: no warp, no loop
                         clipApi.set("warping", 0);
                         clipApi.set("looping", 0);
                         clipApi.set("start_marker", chop.clipStart);
                         clipApi.set("end_marker", chop.clipStart + chop.clipLength);
+                        clipApi.set("launch_quantization", ROW_QUANT[stem]);
                     }
                     loaded++;
                 }
@@ -1058,6 +1078,9 @@ function loadSet(path) {
 
         updateStatus();
         updateAllPadColors();
+
+        // Remember this path for autowatch re-load
+        saveLastSetPath(path);
 
         post("setforge-loader: set loaded (" + (manifest.tracks ? manifest.tracks.length : 0) + " tracks)\n");
         dumpState();
@@ -1548,10 +1571,12 @@ function onPresetPress(slotIndex) {
     var slot = presetSlots[slotIndex];
     if (!slot || slot.state === "empty" || slot.state === "loading" || slot.state === "error") return;
 
-    // Auto-save manifest on preset switch (persists any nudged downbeats/bpms)
-    if (manifestFilePath && activeSlotIndex >= 0) {
-        saveManifest();
-    }
+    // Auto-save disabled — was corrupting the manifest JSON.
+    // Use the "save" message to save manually after nudging.
+    // TODO: fix saveManifest to write valid compact JSON
+    // if (manifestFilePath && activeSlotIndex >= 0) {
+    //     saveManifest();
+    // }
 
     var isFirstActivation = (activeSlotIndex < 0);
     var shiftMode = (modState.HOLD === "held" || modState.HOLD === "latched");
@@ -1598,6 +1623,9 @@ function onPresetPress(slotIndex) {
 
     updateAllPadColors();
     updateStatus();
+
+    // Auto-inspect: write clip state to /tmp for automated testing
+    inspectClips();
 }
 
 function onChopPress(row, col) {
@@ -1899,6 +1927,160 @@ function anything() {
         sendSurfaceRgb(2);
     } else if (msg === "debug") {
         dumpState();
+    } else if (msg === "inspect") {
+        inspectClips();
+    }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Inspect — dump detailed clip state from LiveAPI
+// ═══════════════════════════════════════════════════════════
+
+function inspectClips() {
+    var active = getActivePreset();
+    if (!active) {
+        post("inspect: no active preset\n");
+        return;
+    }
+    if (!liveApi) {
+        post("inspect: no LiveAPI\n");
+        return;
+    }
+
+    var offset = activeSetOffset();
+    var result = {
+        preset_index: activeSlotIndex,
+        track_id: active.trackId || null,
+        track_bpm: (active.track && active.track.bpm) ? active.track.bpm : null,
+        clip_set: activeClipSet,
+        clip_offset: offset,
+        session_tempo: null,
+        stems: {}
+    };
+
+    // Read session tempo
+    try { result.session_tempo = liveApi.get("tempo"); } catch (_) {}
+
+    post("\n=== inspect: preset " + activeSlotIndex + " (" + (active.trackId || "?") + ") ===\n");
+
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var trackPath = stemTrackIds[stem];
+        if (!trackPath) {
+            post("inspect " + stem + ": no track\n");
+            continue;
+        }
+
+        var stemClips = [];
+
+        for (var c = 0; c < NUM_CHOPS; c++) {
+            var clipSlot = offset + c;
+            var csPath = trackPath + " clip_slots " + clipSlot;
+
+            try {
+                var csApi = new LiveAPI(csPath);
+                var hasClip = csApi.get("has_clip");
+                if (!hasClip || hasClip.toString() !== "1") continue;
+
+                var clipApi = new LiveAPI(csPath + " clip");
+                if (!clipApi || clipApi.id === "0") continue;
+
+                var clipData = {
+                    slot: c,
+                    name: "",
+                    warping: 0,
+                    warp_mode: 0,
+                    loop_start: 0,
+                    loop_end: 0,
+                    start_marker: 0,
+                    end_marker: 0,
+                    length: 0,
+                    warp_markers: []
+                };
+
+                try { clipData.name = String(clipApi.get("name")); } catch (_) {}
+                try { clipData.warping = Number(clipApi.get("warping")); } catch (_) {}
+                try { clipData.warp_mode = Number(clipApi.get("warp_mode")); } catch (_) {}
+                try { clipData.loop_start = Number(clipApi.get("loop_start")); } catch (_) {}
+                try { clipData.loop_end = Number(clipApi.get("loop_end")); } catch (_) {}
+                try { clipData.start_marker = Number(clipApi.get("start_marker")); } catch (_) {}
+                try { clipData.end_marker = Number(clipApi.get("end_marker")); } catch (_) {}
+                try { clipData.length = Number(clipApi.get("length")); } catch (_) {}
+
+                // Read warp markers
+                try {
+                    var raw = clipApi.get("warp_markers");
+                    if (raw && raw.length > 0) {
+                        var jsonStr = (typeof raw[0] === "string") ? raw[0] : String(raw[0]);
+                        var parsed = JSON.parse(jsonStr);
+                        if (parsed && parsed.warp_markers) {
+                            clipData.warp_markers = parsed.warp_markers;
+                        } else if (parsed && parsed.length) {
+                            clipData.warp_markers = parsed;
+                        }
+                    }
+                } catch (_) {}
+
+                // Also read chop metadata from the active preset
+                var chopMeta = null;
+                if (active.chops && active.chops[stem]) {
+                    for (var ci = 0; ci < active.chops[stem].length; ci++) {
+                        if (active.chops[stem][ci].column === c + 1) {
+                            var ch = active.chops[stem][ci];
+                            chopMeta = {
+                                label: ch.label || "",
+                                kind: ch.kind || "",
+                                lengthBars: ch.lengthBars || 0,
+                                clipStart: ch.clipStart,
+                                clipLength: ch.clipLength,
+                                stemPath: ch.stemPath
+                            };
+                            break;
+                        }
+                    }
+                }
+                clipData.chop = chopMeta;
+
+                stemClips.push(clipData);
+
+                // Console output
+                var markerStr = "";
+                for (var m = 0; m < clipData.warp_markers.length; m++) {
+                    var mk = clipData.warp_markers[m];
+                    markerStr += " [b=" + (mk.beat_time || "?") + ",s=" + (mk.sample_time || "?") + "]";
+                }
+                post("inspect " + stem + "[" + c + "]: " +
+                    "warping=" + clipData.warping +
+                    " mode=" + clipData.warp_mode +
+                    " start=" + clipData.start_marker.toFixed(2) +
+                    " loop=" + clipData.loop_start.toFixed(2) + ".." + clipData.loop_end.toFixed(2) +
+                    " end=" + clipData.end_marker.toFixed(2) +
+                    " len=" + clipData.length.toFixed(2) +
+                    " markers=" + clipData.warp_markers.length + markerStr +
+                    (chopMeta ? " [" + chopMeta.label + " " + chopMeta.lengthBars + "bar]" : "") +
+                    "\n");
+
+            } catch (e) {
+                post("inspect " + stem + "[" + c + "]: error: " + e + "\n");
+            }
+        }
+
+        result.stems[stem] = stemClips;
+    }
+
+    post("=== end inspect ===\n");
+
+    // Write JSON to file for automated test consumption
+    try {
+        var jsonOut = JSON.stringify(result, null, 2);
+        var outFile = new File("/tmp/setforge_inspect.json", "w");
+        if (outFile.isopen) {
+            outFile.writestring(jsonOut);
+            outFile.close();
+            post("inspect: wrote /tmp/setforge_inspect.json\n");
+        }
+    } catch (e) {
+        post("inspect: file write error: " + e + "\n");
     }
 }
 
@@ -1988,7 +2170,37 @@ function bang() {
     updateStatus();
 }
 
+// Persist last loaded set path so autowatch reloads can re-load it
+var LAST_SET_PATH_FILE = "/tmp/setforge_last_set.txt";
+
+function saveLastSetPath(path) {
+    try {
+        var f = new File(LAST_SET_PATH_FILE, "w");
+        if (f.isopen) { f.writestring(path); f.close(); }
+    } catch (_) {}
+}
+
+function loadLastSetPath() {
+    try {
+        var f = new File(LAST_SET_PATH_FILE, "r");
+        if (!f.isopen) return null;
+        var path = f.readstring(f.eof);
+        f.close();
+        return path && path.length > 0 ? path.trim() : null;
+    } catch (_) { return null; }
+}
+
 // Init data structures only (no outlet calls at load time)
 doInit();
+
+// After autowatch reload, try to re-load the last set
+var lastPath = loadLastSetPath();
+if (lastPath) {
+    post("setforge-loader: auto-reloading last set: " + lastPath + "\n");
+    // Defer to avoid outlet calls during load
+    var reloadTask = new Task(function() { loadSet(lastPath); });
+    reloadTask.schedule(500);
+}
+
 post("setforge-loader.js loaded (surface=" + surface.model + ")\n");
 
