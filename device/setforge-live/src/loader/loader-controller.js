@@ -1067,6 +1067,12 @@ function presetColor(slotIndex) {
     return PRESET_PALETTE[slotIndex % PRESET_PALETTE.length];
 }
 
+function genreColor(genre, colorHue) {
+    if (GENRE_COLORS[genre]) return GENRE_COLORS[genre];
+    if (colorHue) return hexToRgb7(colorHue);
+    return STATE_COLORS.empty;
+}
+
 function hexToRgb7(hex) {
     if (!hex) return STATE_COLORS.empty;
     var clean = hex.replace("#", "");

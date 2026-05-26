@@ -72,6 +72,8 @@ function createMaxEnv() {
           }
           return "";
         }
+        if (prop === 'has_clip') return "0";
+        if (prop === 'tempo') return 120;
         return "";
       };
 
@@ -83,33 +85,52 @@ function createMaxEnv() {
             if (!tracks[idx]) tracks[idx] = {};
             tracks[idx].name = val;
           }
+        } else if (prop === 'tempo') {
+          log.push('[LiveAPI] set tempo: ' + val + '\n');
         }
+        // Accept all other set() calls silently (warping, warp_mode, looping, etc.)
       };
 
       this.call = function(method) {
         if (method === 'create_audio_track') {
           tracks[trackCounter] = { name: "", clips: {} };
           trackCounter++;
+        } else if (method === 'create_audio_clip') {
+          var wavPath = arguments[1];
+          log.push('[LiveAPI] create_audio_clip(' + wavPath + '): ' + this.path + '\n');
+        } else if (method === 'create_scene') {
+          // no-op, just accept it
         } else if (method === 'fire') {
-          // Record clip fire
           log.push('[LiveAPI] fire: ' + this.path + '\n');
         } else if (method === 'stop') {
           log.push('[LiveAPI] stop: ' + this.path + '\n');
         } else if (method === 'stop_all_clips') {
           log.push('[LiveAPI] stop_all_clips: ' + this.path + '\n');
+        } else if (method === 'delete_clip') {
+          // no-op
+        } else if (method === 'add_warp_marker') {
+          var dict = arguments[1];
+          var bt = dict && dict._data ? dict._data.beat_time : '?';
+          var st = dict && dict._data ? dict._data.sample_time : '?';
+          log.push('[LiveAPI] add_warp_marker(beat=' + bt + ', sample=' + st + '): ' + this.path + '\n');
         } else if (method === 'create_clip') {
-          // Record clip creation
           var clipLen = arguments[1];
           log.push('[LiveAPI] create_clip(' + clipLen + '): ' + this.path + '\n');
         }
       };
+
+      this.getcount = function(prop) {
+        if (prop === 'scenes') return 0;
+        return 0;
+      };
     },
 
-    // ── File mock ──
+    // ── File mock (supports chunked reading) ──
     File: function(filePath, mode) {
       this.filePath = filePath;
       this.isopen = false;
       this.eof = 0;
+      this.position = 0;
 
       // Check if real file exists
       try {
@@ -122,7 +143,17 @@ function createMaxEnv() {
       }
 
       this.readstring = function(len) {
-        return this._content || '';
+        if (!this._content) return '';
+        var chunk = this._content.substr(this.position, len);
+        this.position += chunk.length;
+        return chunk;
+      };
+
+      this.writestring = function(str) {
+        // For save functionality — write to real filesystem
+        try {
+          fs.writeFileSync(this.filePath, str, 'utf8');
+        } catch (e) {}
       };
 
       this.close = function() {
@@ -134,10 +165,18 @@ function createMaxEnv() {
           this._content = fs.readFileSync(p, 'utf8');
           this.isopen = true;
           this.eof = this._content.length;
+          this.position = 0;
         } catch (e) {
           this.isopen = false;
         }
       };
+    },
+
+    // ── Max Dict mock (used for warp markers) ──
+    Dict: function() {
+      this._data = {};
+      this.set = function(key, val) { this._data[key] = val; };
+      this.get = function(key) { return this._data[key]; };
     },
 
     // ── Date (already global in Node) ──

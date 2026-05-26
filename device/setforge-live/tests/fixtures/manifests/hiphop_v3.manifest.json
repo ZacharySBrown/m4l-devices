@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "set_id": "hiphop_v3",
-  "global_tempo_hint": 94.0,
+  "global_tempo_hint": 94,
   "tracks": [
     {
       "id": "the_next_episode",
@@ -17,10 +17,22 @@
       "genre": "hiphop",
       "color_hue": "#ff8c5a",
       "stems": {
-        "drums": { "path": "/fixtures/stems/the_next_episode/drums.wav", "sha": "abc123" },
-        "bass":  { "path": "/fixtures/stems/the_next_episode/bass.wav", "sha": "def456" },
-        "other": { "path": "/fixtures/stems/the_next_episode/other.wav", "sha": "ghi789" },
-        "vox":   { "path": "/fixtures/stems/the_next_episode/vox.wav", "sha": "jkl012" }
+        "drums": {
+          "path": "/fixtures/stems/the_next_episode/drums.wav",
+          "sha": "abc123"
+        },
+        "bass": {
+          "path": "/fixtures/stems/the_next_episode/bass.wav",
+          "sha": "def456"
+        },
+        "other": {
+          "path": "/fixtures/stems/the_next_episode/other.wav",
+          "sha": "ghi789"
+        },
+        "vox": {
+          "path": "/fixtures/stems/the_next_episode/vox.wav",
+          "sha": "jkl012"
+        }
       },
       "chop_quant_override": null,
       "validated": true,
@@ -40,10 +52,22 @@
       "genre": "hiphop",
       "color_hue": "#ff8c5a",
       "stems": {
-        "drums": { "path": "/fixtures/stems/big_poppa/drums.wav", "sha": "aaa111" },
-        "bass":  { "path": "/fixtures/stems/big_poppa/bass.wav", "sha": "bbb222" },
-        "other": { "path": "/fixtures/stems/big_poppa/other.wav", "sha": "ccc333" },
-        "vox":   { "path": "/fixtures/stems/big_poppa/vox.wav", "sha": "ddd444" }
+        "drums": {
+          "path": "/fixtures/stems/big_poppa/drums.wav",
+          "sha": "aaa111"
+        },
+        "bass": {
+          "path": "/fixtures/stems/big_poppa/bass.wav",
+          "sha": "bbb222"
+        },
+        "other": {
+          "path": "/fixtures/stems/big_poppa/other.wav",
+          "sha": "ccc333"
+        },
+        "vox": {
+          "path": "/fixtures/stems/big_poppa/vox.wav",
+          "sha": "ddd444"
+        }
       },
       "chop_quant_override": null,
       "validated": true,
