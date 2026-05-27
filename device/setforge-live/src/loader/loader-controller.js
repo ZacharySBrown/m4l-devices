@@ -619,61 +619,15 @@ function loadClipsToSlotSet(presetIdx, offset) {
                     clipApi.set("name", slot.trackId + "-" + stem + "-" + clipLabel);
 
                     if (beatCount > 0) {
-                        // Pre-cut chop with buffer padding.
-                        // Live auto-generates a marker at sample=0. We can't move
-                        // its sample_time, only its beat_time. So we set the beat
-                        // at sample=0 to a NEGATIVE value such that the slope
-                        // (secToBeat) maps loopStartSec → beat 0, loopEndSec → beat N.
-                        //
-                        // marker at sample=0        → beat = -(padSec * secToBeat)
-                        // marker at sample=fileDur  → beat = (fileDur - padSec) * secToBeat
-                        //
-                        // This way beat 0 = downbeat = loopStartSec.
-                        var loopStartSec = chop.clipStart;
-                        var loopEndSec = chop.clipStart + chop.clipLength;
-                        var secToBeat = beatCount / (loopEndSec - loopStartSec);
-                        var beatAtSampleZero = -(loopStartSec * secToBeat);
-
                         clipApi.set("warping", 1);
                         clipApi.set("warp_mode", WARP_MODES[stem] || 0);
                         clipApi.set("looping", 1);
-
-                        // Read existing warp markers
-                        var existingMarkers = [];
-                        try {
-                            var rawWm = clipApi.get("warp_markers");
-                            if (rawWm && rawWm.length > 0) {
-                                var wmStr = (typeof rawWm[0] === "string") ? rawWm[0] : String(rawWm[0]);
-                                var wmParsed = JSON.parse(wmStr);
-                                if (wmParsed && wmParsed.warp_markers) {
-                                    existingMarkers = wmParsed.warp_markers;
-                                } else if (wmParsed && wmParsed.length) {
-                                    existingMarkers = wmParsed;
-                                }
-                            }
-                        } catch (_) {}
-
-                        // Move every existing marker to match our tempo slope.
-                        // Each marker at sample_time S should be at beat (S - loopStartSec) * secToBeat
-                        for (var ei = 0; ei < existingMarkers.length; ei++) {
-                            var em = existingMarkers[ei];
-                            var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
-                            var delta = correctBeat - em.beat_time;
-                            if (Math.abs(delta) >= 0.0001) {
-                                try {
-                                    clipApi.call("move_warp_marker", em.beat_time, delta);
-                                } catch (_) {}
-                            }
-                        }
-
-                        // Set clip boundaries: beat 0 = downbeat (after pad)
                         clipApi.set("start_marker", 0);
                         clipApi.set("end_marker", beatCount);
                         clipApi.set("loop_start", 0);
                         clipApi.set("loop_end", beatCount);
                         clipApi.set("launch_quantization", ROW_QUANT[stem]);
                     } else {
-                        // Oneshot: no warp, no loop
                         clipApi.set("warping", 0);
                         clipApi.set("looping", 0);
                         clipApi.set("start_marker", chop.clipStart);
@@ -694,6 +648,118 @@ function loadClipsToSlotSet(presetIdx, offset) {
 
 function loadClipsForPreset(presetIdx) {
     loadClipsToSlotSet(presetIdx, activeSetOffset());
+    // Defer warp marker adjustment — Live needs time to analyze new clips
+    // before we can read and move its auto-generated markers.
+    var offset = activeSetOffset();
+    var fixTask = new Task(function() {
+        fixWarpMarkers(presetIdx, offset);
+    });
+    fixTask.schedule(4000); // 4 seconds for Live to finish analysis (long clips need more time)
+}
+
+// Deferred pass: read Live's auto-generated warp markers and move them
+// to match our known BPM. Called after create_audio_clip has had time
+// to complete Live's async analysis.
+function fixWarpMarkers(presetIdx, offset) {
+    var slot = presetSlots[presetIdx];
+    if (!slot || !slot.chops) return;
+
+    post("setforge-loader: fixing warp markers for " + slot.trackId + "...\n");
+    var trackBpm = (slot.track && slot.track.bpm) ? slot.track.bpm : 95;
+
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var chopList = slot.chops[stem];
+        if (!chopList) continue;
+
+        var trackPath = stemTrackIds[stem];
+        if (!trackPath) continue;
+
+        for (var c = 0; c < chopList.length; c++) {
+            var chop = chopList[c];
+            if (chop.disabled) continue;
+
+            var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
+            if (beatCount <= 0) continue;
+
+            var clipSlot = offset + (chop.column - 1);
+            var csPath = trackPath + " clip_slots " + clipSlot;
+
+            try {
+                var csApi = new LiveAPI(csPath);
+                var hasClip = csApi.get("has_clip");
+                if (!hasClip || hasClip.toString() !== "1") continue;
+
+                var clipApi = new LiveAPI(csPath + " clip");
+                if (!clipApi || clipApi.id === "0") continue;
+
+                var loopStartSec = chop.clipStart;
+                var loopEndSec = chop.clipStart + chop.clipLength;
+                var secToBeat = beatCount / (loopEndSec - loopStartSec);
+
+                // Read current warp markers
+                var existingMarkers = [];
+                try {
+                    var rawWm = clipApi.get("warp_markers");
+                    if (rawWm && rawWm.length > 0) {
+                        var wmStr = (typeof rawWm[0] === "string") ? rawWm[0] : String(rawWm[0]);
+                        var wmParsed = JSON.parse(wmStr);
+                        if (wmParsed && wmParsed.warp_markers) {
+                            existingMarkers = wmParsed.warp_markers;
+                        } else if (wmParsed && wmParsed.length) {
+                            existingMarkers = wmParsed;
+                        }
+                    }
+                } catch (_) {}
+
+                // Move existing markers to correct beat positions
+                var moved = 0;
+                for (var ei = 0; ei < existingMarkers.length; ei++) {
+                    var em = existingMarkers[ei];
+                    var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
+                    var delta = correctBeat - em.beat_time;
+                    if (Math.abs(delta) >= 0.0001) {
+                        try {
+                            clipApi.call("move_warp_marker", em.beat_time, delta);
+                            moved++;
+                        } catch (_) {}
+                    }
+                }
+
+                // If there's no marker near the end of the clip, add one.
+                // This is critical for long clips where Live only auto-generates
+                // markers near sample 0.
+                var hasEndMarker = false;
+                for (var ei = 0; ei < existingMarkers.length; ei++) {
+                    if (existingMarkers[ei].sample_time > loopEndSec * 0.5) {
+                        hasEndMarker = true;
+                        break;
+                    }
+                }
+                if (!hasEndMarker) {
+                    try {
+                        var wmEnd = new Dict();
+                        wmEnd.set("beat_time", beatCount);
+                        wmEnd.set("sample_time", loopEndSec);
+                        clipApi.call("add_warp_marker", wmEnd);
+                    } catch (_) {}
+                }
+
+                // Re-set clip boundaries
+                clipApi.set("start_marker", 0);
+                clipApi.set("end_marker", beatCount);
+                clipApi.set("loop_start", 0);
+                clipApi.set("loop_end", beatCount);
+
+            } catch (e) {
+                post("  " + stem + "[" + c + "]: warp fix error: " + e + "\n");
+            }
+        }
+    }
+    post("setforge-loader: warp markers fixed\n");
+
+    // Now inspect (deferred so test harness gets correct data)
+    inspectClips();
 }
 
 function stagePreset(presetIdx) {
@@ -703,6 +769,13 @@ function stagePreset(presetIdx) {
     stagingReady = (loaded > 0);
     post("setforge-loader: staging " + (stagingReady ? "ready" : "failed") +
          " for preset " + presetIdx + "\n");
+
+    // Defer warp marker fix for staged clips too
+    var offset = stagingSetOffset();
+    var fixTask = new Task(function() {
+        fixWarpMarkers(presetIdx, offset);
+    });
+    fixTask.schedule(2000);
 }
 
 function commitStagedPreset() {
@@ -1375,9 +1448,7 @@ function onPresetPress(slotIndex) {
 
     updateAllPadColors();
     updateStatus();
-
-    // Auto-inspect: write clip state to /tmp for automated testing
-    inspectClips();
+    // inspectClips() is called by the deferred fixWarpMarkers task
 }
 
 function onChopPress(row, col) {
