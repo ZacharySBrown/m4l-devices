@@ -10,7 +10,7 @@
 const { stemForRow, ROW_QUANT_DEFAULTS } = require('../shared/live-api-helpers');
 const { SLOT_STATE } = require('./preset-banks');
 
-const STEM_ROWS = { 2: 'drums', 3: 'bass', 4: 'other', 5: 'vox' };
+const STEM_ROWS = { 1: 'drums', 2: 'bass', 3: 'other', 4: 'vox' };
 
 const CHOP_STATE = {
   EMPTY: 'empty',

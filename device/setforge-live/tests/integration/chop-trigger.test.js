@@ -26,7 +26,7 @@ describe('integration: chop-trigger', () => {
   });
 
   it('triggers drum chop with correct start marker and quant', () => {
-    const result = router.press(2, 3, mods); // row 2 (drums), col 3
+    const result = router.press(1, 3, mods); // row 1 (drums), col 3
 
     expect(result).to.not.be.null;
     expect(result.action).to.equal('start');
@@ -38,32 +38,32 @@ describe('integration: chop-trigger', () => {
   });
 
   it('pad lights playing after trigger', () => {
-    router.press(2, 3, mods);
-    expect(router.padState(2, 3)).to.equal(CHOP_STATE.PLAYING);
-    expect(router.padState(2, 1)).to.equal(CHOP_STATE.LOADED);
+    router.press(1, 3, mods);
+    expect(router.padState(1, 3)).to.equal(CHOP_STATE.PLAYING);
+    expect(router.padState(1, 1)).to.equal(CHOP_STATE.LOADED);
   });
 
   it('replaces chop in same row', () => {
-    router.press(2, 1, mods);
+    router.press(1, 1, mods);
     expect(router.getPlaying('drums')).to.equal(1);
 
-    const result = router.press(2, 5, mods);
+    const result = router.press(1, 5, mods);
     expect(result.action).to.equal('replace');
     expect(router.getPlaying('drums')).to.equal(5);
   });
 
   it('toggles off on re-press', () => {
-    router.press(2, 1, mods);
-    const result = router.press(2, 1, mods);
+    router.press(1, 1, mods);
+    const result = router.press(1, 1, mods);
     expect(result.action).to.equal('stop');
     expect(router.getPlaying('drums')).to.be.null;
   });
 
   it('allows one chop per stem row, multiple rows simultaneously', () => {
-    router.press(2, 1, mods); // drums
-    router.press(3, 1, mods); // bass
-    router.press(4, 3, mods); // other
-    router.press(5, 2, mods); // vox
+    router.press(1, 1, mods); // drums
+    router.press(2, 1, mods); // bass
+    router.press(3, 3, mods); // other
+    router.press(4, 2, mods); // vox
 
     expect(router.getPlaying('drums')).to.equal(1);
     expect(router.getPlaying('bass')).to.equal(1);
@@ -76,19 +76,19 @@ describe('integration: chop-trigger', () => {
 
   it('HOLD modifier triggers one_shot action', () => {
     mods.press('HOLD', 1000);
-    const result = router.press(2, 1, mods);
+    const result = router.press(1, 1, mods);
     expect(result.action).to.equal('one_shot');
   });
 
   it('returns null for non-stem row', () => {
-    expect(router.press(1, 1, mods)).to.be.null;  // preset row
-    expect(router.press(6, 1, mods)).to.be.null;  // modifier row
+    expect(router.press(5, 1, mods)).to.be.null;  // preset row
+    expect(router.press(7, 1, mods)).to.be.null;  // modifier row
     expect(router.press(8, 1, mods)).to.be.null;  // scene row
   });
 
   it('returns null when no preset is active', () => {
     banks.clearAll();
-    expect(router.press(2, 1, mods)).to.be.null;
+    expect(router.press(1, 1, mods)).to.be.null;
   });
 
   describe('varying track', () => {
@@ -101,18 +101,18 @@ describe('integration: chop-trigger', () => {
     });
 
     it('D1 on varying track plays full mix', () => {
-      const result = router.press(2, 1, mods);
+      const result = router.press(1, 1, mods);
       expect(result).to.not.be.null;
       expect(result.action).to.equal('play_full');
     });
 
     it('other chop pads return null on varying track', () => {
-      expect(router.press(2, 2, mods)).to.be.null;
-      expect(router.press(3, 1, mods)).to.be.null;
+      expect(router.press(1, 2, mods)).to.be.null;
+      expect(router.press(2, 1, mods)).to.be.null;
     });
 
     it('pads show disabled state', () => {
-      expect(router.padState(2, 1)).to.equal(CHOP_STATE.DISABLED);
+      expect(router.padState(1, 1)).to.equal(CHOP_STATE.DISABLED);
     });
   });
 });

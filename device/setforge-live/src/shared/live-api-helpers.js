@@ -46,12 +46,13 @@ const ROW_QUANT_DEFAULTS = {
 
 /**
  * Stem row indices (1-based, matching Grid 1 layout).
+ * Multi-song layout: stems rows 1-4, banks 5-6, mods 7, scenes 8.
  */
 const STEM_ROWS = {
-  drums: 2,
-  bass:  3,
-  other: 4,
-  vox:   5,
+  drums: 1,
+  bass:  2,
+  other: 3,
+  vox:   4,
 };
 
 /**

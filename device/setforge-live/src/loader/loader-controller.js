@@ -31,8 +31,8 @@ var NUM_SCENES = 8;
 var DOUBLE_TAP_WINDOW_MS = 400;
 
 var STEM_NAMES = ["drums", "bass", "other", "vox"];
-var STEM_ROW = { drums: 2, bass: 3, other: 4, vox: 5 };
-var ROW_STEM = { 2: "drums", 3: "bass", 4: "other", 5: "vox" };
+var STEM_ROW = { drums: 1, bass: 2, other: 3, vox: 4 };
+var ROW_STEM = { 1: "drums", 2: "bass", 3: "other", 4: "vox" };
 
 var MODIFIERS = ["HOLD", "MUTE", "SOLO", "REV", "STUT", "HALF", "DBL", "KILL"];
 
@@ -53,6 +53,33 @@ var viewMode = "performance"; // "performance" or "control"
 var viewModeLatched = false;
 var viewModeLastPress = 0;
 var singleGridMode = true; // true until second Launchpad detected
+
+// ── Multi-song mode state ──
+// Four-view model: solo | perRow | dualSong | control
+var performanceView = "solo"; // "solo" or "perRow" (within performance mode)
+var dualSongActive = false;
+var dualSongLatched = false;
+var dualSongLastPress = 0;
+var preDualSongView = "solo"; // view to restore on dual-song exit
+
+// Per-row mode: each stem row can source from its own preset
+var rowSources = { drums: null, bass: null, other: null, vox: null };
+
+// Track which pads are physically held (for hold-chop + tap-preset gesture)
+var heldPads = {}; // key: "row,col", value: true
+
+// Staging state for dual-song decks
+var staging = { deckX: null, deckY: null, stagingHeld: false };
+var loadedDecks = { deckX: null, deckY: null };
+var lastActiveBankA = null;
+var lastActiveBankB = null;
+
+// Side button function assignments (right side)
+var SIDE_FUNC_RIGHT = [null, "DUAL_SONG_TOGGLE", "DECK_SETUP", null, null, null, null, null];
+var SIDE_BUTTONS_RIGHT = [89, 79, 69, 59, 49, 39, 29, 19];
+
+// Module-level: flash SysEx messages queued by updateGrid1Colors, sent by sendSurfaceRgb
+var pendingFlashMessages = [];
 
 // ── Color palette (7-bit, 0-127) ──
 
@@ -102,6 +129,27 @@ var FILTER_POSITIONS = [
     { type: "hp", freq: 3000 },
     { type: "hp", freq: 20000 }
 ];
+
+// MK2 palette indices for flash/pulse SysEx (from Novation reference).
+// Only the entries we actually need for staging/indicator visuals.
+var MK2_PALETTE = {
+    OFF: 0,
+    WHITE: 3,        // bright white
+    RED: 5,          // bright red
+    ORANGE: 9,       // warm orange (drums hue)
+    YELLOW: 13,      // bright yellow
+    GREEN: 21,       // bright green
+    CYAN: 37,        // cyan
+    BLUE: 45,        // bright blue
+    PURPLE: 49,      // purple
+    PINK: 53,        // pink
+    DIM_WHITE: 1,    // dim white
+    SOFT_BLUE: 41,   // closest to #7799cc — light blue/steel
+};
+
+// Map PRESET_PALETTE RGB values to nearest MK2 palette indices.
+// These are hand-matched to the 8 preset colors for flash SysEx.
+var PRESET_PALETTE_INDICES = [9, 45, 21, 53, 13, 37, 49, 57];
 
 var PRESET_PALETTE = [
     [127, 40, 0],
@@ -215,6 +263,13 @@ function sendSurfaceRgb(grid) {
     for (var i = 0; i < messages.length; i++) {
         outlet(outletIdx, messages[i]);
     }
+    // Send any pending flash SysEx (staging visuals)
+    if (grid === 1 && pendingFlashMessages && pendingFlashMessages.length > 0) {
+        for (var f = 0; f < pendingFlashMessages.length; f++) {
+            outlet(outletIdx, pendingFlashMessages[f]);
+        }
+        pendingFlashMessages = [];
+    }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -286,7 +341,7 @@ function pressChop(row, col) {
     var stem = ROW_STEM[row];
     if (!stem) return null;
 
-    var active = getActivePreset();
+    var active = getEffectivePreset(stem);
     if (!active || !active.chops || !active.chops[stem]) return null;
 
     var chopList = active.chops[stem];
@@ -434,14 +489,22 @@ function initScenes() {
 
 function saveScene(index) {
     if (index < 0 || index >= NUM_SCENES) return;
-    scenes[index] = {
-        state: "built",
-        snapshot: {
-            activePresetIndex: activeSlotIndex,
-            heldChops: getHeldChops(),
-            modifiers: modifierSnapshot()
-        }
+    var snap = {
+        activePresetIndex: activeSlotIndex,
+        heldChops: getHeldChops(),
+        modifiers: modifierSnapshot(),
+        view: dualSongActive ? "dualSong" : performanceView,
+        rowSources: null,
+        stagingDeckX: staging.deckX,
+        stagingDeckY: staging.deckY
     };
+    if (performanceView === "perRow") {
+        snap.rowSources = {};
+        for (var i = 0; i < STEM_NAMES.length; i++) {
+            snap.rowSources[STEM_NAMES[i]] = rowSources[STEM_NAMES[i]];
+        }
+    }
+    scenes[index] = { state: "built", snapshot: snap };
 }
 
 function recallScene(index) {
@@ -480,8 +543,10 @@ function bypassFx() {
 // ═══════════════════════════════════════════════════════════
 
 var liveApi = null;
-var stemTrackIds = {};
+var stemTrackIds = {};       // deck X tracks: { drums: "live_set tracks N", ... }
 var stemTrackIndices = {};
+var stemTrackIdsY = {};      // deck Y tracks: { drums: "live_set tracks M", ... }
+var stemTrackIndicesY = {};
 
 var WARP_MODES = { drums: 0, bass: 0, other: 4, vox: 4 };
 
@@ -546,6 +611,36 @@ function ensureStemTracks() {
         stemTrackIndices[stem] = trackIdx;
         stemTrackIds[stem] = "live_set tracks " + trackIdx;
     }
+
+    // ── Deck Y tracks (for dual-song mode) ──
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var trackName = "sf-" + stem + "-y";
+        var trackIdx = findTrackByName(trackName);
+
+        if (trackIdx < 0) {
+            post("setforge-loader: creating deck-Y track '" + trackName + "'\n");
+            try {
+                var trackCount = liveApi.get("tracks").length / 2;
+                var insertIdx = Math.max(0, trackCount - 1);
+                liveApi.call("create_audio_track", insertIdx);
+                trackIdx = insertIdx;
+
+                var tApi = new LiveAPI("live_set tracks " + trackIdx);
+                tApi.set("name", trackName);
+                post("setforge-loader: created '" + trackName + "' at index " + trackIdx + "\n");
+            } catch (e) {
+                post("setforge-loader: error creating deck-Y track '" + trackName + "': " + e + "\n");
+                continue;
+            }
+        } else {
+            post("setforge-loader: found deck-Y track '" + trackName + "' at index " + trackIdx + "\n");
+        }
+
+        stemTrackIndicesY[stem] = trackIdx;
+        stemTrackIdsY[stem] = "live_set tracks " + trackIdx;
+    }
+
     return true;
 }
 
@@ -643,6 +738,117 @@ function loadClipsToSlotSet(presetIdx, offset) {
         post("  " + stem + ": " + loaded + "/" + chopList.length + " clips\n");
         totalLoaded += loaded;
     }
+    return totalLoaded;
+}
+
+// Load clips for a single stem from a preset into a specific track at a given offset.
+// Used by per-row mode (reload one stem) and dual-song staging (load into Y tracks).
+function loadStemClipsToTrack(stem, presetIdx, offset, trackPath) {
+    var slot = presetSlots[presetIdx];
+    if (!slot || !slot.chops || !slot.chops[stem]) return 0;
+
+    var chopList = slot.chops[stem];
+    if (!trackPath) return 0;
+
+    var loaded = 0;
+    for (var c = 0; c < chopList.length; c++) {
+        var chop = chopList[c];
+        if (chop.disabled) continue;
+
+        var clipSlot = offset + (chop.column - 1);
+        var csPath = trackPath + " clip_slots " + clipSlot;
+
+        try {
+            var csApi = new LiveAPI(csPath);
+            try {
+                var hasClip = csApi.get("has_clip");
+                if (hasClip && hasClip.toString() === "1") {
+                    csApi.call("delete_clip");
+                }
+            } catch (_) {}
+
+            csApi.call("create_audio_clip", String(chop.stemPath));
+
+            var clipApi = new LiveAPI(csPath + " clip");
+            if (clipApi && clipApi.id !== "0") {
+                var clipLabel = (chop.label ? chop.label : "chop") +
+                    (chop.kind ? " [" + chop.kind + "]" : "");
+                var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
+
+                clipApi.set("name", slot.trackId + "-" + stem + "-" + clipLabel);
+
+                if (beatCount > 0) {
+                    clipApi.set("warping", 1);
+                    clipApi.set("warp_mode", WARP_MODES[stem] || 0);
+                    clipApi.set("looping", 1);
+                    clipApi.set("start_marker", 0);
+                    clipApi.set("end_marker", beatCount);
+                    clipApi.set("loop_start", 0);
+                    clipApi.set("loop_end", beatCount);
+                    clipApi.set("launch_quantization", ROW_QUANT[stem]);
+                } else {
+                    clipApi.set("warping", 0);
+                    clipApi.set("looping", 0);
+                    clipApi.set("start_marker", chop.clipStart);
+                    clipApi.set("end_marker", chop.clipStart + chop.clipLength);
+                    clipApi.set("launch_quantization", ROW_QUANT[stem]);
+                }
+                loaded++;
+            }
+        } catch (e) {
+            post("  " + stem + " col " + chop.column + ": error: " + e + "\n");
+        }
+    }
+    return loaded;
+}
+
+// Load all 4 stems of a preset into deck Y tracks (for dual-song staging).
+function loadPresetToDeckY(presetIdx) {
+    var slot = presetSlots[presetIdx];
+    if (!slot || !slot.chops) return 0;
+
+    post("setforge-loader: loading preset " + slot.trackId + " into deck Y tracks\n");
+    var totalLoaded = 0;
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var trackPath = stemTrackIdsY[stem];
+        if (!trackPath) continue;
+        var loaded = loadStemClipsToTrack(stem, presetIdx, 0, trackPath);
+        post("  " + stem + "-y: " + loaded + " clips\n");
+        totalLoaded += loaded;
+    }
+
+    // Deferred warp fix for deck Y tracks
+    var fixTask = new Task(function() {
+        fixWarpMarkersOnTracks(presetIdx, 0, stemTrackIdsY);
+    });
+    fixTask.schedule(4000);
+
+    return totalLoaded;
+}
+
+// Load all 4 stems of a preset into deck X tracks (existing tracks).
+function loadPresetToDeckX(presetIdx) {
+    var slot = presetSlots[presetIdx];
+    if (!slot || !slot.chops) return 0;
+
+    post("setforge-loader: loading preset " + slot.trackId + " into deck X tracks\n");
+    var totalLoaded = 0;
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var trackPath = stemTrackIds[stem];
+        if (!trackPath) continue;
+        var loaded = loadStemClipsToTrack(stem, presetIdx, activeSetOffset(), trackPath);
+        post("  " + stem + "-x: " + loaded + " clips\n");
+        totalLoaded += loaded;
+    }
+
+    var offset = activeSetOffset();
+    var fixTask = new Task(function() {
+        fixWarpMarkers(presetIdx, offset);
+    });
+    fixTask.schedule(4000);
+
     return totalLoaded;
 }
 
@@ -762,6 +968,88 @@ function fixWarpMarkers(presetIdx, offset) {
     inspectClips();
 }
 
+// Fix warp markers on arbitrary track paths (for deck Y tracks).
+function fixWarpMarkersOnTracks(presetIdx, offset, trackIdMap) {
+    var slot = presetSlots[presetIdx];
+    if (!slot || !slot.chops) return;
+
+    post("setforge-loader: fixing warp markers (deck Y) for " + slot.trackId + "...\n");
+
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var chopList = slot.chops[stem];
+        if (!chopList) continue;
+
+        var trackPath = trackIdMap[stem];
+        if (!trackPath) continue;
+
+        for (var c = 0; c < chopList.length; c++) {
+            var chop = chopList[c];
+            if (chop.disabled) continue;
+
+            var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
+            if (beatCount <= 0) continue;
+
+            var clipSlot = offset + (chop.column - 1);
+            var csPath = trackPath + " clip_slots " + clipSlot;
+
+            try {
+                var csApi = new LiveAPI(csPath);
+                var hasClip = csApi.get("has_clip");
+                if (!hasClip || hasClip.toString() !== "1") continue;
+
+                var clipApi = new LiveAPI(csPath + " clip");
+                if (!clipApi || clipApi.id === "0") continue;
+
+                var loopStartSec = chop.clipStart;
+                var loopEndSec = chop.clipStart + chop.clipLength;
+                var secToBeat = beatCount / (loopEndSec - loopStartSec);
+
+                var existingMarkers = [];
+                try {
+                    var rawWm = clipApi.get("warp_markers");
+                    if (rawWm && rawWm.length > 0) {
+                        var wmStr = (typeof rawWm[0] === "string") ? rawWm[0] : String(rawWm[0]);
+                        var wmParsed = JSON.parse(wmStr);
+                        if (wmParsed && wmParsed.warp_markers) existingMarkers = wmParsed.warp_markers;
+                        else if (wmParsed && wmParsed.length) existingMarkers = wmParsed;
+                    }
+                } catch (_) {}
+
+                for (var ei = 0; ei < existingMarkers.length; ei++) {
+                    var em = existingMarkers[ei];
+                    var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
+                    var delta = correctBeat - em.beat_time;
+                    if (Math.abs(delta) >= 0.0001) {
+                        try { clipApi.call("move_warp_marker", em.beat_time, delta); } catch (_) {}
+                    }
+                }
+
+                var hasEndMarker = false;
+                for (var ei = 0; ei < existingMarkers.length; ei++) {
+                    if (existingMarkers[ei].sample_time > loopEndSec * 0.5) { hasEndMarker = true; break; }
+                }
+                if (!hasEndMarker) {
+                    try {
+                        var wmEnd = new Dict();
+                        wmEnd.set("beat_time", beatCount);
+                        wmEnd.set("sample_time", loopEndSec);
+                        clipApi.call("add_warp_marker", wmEnd);
+                    } catch (_) {}
+                }
+
+                clipApi.set("start_marker", 0);
+                clipApi.set("end_marker", beatCount);
+                clipApi.set("loop_start", 0);
+                clipApi.set("loop_end", beatCount);
+            } catch (e) {
+                post("  " + stem + "[" + c + "]: warp fix error: " + e + "\n");
+            }
+        }
+    }
+    post("setforge-loader: deck Y warp markers fixed\n");
+}
+
 function stagePreset(presetIdx) {
     stagingPresetIndex = presetIdx;
     stagingReady = false;
@@ -841,6 +1129,7 @@ function stopClipInTrack(stemName, slotIndex) {
 function stopAllClips() {
     if (!liveApi) return;
 
+    // Stop deck X tracks
     for (var s = 0; s < STEM_NAMES.length; s++) {
         var trackPath = stemTrackIds[STEM_NAMES[s]];
         if (!trackPath) continue;
@@ -850,6 +1139,40 @@ function stopAllClips() {
         } catch (e) {
             post("setforge-loader: stopAll error: " + e + "\n");
         }
+    }
+    // Stop deck Y tracks
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var trackPath = stemTrackIdsY[STEM_NAMES[s]];
+        if (!trackPath) continue;
+        try {
+            var tApi = new LiveAPI(trackPath);
+            tApi.call("stop_all_clips");
+        } catch (e) {
+            post("setforge-loader: stopAll-Y error: " + e + "\n");
+        }
+    }
+}
+
+// Launch a clip on a specific track (for dual-song deck routing).
+function launchClipOnTrack(trackPath, chop) {
+    if (!liveApi || !trackPath) return;
+    var clipSlot = chop.column - 1;
+    try {
+        var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
+        csApi.call("fire");
+    } catch (e) {
+        post("setforge-loader: deck launch error: " + e + "\n");
+    }
+}
+
+function stopClipOnTrack(trackPath, col) {
+    if (!liveApi || !trackPath) return;
+    var clipSlot = col - 1;
+    try {
+        var csApi = new LiveAPI(trackPath + " clip_slots " + clipSlot);
+        csApi.call("stop");
+    } catch (e) {
+        post("setforge-loader: deck stop error: " + e + "\n");
     }
 }
 
@@ -1048,32 +1371,113 @@ function updateControlViewColors() {
 }
 
 function updateGrid1Colors() {
-    var active = getActivePreset();
-
-    for (var c = 1; c <= 8; c++) {
-        surface.queueRgb(1, 1, c, presetSlotColor(presetSlots[c - 1]));
+    if (dualSongActive) {
+        updateDualSongColors();
+        return;
     }
 
-    for (var r = 2; r <= 5; r++) {
+    var active = getActivePreset();
+
+    // Rows 1-4: stems (drums, bass, other, vox)
+    for (var r = 1; r <= 4; r++) {
         var stem = ROW_STEM[r];
         for (var c = 1; c <= 8; c++) {
             surface.queueRgb(1, r, c, chopPadColor(stem, c, active));
         }
     }
 
+    // Row 5: bank A presets (slots 0-7)
+    // Collect flash SysEx for staged pads (sent after RGB flush)
+    var pendingFlash = [];
+    for (var c = 1; c <= 8; c++) {
+        var slotIdx = c - 1;
+        var slot = presetSlots[slotIdx];
+        var isStaged = (staging.deckX === slotIdx);
+        var isActive = (slot.state === "loaded_active");
+
+        if (isStaged && !isActive) {
+            // MK2 native flash: preset color ↔ white
+            var presetPalIdx = PRESET_PALETTE_INDICES[slotIdx % PRESET_PALETTE_INDICES.length];
+            var padNote = surface.rowColToNote(5, c);
+            pendingFlash.push(surface.buildFlashSysex(padNote, presetPalIdx, MK2_PALETTE.WHITE));
+            // Still set base RGB (flash overrides it, but clearing needs a base)
+            surface.queueRgb(1, 5, c, presetSlotColor(slot));
+        } else {
+            surface.queueRgb(1, 5, c, presetSlotColor(slot));
+        }
+    }
+
+    // Row 6: bank B presets (slots 8-15)
+    for (var c = 1; c <= 8; c++) {
+        var slotIdx = c - 1 + SLOTS_PER_BANK;
+        var slot = presetSlots[slotIdx];
+        var isStaged = (staging.deckY === slotIdx);
+        var isActive = (slot.state === "loaded_active");
+
+        if (isStaged && !isActive) {
+            // MK2 native flash: preset color ↔ soft blue
+            var presetPalIdx = PRESET_PALETTE_INDICES[(slotIdx - SLOTS_PER_BANK) % PRESET_PALETTE_INDICES.length];
+            var padNote = surface.rowColToNote(6, c);
+            pendingFlash.push(surface.buildFlashSysex(padNote, presetPalIdx, MK2_PALETTE.SOFT_BLUE));
+            surface.queueRgb(1, 6, c, presetSlotColor(slot));
+        } else {
+            surface.queueRgb(1, 6, c, presetSlotColor(slot));
+        }
+    }
+
+    // Row 7: modifiers
     for (var c = 1; c <= 8; c++) {
         var mod = MODIFIERS[c - 1];
         var ms = modState[mod] || "idle";
-        surface.queueRgb(1, 6, c, MOD_COLORS[ms] || MOD_COLORS.idle);
+        surface.queueRgb(1, 7, c, MOD_COLORS[ms] || MOD_COLORS.idle);
     }
 
-    for (var c = 1; c <= 8; c++) {
-        surface.queueRgb(1, 7, c, presetSlotColor(presetSlots[c - 1 + SLOTS_PER_BANK]));
-    }
-
+    // Row 8: scenes
     for (var c = 1; c <= 8; c++) {
         var scene = scenes[c - 1];
         surface.queueRgb(1, 8, c, SCENE_COLORS[scene.state] || SCENE_COLORS.empty);
+    }
+
+    // Queue flash SysEx for staged pads (sent after RGB flush in sendSurfaceRgb)
+    pendingFlashMessages = pendingFlash;
+}
+
+function updateDualSongColors() {
+    // Dual-song mode: all 8 rows are stems
+    // Rows 1-4: deck X stems, rows 5-8: deck Y stems
+    for (var r = 1; r <= 8; r++) {
+        var deck, stemIdx;
+        if (r <= 4) {
+            deck = "deckX";
+            stemIdx = r - 1;
+        } else {
+            deck = "deckY";
+            stemIdx = r - 5;
+        }
+        var stem = STEM_NAMES[stemIdx];
+        var presetIdx = loadedDecks[deck];
+        var slot = (presetIdx !== null && presetIdx >= 0) ? presetSlots[presetIdx] : null;
+
+        for (var c = 1; c <= 8; c++) {
+            if (!slot || !slot.chops || !slot.chops[stem]) {
+                surface.queueRgb(1, r, c, STATE_COLORS.off);
+                continue;
+            }
+            var chopList = slot.chops[stem];
+            var chop = null;
+            for (var i = 0; i < chopList.length; i++) {
+                if (chopList[i].column === c) { chop = chopList[i]; break; }
+            }
+            if (!chop) {
+                surface.queueRgb(1, r, c, STATE_COLORS.off);
+            } else if (chop.disabled) {
+                surface.queueRgb(1, r, c, STATE_COLORS.disabled);
+            } else {
+                var dualKey = deck + "_" + stem;
+                var isPlaying = (dualSongPlaying[dualKey] === c);
+                surface.queueRgb(1, r, c, isPlaying ? STEM_COLORS[stem].bright : STEM_COLORS[stem].soft);
+            }
+        }
     }
 }
 
@@ -1147,8 +1551,16 @@ function presetSlotColor(slot) {
 }
 
 function chopPadColor(stem, col, activeSlot) {
-    if (!activeSlot || !activeSlot.chops || !activeSlot.chops[stem]) return STATE_COLORS.off;
-    var chopList = activeSlot.chops[stem];
+    // In per-row mode, use the row's own source preset
+    var slot = activeSlot;
+    if (performanceView === "perRow" && rowSources[stem] !== null) {
+        var idx = rowSources[stem];
+        if (idx >= 0 && idx < presetSlots.length) {
+            slot = presetSlots[idx];
+        }
+    }
+    if (!slot || !slot.chops || !slot.chops[stem]) return STATE_COLORS.off;
+    var chopList = slot.chops[stem];
     var chop = null;
     for (var i = 0; i < chopList.length; i++) {
         if (chopList[i].column === col) { chop = chopList[i]; break; }
@@ -1156,6 +1568,12 @@ function chopPadColor(stem, col, activeSlot) {
     if (!chop) return STATE_COLORS.off;
     if (chop.disabled) return STATE_COLORS.disabled;
     if (playingChops[stem] === col) return STEM_COLORS[stem].bright;
+
+    // Per-row mode: leftmost pad (col 1) shows source-preset color
+    if (performanceView === "perRow" && col === 1 && rowSources[stem] !== null) {
+        return presetColor(rowSources[stem]);
+    }
+
     return STEM_COLORS[stem].soft;
 }
 
@@ -1226,6 +1644,49 @@ function updateStatus() {
 var midiBytes1 = [];
 var midiBytes2 = [];
 
+// ── Remote command interface (file-based) ──
+// External tools write a command to /tmp/setforge_cmd.txt
+// A polling Task checks for it every 500ms and executes it.
+var CMD_FILE = "/tmp/setforge_cmd.txt";
+var cmdPollTask = null;
+
+function pollCommandFile() {
+    try {
+        var f = new File(CMD_FILE, "r");
+        if (!f.isopen) return;
+        var content = "";
+        while (f.position < f.eof) {
+            content += f.readstring(1024);
+        }
+        f.close();
+
+        if (!content || content.length === 0) return;
+
+        // Clear the file so we don't re-execute
+        var del = new File(CMD_FILE, "w");
+        if (del.isopen) { del.writestring(""); del.close(); }
+
+        content = content.replace(/[\r\n\0]/g, "").trim();
+        if (content.length > 0) {
+            post("setforge-loader: remote cmd: " + content + "\n");
+            var parts = content.split(" ");
+            handleMessage(parts[0], parts.slice(1));
+        }
+    } catch (e) {
+        post("setforge-loader: pollCmd error: " + e + "\n");
+    }
+}
+
+function startCmdPoll() {
+    if (cmdPollTask) cmdPollTask.cancel();
+    cmdPollTask = new Task(function() {
+        pollCommandFile();
+        cmdPollTask.schedule(500);
+    });
+    cmdPollTask.schedule(500);
+    post("setforge-loader: command poll started (/tmp/setforge_cmd.txt)\n");
+}
+
 function msg_int(v) {
     var inletIdx = inlet;
     if (inletIdx === 0) {
@@ -1261,11 +1722,25 @@ function processMidiByte(b, grid, buffer) {
     }
 }
 
+function rightSideButtonIndex(note) {
+    return SIDE_BUTTONS_RIGHT.indexOf(note);
+}
+
 function handleNoteOn(grid, note, velocity) {
-    // Check for side buttons via surface
+    // Poll command file on every MIDI input (guaranteed to fire)
+    pollCommandFile();
+
+    // Check for left side buttons via surface
     var sideIdx = surface.sideButtonIndex(note);
     if (sideIdx >= 0) {
         handleSideButtonPress(sideIdx);
+        return;
+    }
+
+    // Check for right side buttons
+    var rightIdx = rightSideButtonIndex(note);
+    if (rightIdx >= 0) {
+        handleRightSideButtonPress(rightIdx);
         return;
     }
 
@@ -1289,6 +1764,12 @@ function handleNoteOff(grid, note) {
     var sideIdx = surface.sideButtonIndex(note);
     if (sideIdx >= 0) {
         handleSideButtonRelease(sideIdx);
+        return;
+    }
+
+    var rightIdx = rightSideButtonIndex(note);
+    if (rightIdx >= 0) {
+        handleRightSideButtonRelease(rightIdx);
         return;
     }
 
@@ -1365,36 +1846,450 @@ function handleSideButtonRelease(sideIdx) {
 }
 
 // ═══════════════════════════════════════════════════════════
+//  Right Side Button Handlers
+// ═══════════════════════════════════════════════════════════
+
+function handleRightSideButtonPress(rightIdx) {
+    var func = SIDE_FUNC_RIGHT[rightIdx];
+
+    if (func === "DUAL_SONG_TOGGLE") {
+        var now = Date.now();
+        var delta = now - dualSongLastPress;
+        if (delta < DOUBLE_TAP_WINDOW_MS && delta > 0) {
+            // Double-tap: latch
+            dualSongLatched = !dualSongLatched;
+            if (dualSongLatched && !dualSongActive) {
+                enterDualSongMode(true);
+            } else if (!dualSongLatched && dualSongActive) {
+                exitDualSongMode();
+            }
+        } else {
+            // Single tap: momentary peek
+            if (!dualSongActive && !dualSongLatched) {
+                enterDualSongMode(false);
+            } else if (dualSongLatched && dualSongActive) {
+                // Tap while latched: unlatch and exit
+                dualSongLatched = false;
+                exitDualSongMode();
+            }
+        }
+        dualSongLastPress = now;
+    } else if (func === "DECK_SETUP") {
+        staging.stagingHeld = true;
+        post("setforge-loader: staging mode entered\n");
+        updateAllPadColors();
+        sendSurfaceRgb(1);
+    }
+}
+
+function handleRightSideButtonRelease(rightIdx) {
+    var func = SIDE_FUNC_RIGHT[rightIdx];
+
+    if (func === "DUAL_SONG_TOGGLE") {
+        // Release: if momentary (not latched), exit dual-song
+        if (dualSongActive && !dualSongLatched) {
+            exitDualSongMode();
+        }
+    } else if (func === "DECK_SETUP") {
+        staging.stagingHeld = false;
+        post("setforge-loader: staging mode exited\n");
+        updateAllPadColors();
+        sendSurfaceRgb(1);
+    }
+}
+
+// Flash a side button red for ~500ms, then revert to dim white.
+function flashSideButtonRed(sideNote) {
+    surface.queueRgbNote(1, sideNote, STATE_COLORS.error);
+    sendSurfaceRgb(1);
+    var revertTask = new Task(function() {
+        surface.queueRgbNote(1, sideNote, [8, 8, 8]); // dim white
+        sendSurfaceRgb(1);
+    });
+    revertTask.schedule(500);
+}
+
+function enterDualSongMode(latched) {
+    // Resolve deck sources
+    var deckX = staging.deckX !== null ? staging.deckX : lastActiveBankA;
+    var deckY = staging.deckY !== null ? staging.deckY : lastActiveBankB;
+
+    if (deckX === null && deckY === null) {
+        post("setforge-loader: dual-song entry failed — no decks\n");
+        flashSideButtonRed(DUAL_SONG_TOGGLE);
+        return;
+    }
+
+    if (deckX === null || deckY === null) {
+        var missing = (deckX === null) ? "deckX" : "deckY";
+        post("setforge-loader: dual-song entry failed — " + missing + " unresolved\n");
+        flashSideButtonRed(DUAL_SONG_TOGGLE);
+        return;
+    }
+
+    preDualSongView = performanceView;
+    dualSongActive = true;
+    dualSongLatched = latched;
+    loadedDecks.deckX = deckX;
+    loadedDecks.deckY = deckY;
+
+    post("setforge-loader: entered dual-song mode (X=" + deckX + ", Y=" + deckY + ")\n");
+    updateAllPadColors();
+    sendSurfaceRgb(1);
+}
+
+function exitDualSongMode() {
+    dualSongActive = false;
+    performanceView = preDualSongView || "solo";
+    post("setforge-loader: exited dual-song mode → " + performanceView + "\n");
+    updateAllPadColors();
+    sendSurfaceRgb(1);
+}
+
+// ═══════════════════════════════════════════════════════════
 //  Grid 1 Event Handlers
 // ═══════════════════════════════════════════════════════════
 
 function handleGrid1Press(row, col) {
-    if (row === 1) {
-        onPresetPress(col - 1);
-    } else if (row >= 2 && row <= 5) {
+    if (dualSongActive) {
+        // In dual-song mode: all 8 rows are stems
+        if (row >= 1 && row <= 8) {
+            onDualSongChopPress(row, col);
+        }
+        return;
+    }
+
+    if (row >= 1 && row <= 4) {
+        heldPads[row + "," + col] = true;
+
+        // In per-row mode: check if this is hold-chop + tap-preset
+        // (The actual reassignment happens in onPresetPress when it
+        //  detects held stem pads)
         onChopPress(row, col);
+    } else if (row === 5) {
+        if (staging.stagingHeld) {
+            // Staging gesture: assign deck X from bank A
+            onStageDeck("deckX", col - 1);
+        } else if (performanceView === "perRow" && hasHeldStemPad()) {
+            onPerRowReassign(col - 1);
+        } else {
+            onPresetPress(col - 1);
+        }
     } else if (row === 6) {
-        pressModifier(col - 1, Date.now());
+        if (staging.stagingHeld) {
+            // Staging gesture: assign deck Y from bank B
+            onStageDeck("deckY", col - 1 + SLOTS_PER_BANK);
+        } else if (performanceView === "perRow" && hasHeldStemPad()) {
+            onPerRowReassign(col - 1 + SLOTS_PER_BANK);
+        } else {
+            onPresetPress(col - 1 + SLOTS_PER_BANK);
+        }
+    } else if (row === 7) {
+        var modIndex = col - 1;
+        pressModifier(modIndex, Date.now());
+
+        // Check for SOLO double-tap → per-row mode toggle
+        if (modIndex === 2 && modState.SOLO === "latched") {
+            togglePerRowMode();
+        }
+
         updateGrid1Colors();
         sendSurfaceRgb(1);
-    } else if (row === 7) {
-        onPresetPress(col - 1 + SLOTS_PER_BANK);
     } else if (row === 8) {
         onScenePress(col - 1);
     }
 }
 
 function handleGrid1Release(row, col) {
-    if (row === 6) {
+    if (row >= 1 && row <= 4) {
+        delete heldPads[row + "," + col];
+    }
+    if (row === 7) {
         releaseModifier(col - 1);
         updateGrid1Colors();
         sendSurfaceRgb(1);
     }
+    // Staging: release deck-setup side button handled in handleSideButtonRelease
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Per-Row Mode
+// ═══════════════════════════════════════════════════════════
+
+function togglePerRowMode() {
+    if (performanceView === "solo") {
+        // Enter per-row mode
+        performanceView = "perRow";
+        // Initialize rowSources to all pointing at current active preset
+        for (var i = 0; i < STEM_NAMES.length; i++) {
+            rowSources[STEM_NAMES[i]] = activeSlotIndex;
+        }
+        post("setforge-loader: entered per-row mode\n");
+    } else if (performanceView === "perRow") {
+        // Exit per-row mode
+        // activePreset becomes whatever drums row's source was
+        var drumsSource = rowSources.drums;
+        if (drumsSource !== null && drumsSource >= 0) {
+            activatePreset(drumsSource);
+        }
+        performanceView = "solo";
+        modState.SOLO = "idle";
+        post("setforge-loader: exited per-row mode\n");
+    }
+    updateAllPadColors();
+}
+
+function hasHeldStemPad() {
+    for (var key in heldPads) {
+        if (heldPads.hasOwnProperty(key)) {
+            var parts = key.split(",");
+            var r = parseInt(parts[0]);
+            if (r >= 1 && r <= 4) return true;
+        }
+    }
+    return false;
+}
+
+function getHeldStemRows() {
+    var rows = {};
+    for (var key in heldPads) {
+        if (heldPads.hasOwnProperty(key)) {
+            var parts = key.split(",");
+            var r = parseInt(parts[0]);
+            if (r >= 1 && r <= 4) {
+                rows[ROW_STEM[r]] = true;
+            }
+        }
+    }
+    return rows;
+}
+
+function onPerRowReassign(slotIndex) {
+    var slot = presetSlots[slotIndex];
+    if (!slot || slot.state === "empty" || slot.state === "loading" || slot.state === "error") return;
+
+    // Find which stem rows have held pads
+    var heldRows = getHeldStemRows();
+    for (var stem in heldRows) {
+        if (heldRows.hasOwnProperty(stem)) {
+            var oldSource = rowSources[stem];
+            rowSources[stem] = slotIndex;
+            post("setforge-loader: per-row reassign " + stem + " → slot " + slotIndex + "\n");
+
+            // Load this stem's clips from the new preset into the stem track
+            var trackPath = stemTrackIds[stem];
+            var loaded = loadStemClipsToTrack(stem, slotIndex, activeSetOffset(), trackPath);
+            post("  per-row: loaded " + loaded + " clips for " + stem + " from slot " + slotIndex + "\n");
+
+            // Deferred warp fix for just this stem
+            (function(s, si, o, tp) {
+                var fixTask = new Task(function() {
+                    fixWarpMarkersForStem(s, si, o, tp);
+                });
+                fixTask.schedule(4000);
+            })(stem, slotIndex, activeSetOffset(), trackPath);
+
+            // Hot-swap: if a chop is held in this row, migrate it
+            if (playingChops[stem] >= 1 && oldSource !== slotIndex) {
+                var col = playingChops[stem];
+                var newStemChops = slot.chops ? slot.chops[stem] : null;
+                var newChop = null;
+                if (newStemChops) {
+                    for (var j = 0; j < newStemChops.length; j++) {
+                        if (newStemChops[j].column === col && !newStemChops[j].disabled) {
+                            newChop = newStemChops[j];
+                            break;
+                        }
+                    }
+                }
+                if (newChop) {
+                    launchClipInTrack(stem, col - 1, newChop);
+                } else {
+                    stopClipInTrack(stem, col - 1);
+                    playingChops[stem] = -1;
+                }
+            }
+        }
+    }
+    updateAllPadColors();
+    sendSurfaceRgb(1);
+}
+
+// Fix warp markers for a single stem on a specific track.
+function fixWarpMarkersForStem(stem, presetIdx, offset, trackPath) {
+    var slot = presetSlots[presetIdx];
+    if (!slot || !slot.chops || !slot.chops[stem]) return;
+
+    var chopList = slot.chops[stem];
+    for (var c = 0; c < chopList.length; c++) {
+        var chop = chopList[c];
+        if (chop.disabled) continue;
+
+        var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
+        if (beatCount <= 0) continue;
+
+        var clipSlot = offset + (chop.column - 1);
+        var csPath = trackPath + " clip_slots " + clipSlot;
+
+        try {
+            var csApi = new LiveAPI(csPath);
+            var hasClip = csApi.get("has_clip");
+            if (!hasClip || hasClip.toString() !== "1") continue;
+
+            var clipApi = new LiveAPI(csPath + " clip");
+            if (!clipApi || clipApi.id === "0") continue;
+
+            var loopStartSec = chop.clipStart;
+            var loopEndSec = chop.clipStart + chop.clipLength;
+            var secToBeat = beatCount / (loopEndSec - loopStartSec);
+
+            var existingMarkers = [];
+            try {
+                var rawWm = clipApi.get("warp_markers");
+                if (rawWm && rawWm.length > 0) {
+                    var wmStr = (typeof rawWm[0] === "string") ? rawWm[0] : String(rawWm[0]);
+                    var wmParsed = JSON.parse(wmStr);
+                    if (wmParsed && wmParsed.warp_markers) existingMarkers = wmParsed.warp_markers;
+                    else if (wmParsed && wmParsed.length) existingMarkers = wmParsed;
+                }
+            } catch (_) {}
+
+            for (var ei = 0; ei < existingMarkers.length; ei++) {
+                var em = existingMarkers[ei];
+                var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
+                var delta = correctBeat - em.beat_time;
+                if (Math.abs(delta) >= 0.0001) {
+                    try { clipApi.call("move_warp_marker", em.beat_time, delta); } catch (_) {}
+                }
+            }
+
+            clipApi.set("start_marker", 0);
+            clipApi.set("end_marker", beatCount);
+            clipApi.set("loop_start", 0);
+            clipApi.set("loop_end", beatCount);
+        } catch (e) {
+            post("  " + stem + "[" + c + "]: warp fix error: " + e + "\n");
+        }
+    }
+    post("setforge-loader: per-row warp fix done for " + stem + "\n");
+}
+
+// Get the effective preset for a given stem (respects per-row mode)
+function getEffectivePreset(stem) {
+    if (performanceView === "perRow" && rowSources[stem] !== null) {
+        var idx = rowSources[stem];
+        if (idx >= 0 && idx < presetSlots.length) {
+            return presetSlots[idx];
+        }
+    }
+    return getActivePreset();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  Dual-Song Mode Chop Press (Phase 4)
+// ═══════════════════════════════════════════════════════════
+
+function onDualSongChopPress(row, col) {
+    var deck, stem, trackIds;
+    if (row >= 1 && row <= 4) {
+        deck = "deckX";
+        stem = STEM_NAMES[row - 1];
+        trackIds = stemTrackIds;  // deck X uses main tracks
+    } else {
+        deck = "deckY";
+        stem = STEM_NAMES[row - 5];
+        trackIds = stemTrackIdsY; // deck Y uses -y tracks
+    }
+
+    var presetId = loadedDecks[deck];
+    if (presetId === null || presetId === undefined) return;
+
+    var slot = (typeof presetId === "number") ? presetSlots[presetId] : null;
+    if (!slot || !slot.chops || !slot.chops[stem]) return;
+
+    var chopList = slot.chops[stem];
+    var chop = null;
+    for (var i = 0; i < chopList.length; i++) {
+        if (chopList[i].column === col) { chop = chopList[i]; break; }
+    }
+    if (!chop || chop.disabled) return;
+
+    var trackPath = trackIds[stem];
+    if (!trackPath) return;
+
+    // Composite key for dual-song playing state
+    var dualKey = deck + "_" + stem;
+    var current = dualSongPlaying[dualKey] || -1;
+
+    var action;
+    if (current === col) {
+        action = "stop";
+        dualSongPlaying[dualKey] = -1;
+    } else {
+        action = (current >= 1) ? "replace" : "start";
+        dualSongPlaying[dualKey] = col;
+    }
+
+    if (action === "start" || action === "replace") {
+        launchClipOnTrack(trackPath, chop);
+        post("setforge-loader: dual-song " + deck + " " + stem + " chop " + col + "\n");
+    } else if (action === "stop") {
+        stopClipOnTrack(trackPath, col);
+    }
+
+    updateAllPadColors();
+    sendSurfaceRgb(1);
+}
+
+var dualSongPlaying = {};
+
+// ═══════════════════════════════════════════════════════════
+//  Staging (Phase 3)
+// ═══════════════════════════════════════════════════════════
+
+function onStageDeck(deck, slotIndex) {
+    var slot = presetSlots[slotIndex];
+    if (!slot || slot.state === "empty" || slot.state === "loading" || slot.state === "error") {
+        // Red flash on the staged pad
+        var padNote = surface.rowColToNote(slotIndex < SLOTS_PER_BANK ? 5 : 6,
+            (slotIndex < SLOTS_PER_BANK ? slotIndex : slotIndex - SLOTS_PER_BANK) + 1);
+        surface.queueRgbNote(1, padNote, STATE_COLORS.error);
+        sendSurfaceRgb(1);
+        var revertTask = new Task(function() {
+            surface.queueRgbNote(1, padNote, STATE_COLORS.empty);
+            sendSurfaceRgb(1);
+        });
+        revertTask.schedule(500);
+        post("setforge-loader: staging " + deck + " failed — empty slot " + slotIndex + "\n");
+        return;
+    }
+
+    staging[deck] = slotIndex;
+    loadedDecks[deck] = slotIndex;
+
+    // Actually pre-load clips into the correct deck's tracks
+    if (deck === "deckX") {
+        loadPresetToDeckX(slotIndex);
+    } else if (deck === "deckY") {
+        loadPresetToDeckY(slotIndex);
+    }
+
+    post("setforge-loader: staged " + deck + " → slot " + slotIndex + " (" + slot.trackId + ")\n");
+
+    updateAllPadColors();
+    sendSurfaceRgb(1);
 }
 
 function onPresetPress(slotIndex) {
     var slot = presetSlots[slotIndex];
     if (!slot || slot.state === "empty" || slot.state === "loading" || slot.state === "error") return;
+
+    // Track last-active per bank for dual-song fallback
+    if (slotIndex < SLOTS_PER_BANK) {
+        lastActiveBankA = slotIndex;
+    } else {
+        lastActiveBankB = slotIndex;
+    }
 
     // Auto-save disabled — was corrupting the manifest JSON.
     // Use the "save" message to save manually after nudging.
@@ -1475,18 +2370,39 @@ function onScenePress(sceneIndex) {
         var snapshot = recallScene(sceneIndex);
         if (!snapshot) return;
 
+        // Restore view state
+        var savedView = snapshot.view || "solo";
+        if (savedView === "perRow") {
+            performanceView = "perRow";
+            modState.SOLO = "latched";
+            if (snapshot.rowSources) {
+                for (var i = 0; i < STEM_NAMES.length; i++) {
+                    var s = STEM_NAMES[i];
+                    rowSources[s] = (snapshot.rowSources[s] !== undefined) ? snapshot.rowSources[s] : null;
+                }
+            }
+        } else if (savedView === "dualSong") {
+            // Restore staging then enter dual-song
+            if (snapshot.stagingDeckX !== undefined) staging.deckX = snapshot.stagingDeckX;
+            if (snapshot.stagingDeckY !== undefined) staging.deckY = snapshot.stagingDeckY;
+            enterDualSongMode(true);
+        } else {
+            performanceView = "solo";
+            modState.SOLO = "idle";
+        }
+
         if (snapshot.activePresetIndex >= 0 && snapshot.activePresetIndex !== activeSlotIndex) {
             activatePreset(snapshot.activePresetIndex);
         }
 
         stopAllChops();
         if (snapshot.heldChops) {
-            var activePreset = getActivePreset();
             for (var i = 0; i < snapshot.heldChops.length; i++) {
                 var hc = snapshot.heldChops[i];
                 playingChops[hc.stem] = hc.col;
-                if (activePreset && activePreset.chops && activePreset.chops[hc.stem]) {
-                    var chopList = activePreset.chops[hc.stem];
+                var effectiveSlot = getEffectivePreset(hc.stem);
+                if (effectiveSlot && effectiveSlot.chops && effectiveSlot.chops[hc.stem]) {
+                    var chopList = effectiveSlot.chops[hc.stem];
                     for (var j = 0; j < chopList.length; j++) {
                         if (chopList[j].column === hc.col && !chopList[j].disabled) {
                             launchClipInTrack(hc.stem, hc.col - 1, chopList[j]);
@@ -1594,6 +2510,18 @@ function executePanic() {
     clearModifiers();
     bypassFx();
     stopAllClips();
+
+    // Reset multi-song state
+    if (dualSongActive) {
+        dualSongActive = false;
+        dualSongLatched = false;
+    }
+    performanceView = "solo";
+    for (var i = 0; i < STEM_NAMES.length; i++) {
+        rowSources[STEM_NAMES[i]] = null;
+    }
+    dualSongPlaying = {};
+
     updateAllPadColors();
     updateStatus();
 }
@@ -1680,35 +2608,86 @@ function setBpm(bpm) {
 }
 
 // Save manifest back to disk with all modified downbeats/bpms.
+// Write a string to a file in chunks (Max's writestring has a ~64KB buffer limit).
+function writeStringChunked(filePath, str) {
+    var f = new File(filePath, "w");
+    if (!f.isopen) {
+        post("setforge-loader: cannot open for write: " + filePath + "\n");
+        return false;
+    }
+    var chunkSize = 16384;
+    for (var i = 0; i < str.length; i += chunkSize) {
+        f.writestring(str.substring(i, Math.min(i + chunkSize, str.length)));
+    }
+    f.close();
+    return true;
+}
+
 function saveManifest() {
     if (!manifest || !manifestFilePath) {
         post("setforge-loader: save — no manifest loaded\n");
-        return;
+        return false;
     }
 
     try {
         var jsonStr = JSON.stringify(manifest, null, 2);
-        var f = new File(manifestFilePath, "w");
-        if (!f.isopen) {
-            post("setforge-loader: save — cannot open " + manifestFilePath + "\n");
-            return;
+        if (writeStringChunked(manifestFilePath, jsonStr)) {
+            post("setforge-loader: saved manifest (" + jsonStr.length + " bytes) to " + manifestFilePath + "\n");
+            return true;
         }
-        f.writestring(jsonStr);
-        f.close();
-        post("setforge-loader: saved manifest to " + manifestFilePath + "\n");
     } catch (e) {
-        post("setforge-loader: save error: " + e + "\n");
+        post("setforge-loader: save manifest error: " + e + "\n");
     }
+    return false;
+}
+
+function saveSet() {
+    if (!setData || !manifestFilePath) {
+        post("setforge-loader: save set — no set loaded\n");
+        return false;
+    }
+
+    // Rebuild set.json from current state
+    var bankA = [];
+    var bankB = [];
+    for (var i = 0; i < SLOTS_PER_BANK; i++) {
+        var slotA = presetSlots[i];
+        bankA.push(slotA.trackId ? { track_id: slotA.trackId, scenes: [] } : null);
+        var slotB = presetSlots[i + SLOTS_PER_BANK];
+        bankB.push(slotB.trackId ? { track_id: slotB.trackId, scenes: [] } : null);
+    }
+
+    // Save scene snapshots into bank A slot 0 (convention from populateBanks)
+    if (bankA[0] && scenes) {
+        var sceneData = [];
+        for (var si = 0; si < NUM_SCENES; si++) {
+            sceneData.push(scenes[si].state !== "empty" ? scenes[si].snapshot : null);
+        }
+        bankA[0].scenes = sceneData;
+    }
+
+    setData.preset_bank_A = bankA;
+    setData.preset_bank_B = bankB;
+
+    try {
+        var setDir = manifestFilePath.replace(/[^\/\\]*$/, "");
+        var setPath = setDir + setData.name + ".set.json";
+        var jsonStr = JSON.stringify(setData, null, 2);
+        if (writeStringChunked(setPath, jsonStr)) {
+            post("setforge-loader: saved set (" + jsonStr.length + " bytes) to " + setPath + "\n");
+            return true;
+        }
+    } catch (e) {
+        post("setforge-loader: save set error: " + e + "\n");
+    }
+    return false;
 }
 
 // ═══════════════════════════════════════════════════════════
 //  Message Handling (from UI / Max)
 // ═══════════════════════════════════════════════════════════
 
-function anything() {
-    var msg = messagename;
-    var args = arrayfromargs(arguments);
-
+function handleMessage(msg, args) {
     if (msg === "init") {
         doInit();
     } else if (msg === "load") {
@@ -1742,10 +2721,17 @@ function anything() {
         // set_bpm <bpm> — change active preset's BPM
         if (args.length > 0) setBpm(parseFloat(args[0]));
     } else if (msg === "save") {
+        fullSave();
+    } else if (msg === "sync") {
+        syncFromLive();
+    } else if (msg === "save_manifest") {
         saveManifest();
+    } else if (msg === "save_set") {
+        saveSet();
     } else if (msg === "panic") {
         executePanic();
     } else if (msg === "bar_tick") {
+        pollCommandFile();
         sendSurfaceRgb(1);
         sendSurfaceRgb(2);
     } else if (msg === "debug") {
@@ -1755,9 +2741,214 @@ function anything() {
     }
 }
 
+// Max [js] anything() handler — delegates to handleMessage
+function anything() {
+    var msg = messagename;
+    var args = arrayfromargs(arguments);
+    handleMessage(msg, args);
+}
+
 // ═══════════════════════════════════════════════════════════
 //  Inspect — dump detailed clip state from LiveAPI
 // ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+//  Sync From Live — read clip state back into manifest
+// ═══════════════════════════════════════════════════════════
+
+function syncFromLive() {
+    if (!liveApi || !manifest || !manifest.tracks) {
+        post("setforge-loader: sync — no manifest or LiveAPI\n");
+        return;
+    }
+
+    // Sync the active preset (its clips are currently in the stem tracks)
+    var active = getActivePreset();
+    if (!active) {
+        post("setforge-loader: sync — no active preset\n");
+        return;
+    }
+
+    var mTrack = resolveTrack(active.trackId);
+    if (!mTrack) {
+        post("setforge-loader: sync — track not found: " + active.trackId + "\n");
+        return;
+    }
+
+    var offset = activeSetOffset();
+    var synced = syncPresetClips(active, mTrack, offset, stemTrackIds);
+    post("setforge-loader: synced " + synced + " clips for " + active.trackId + "\n");
+
+    // Also sync deck Y if loaded
+    if (loadedDecks.deckY !== null && loadedDecks.deckY !== undefined) {
+        var deckYSlot = presetSlots[loadedDecks.deckY];
+        if (deckYSlot && deckYSlot.trackId) {
+            var mTrackY = resolveTrack(deckYSlot.trackId);
+            if (mTrackY) {
+                var syncedY = syncPresetClips(deckYSlot, mTrackY, 0, stemTrackIdsY);
+                post("setforge-loader: synced " + syncedY + " deck-Y clips for " + deckYSlot.trackId + "\n");
+                synced += syncedY;
+            }
+        }
+    }
+
+    return synced;
+}
+
+function syncPresetClips(preset, mTrack, offset, trackIds) {
+    var synced = 0;
+
+    post("setforge-loader: syncing clips from Live → manifest for " + preset.trackId + "...\n");
+
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var trackPath = trackIds[stem];
+        if (!trackPath) continue;
+
+        var mStem = mTrack.stems ? mTrack.stems[stem] : null;
+        if (!mStem || !mStem.chops) continue;
+
+        var presetChops = preset.chops ? preset.chops[stem] : null;
+
+        for (var c = 0; c < mStem.chops.length; c++) {
+            var mc = mStem.chops[c];
+            var clipSlot = offset + c;
+            var csPath = trackPath + " clip_slots " + clipSlot;
+
+            try {
+                var csApi = new LiveAPI(csPath);
+                var hasClip = csApi.get("has_clip");
+                if (!hasClip || hasClip.toString() !== "1") continue;
+
+                var clipApi = new LiveAPI(csPath + " clip");
+                if (!clipApi || clipApi.id === "0") continue;
+
+                // Read clip properties from Live
+                var warping = 0, loopStart = 0, loopEnd = 0;
+                var startMarker = 0, endMarker = 0, warpMode = 0;
+
+                try { warping = Number(clipApi.get("warping")); } catch (_) {}
+                try { loopStart = Number(clipApi.get("loop_start")); } catch (_) {}
+                try { loopEnd = Number(clipApi.get("loop_end")); } catch (_) {}
+                try { startMarker = Number(clipApi.get("start_marker")); } catch (_) {}
+                try { endMarker = Number(clipApi.get("end_marker")); } catch (_) {}
+                try { warpMode = Number(clipApi.get("warp_mode")); } catch (_) {}
+
+                // Read warp markers to compute sample-time offsets
+                var markers = [];
+                try {
+                    var rawWm = clipApi.get("warp_markers");
+                    if (rawWm && rawWm.length > 0) {
+                        var wmStr = (typeof rawWm[0] === "string") ? rawWm[0] : String(rawWm[0]);
+                        var wmParsed = JSON.parse(wmStr);
+                        if (wmParsed && wmParsed.warp_markers) markers = wmParsed.warp_markers;
+                        else if (wmParsed && wmParsed.length) markers = wmParsed;
+                    }
+                } catch (_) {}
+
+                if (warping === 1 && loopEnd > loopStart) {
+                    // Warped clip: loop_start/end are in beats.
+                    var beatSpan = loopEnd - loopStart;
+                    var bars = Math.round(beatSpan / BEATS_PER_BAR);
+
+                    // Compute sample-time from warp markers + BPM.
+                    // Strategy: find an anchor marker, then use the beat→sample
+                    // relationship to compute start and end sample times.
+                    var trackBpm = (mTrack.bpm) ? mTrack.bpm : 95;
+                    var secPerBeat = 60.0 / trackBpm;
+                    var startSec = mc.start_sec || 0;
+                    var lengthSec = bars * BEATS_PER_BAR * secPerBeat;
+
+                    if (markers.length >= 1) {
+                        // Find the anchor marker (closest to beat 0)
+                        var anchor = markers[0];
+                        for (var mi = 1; mi < markers.length; mi++) {
+                            if (Math.abs(markers[mi].beat_time) < Math.abs(anchor.beat_time)) {
+                                anchor = markers[mi];
+                            }
+                        }
+
+                        // Compute beat→sample rate from two markers if available
+                        var secPerBeatFromMarkers = secPerBeat;
+                        if (markers.length >= 2) {
+                            // Use the two most-separated markers for best accuracy
+                            var first = markers[0];
+                            var last = markers[markers.length - 1];
+                            var dtBeat = last.beat_time - first.beat_time;
+                            var dtSec = last.sample_time - first.sample_time;
+                            if (dtBeat > 0 && dtSec > 0) {
+                                secPerBeatFromMarkers = dtSec / dtBeat;
+                            }
+                        }
+
+                        // Compute loop start in sample time
+                        // loopStart is in beats (usually 0)
+                        startSec = anchor.sample_time + (loopStart - anchor.beat_time) * secPerBeatFromMarkers;
+                        lengthSec = beatSpan * secPerBeatFromMarkers;
+                    }
+
+                    // Sanity: if lengthSec is unreasonable, fall back to BPM calc
+                    if (lengthSec <= 0 || lengthSec > 600) {
+                        lengthSec = bars * BEATS_PER_BAR * secPerBeat;
+                    }
+                    if (startSec < 0) startSec = 0;
+
+                    // Update manifest chop
+                    mc.length_bars = bars;
+                    mc.start_sec = startSec;
+                    mc.length_sec = lengthSec;
+                    if (mc.loop_start_sec !== undefined) {
+                        mc.loop_start_sec = 0;
+                        mc.loop_end_sec = lengthSec;
+                    }
+
+                    // Update in-memory preset chops too
+                    if (presetChops && presetChops[c]) {
+                        presetChops[c].clipStart = startSec;
+                        presetChops[c].clipLength = lengthSec;
+                        presetChops[c].lengthBars = bars;
+                    }
+
+                    synced++;
+                    post("  " + stem + "[" + c + "]: " + bars + " bars, start=" +
+                         startSec.toFixed(2) + "s, len=" + lengthSec.toFixed(2) + "s\n");
+
+                } else if (warping === 0) {
+                    // Unwarped clip: start/end markers are in seconds
+                    mc.start_sec = startMarker;
+                    mc.length_sec = endMarker - startMarker;
+                    mc.length_bars = 0;
+
+                    if (presetChops && presetChops[c]) {
+                        presetChops[c].clipStart = startMarker;
+                        presetChops[c].clipLength = endMarker - startMarker;
+                        presetChops[c].lengthBars = 0;
+                    }
+
+                    synced++;
+                    post("  " + stem + "[" + c + "]: oneshot, start=" +
+                         startMarker.toFixed(2) + "s, end=" + endMarker.toFixed(2) + "s\n");
+                }
+
+            } catch (e) {
+                post("  " + stem + "[" + c + "]: sync error: " + e + "\n");
+            }
+        }
+    }
+
+    return synced;
+}
+
+// Full save: sync from Live, then write manifest + set to disk
+function fullSave() {
+    post("setforge-loader: === FULL SAVE ===\n");
+    var synced = syncFromLive();
+    var mOk = saveManifest();
+    var sOk = saveSet();
+    post("setforge-loader: save complete — synced " + (synced || 0) +
+         " clips, manifest=" + (mOk ? "OK" : "FAIL") +
+         ", set=" + (sOk ? "OK" : "FAIL") + "\n");
+}
 
 function inspectClips() {
     var active = getActivePreset();
@@ -1974,6 +3165,7 @@ function doInit() {
     initModifiers();
     initScenes();
     bypassFx();
+    // startCmdPoll is deferred — Task may not be available at global init time
 }
 
 function bang() {
@@ -2023,6 +3215,14 @@ if (lastPath) {
     // Defer to avoid outlet calls during load
     var reloadTask = new Task(function() { loadSet(lastPath); });
     reloadTask.schedule(500);
+}
+
+// Start command file poll (deferred — Task may fail at global scope)
+try {
+    var cmdStartTask = new Task(function() { startCmdPoll(); });
+    cmdStartTask.schedule(1000);
+} catch (e) {
+    post("setforge-loader: deferred cmdPoll failed: " + e + "\n");
 }
 
 post("setforge-loader.js loaded (surface=" + surface.model + ")\n");

@@ -28,8 +28,8 @@ describe('integration: scene-recall', () => {
 
   it('saves current state as a scene and recalls it', () => {
     // Play some chops
-    router.press(2, 1, mods);
-    router.press(3, 3, mods);
+    router.press(1, 1, mods);
+    router.press(2, 3, mods);
 
     // Save scene
     const snapshot = {
@@ -49,12 +49,12 @@ describe('integration: scene-recall', () => {
     expect(recalled).to.not.be.null;
     expect(recalled.activePresetIndex).to.equal(0);
     expect(recalled.heldChops).to.have.lengthOf(2);
-    expect(recalled.heldChops[0]).to.deep.include({ row: 2, col: 1, stem: 'drums' });
+    expect(recalled.heldChops[0]).to.deep.include({ row: 1, col: 1, stem: 'drums' });
   });
 
   it('scene recall with cross-preset state', () => {
     // Save a scene pointing to preset 1
-    router.press(2, 5, mods);
+    router.press(1, 5, mods);
     const snapshot = {
       activePresetIndex: 0,
       heldChops: router.getHeldChops(),
@@ -75,7 +75,7 @@ describe('integration: scene-recall', () => {
     // Per spec: scene G = "outro to one stem"
     const outroSnapshot = {
       activePresetIndex: 0,
-      heldChops: [{ row: 5, col: 3, stem: 'vox' }], // just vox
+      heldChops: [{ row: 4, col: 3, stem: 'vox' }], // just vox
       modifiers: mods.snapshot(),
     };
     scenes.save(6, outroSnapshot);

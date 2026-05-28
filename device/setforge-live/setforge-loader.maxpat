@@ -200,6 +200,24 @@
 			},
 			{
 				"box": {
+					"id": "udp-recv",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 1,
+					"patching_rect": [
+						450,
+						60,
+						140,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "udpreceive 7422 0"
+				}
+			},
+			{
+				"box": {
 					"id": "opendialog",
 					"maxclass": "newobj",
 					"numinlets": 1,
@@ -799,6 +817,18 @@
 			{
 				"patchline": {
 					"source": [
+						"udp-recv",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
 						"btn-browse",
 						0
 					],
@@ -956,10 +986,22 @@
 			"showdependencies": 1,
 			"autolocalize": 0,
 			"contents": {
-				"patchers": {}
+				"patchers": {},
+				"code": {
+					"loader.js": {
+						"kind": "javascript",
+						"local": 1
+					}
+				}
 			},
 			"layout": {},
-			"searchpath": {},
+			"searchpath": {
+				"setforge-live": {
+					"kind": "folder",
+					"local": 1,
+					"path": "/Users/zak/zacharysbrown/m4l-devices/.claude/worktrees/setforge-live/device/setforge-live"
+				}
+			},
 			"detailsvisible": 0,
 			"amxdtype": 1633771873,
 			"readonly": 0,

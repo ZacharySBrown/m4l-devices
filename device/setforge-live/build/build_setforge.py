@@ -42,6 +42,13 @@ def build_loader():
     """
     p = P.empty_patcher(width=800, height=400, is_root=True)
     p["patcher"]["project"]["name"] = "setforge-loader"
+    # Register loader.js as a project dependency so it's found when .amxd loads
+    p["patcher"]["project"]["contents"]["code"] = {
+        "loader.js": {
+            "kind": "javascript",
+            "local": 1
+        }
+    }
     p["patcher"]["openinpresentation"] = 1
     p["patcher"]["devicewidth"] = 800.0
 
@@ -108,6 +115,16 @@ def build_loader():
     ))
     lines.append(P.line("loadbang", 0, "msg-init", 0))
     lines.append(P.line("msg-init", 0, "js-loader", 2))
+
+    # ── UDP command receiver (for automated testing + remote control) ──
+    # udpreceive outputs ASCII ints → msg_int on JS inlet 2 collects them
+    # into a command string via the udpBuffer mechanism in loader-controller.js
+    boxes.append(P.newobj(
+        "udp-recv", "udpreceive 7422 0",
+        rect=(450, 60, 140, 22),
+        numinlets=1, numoutlets=1, outlettype=[""],
+    ))
+    lines.append(P.line("udp-recv", 0, "js-loader", 2))
 
     # ── File browser for set loading ──
     boxes.append(P.newobj(

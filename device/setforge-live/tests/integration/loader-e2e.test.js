@@ -34,6 +34,13 @@ function createMaxEnv() {
     outlets: 0,
     inlet: 0,
 
+    // Task mock (Max's deferred scheduler)
+    Task: function(fn) {
+      this.fn = fn;
+      this.schedule = function() { /* no-op in test */ };
+      this.cancel = function() {};
+    },
+
     post: function() {
       const msg = Array.prototype.slice.call(arguments).join('');
       log.push(msg);
@@ -376,71 +383,70 @@ describe('integration: loader.js end-to-end (simulated Max)', () => {
         env._clearOutlets();
       });
 
-      it('activates preset on row 1 pad press', () => {
-        // Row 1, col 1 = note 81 (LP Pro mk3: row 8 bottom = 81-88 top)
-        // Our row 1 = LP row 8 = notes 81-88
-        env._sendNoteOn(1, 81, 127); // row 1, col 1
+      it('activates preset on row 5 pad press', () => {
+        // New layout: Row 5 = bank A = LP row 4 = notes 41-48
+        env._sendNoteOn(1, 41, 127); // row 5, col 1 = bank A slot 0
         const logStr = env._getLog();
         // Should not crash; preset should activate if loaded
       });
 
-      it('triggers chop on row 2 pad press', () => {
+      it('triggers chop on row 1 pad press', () => {
         // First activate a preset
-        env._sendNoteOn(1, 81, 127); // row 1, col 1 = preset A slot 0
+        env._sendNoteOn(1, 41, 127); // row 5, col 1 = bank A slot 0
         env._clearLog();
 
-        // Row 2 (drums), col 1 = LP row 7 = note 71
-        env._sendNoteOn(1, 71, 127);
+        // Row 1 (drums), col 1 = LP row 8 = note 81
+        env._sendNoteOn(1, 81, 127);
         const logStr = env._getLog();
         expect(logStr).to.include('launch drums');
       });
 
       it('replaces chop in same row', () => {
-        env._sendNoteOn(1, 81, 127); // activate preset 0
-        env._sendNoteOn(1, 71, 127); // drums col 1
+        env._sendNoteOn(1, 41, 127); // activate preset 0
+        env._sendNoteOn(1, 81, 127); // drums col 1
         env._clearLog();
 
-        env._sendNoteOn(1, 73, 127); // drums col 3
+        env._sendNoteOn(1, 83, 127); // drums col 3
         const logStr = env._getLog();
         expect(logStr).to.include('launch drums');
         expect(logStr).to.include('slot=2'); // preset 0 * 8 + col 3 - 1 = 2
       });
 
       it('stops chop on re-press', () => {
-        env._sendNoteOn(1, 81, 127); // activate preset 0
-        env._sendNoteOn(1, 71, 127); // drums col 1 start
+        env._sendNoteOn(1, 41, 127); // activate preset 0
+        env._sendNoteOn(1, 81, 127); // drums col 1 start
         env._clearLog();
 
-        env._sendNoteOn(1, 71, 127); // drums col 1 stop
+        env._sendNoteOn(1, 81, 127); // drums col 1 stop
         const logStr = env._getLog();
         expect(logStr).to.include('[LiveAPI] stop');
       });
 
       it('modifier press/release works', () => {
-        env._sendNoteOn(1, 81, 127); // activate preset
+        env._sendNoteOn(1, 41, 127); // activate preset
         env._clearLog();
 
-        // Row 6, col 1 = HOLD = LP row 3 = note 31
-        env._sendNoteOn(1, 31, 127);  // HOLD press
-        env._sendNoteOn(1, 71, 127);  // drums col 1 with HOLD
+        // Row 7, col 1 = HOLD = LP row 2 = note 21
+        env._sendNoteOn(1, 21, 127);  // HOLD press
+        env._sendNoteOn(1, 81, 127);  // drums col 1 with HOLD
         const logStr = env._getLog();
         expect(logStr).to.include('launch drums');
 
         // Release HOLD
-        env._sendNoteOff(1, 31);
+        env._sendNoteOff(1, 21);
       });
 
       it('scene save and recall', () => {
-        env._sendNoteOn(1, 81, 127); // activate preset
-        env._sendNoteOn(1, 71, 127); // play drums col 1
+        env._sendNoteOn(1, 41, 127); // activate preset
+        env._sendNoteOn(1, 81, 127); // play drums col 1
 
-        // Save scene: HOLD (row 6 col 1 = note 31) + scene A (row 8 col 1 = note 11)
-        env._sendNoteOn(1, 31, 127);  // HOLD
+        // Save scene: HOLD (row 7 col 1 = note 21) + scene A (row 8 col 1 = note 11)
+        env._sendNoteOn(1, 21, 127);  // HOLD
         env._clearLog();
         env._sendNoteOn(1, 11, 127);  // scene A
         var logStr = env._getLog();
         expect(logStr).to.include('saved scene A');
-        env._sendNoteOff(1, 31);      // release HOLD
+        env._sendNoteOff(1, 21);      // release HOLD
 
         // Recall scene
         env._clearLog();
@@ -471,12 +477,12 @@ describe('integration: loader.js end-to-end (simulated Max)', () => {
 
       it('preset hot-swap stages incoming preset then fires', () => {
         // Activate preset 0, play drums col 3
-        env._sendNoteOn(1, 81, 127); // preset 0
-        env._sendNoteOn(1, 73, 127); // drums col 3
+        env._sendNoteOn(1, 41, 127); // bank A slot 0 (row 5 col 1 = note 41)
+        env._sendNoteOn(1, 83, 127); // drums col 3 (row 1 col 3 = note 83)
         env._clearLog();
 
-        // Switch to preset 1 (row 1 col 2 = note 82)
-        env._sendNoteOn(1, 82, 127);
+        // Switch to preset 1 (row 5 col 2 = note 42)
+        env._sendNoteOn(1, 42, 127);
         const logStr = env._getLog();
         // Should stage the new preset and commit
         expect(logStr).to.include('staging');

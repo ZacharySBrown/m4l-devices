@@ -31,8 +31,8 @@ describe('integration: preset-swap (hot-swap)', () => {
 
   it('swaps preset while preserving held chops', () => {
     // Hold drums col 1 and bass col 3
-    router.press(2, 1, mods);
-    router.press(3, 3, mods);
+    router.press(1, 1, mods);
+    router.press(2, 3, mods);
     expect(router.getHeldChops()).to.have.lengthOf(2);
 
     // Swap to big_poppa
@@ -71,7 +71,7 @@ describe('integration: preset-swap (hot-swap)', () => {
     banks.loadSlot(2, 'partial_track', missingTrack, missingChops);
 
     // Hold drums in current preset
-    router.press(2, 1, mods);
+    router.press(1, 1, mods);
     expect(router.getPlaying('drums')).to.equal(1);
 
     // Swap to partial track (no drums)
@@ -88,7 +88,7 @@ describe('integration: preset-swap (hot-swap)', () => {
     const varyingChops = computeTrackChops(varyingTrack);
     banks.loadSlot(3, 'sicko_mode', varyingTrack, varyingChops);
 
-    router.press(2, 1, mods);
+    router.press(1, 1, mods);
     banks.activate(3);
     const migrations = router.hotSwap(banks.getSlot(3).chops);
 

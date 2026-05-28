@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>setforge-live — Performance Guide</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --card: #1e2a47;
+    --border: #2a3a5c;
+    --text: #e0e0e0;
+    --text-dim: #8899aa;
+    --accent: #e94560;
+    --orange: #ff6b2b;
+    --blue: #2b7fff;
+    --green: #2bff6b;
+    --yellow: #ffe02b;
+    --purple: #9b2bff;
+    --cyan: #2bffe0;
+    --white: #ffffff;
+    --dim-white: #556677;
+    --soft-blue: #7799cc;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+    color: var(--white);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.5px;
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 2.5rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+
+  h2 {
+    font-size: 1.2rem;
+    color: var(--white);
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.3rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  h3 {
+    font-size: 1rem;
+    color: var(--cyan);
+    margin: 1.5rem 0 0.5rem;
+  }
+
+  p, li { font-size: 0.85rem; margin-bottom: 0.5rem; }
+
+  /* Grid visualization */
+  .grid-container {
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 80px repeat(8, 1fr);
+    gap: 3px;
+    min-width: 650px;
+  }
+
+  .grid-label {
+    display: flex;
+    align-items: center;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    padding-right: 8px;
+    text-align: right;
+    justify-content: flex-end;
+  }
+
+  .pad {
+    aspect-ratio: 1;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    font-weight: bold;
+    color: rgba(0,0,0,0.6);
+    min-height: 48px;
+    position: relative;
+  }
+
+  .pad.drums { background: #ff6b2b; }
+  .pad.drums.soft { background: #993f1a; }
+  .pad.bass { background: #2b7fff; }
+  .pad.bass.soft { background: #1a4c99; }
+  .pad.other { background: #c8c84a; }
+  .pad.other.soft { background: #6e6e2a; }
+  .pad.vox { background: #2bff6b; }
+  .pad.vox.soft { background: #1a994a; }
+  .pad.preset-a { background: #ff6b2b; }
+  .pad.preset-b { background: #2b7fff; }
+  .pad.preset-empty { background: #222; color: #444; }
+  .pad.mod { background: #333; color: #888; }
+  .pad.mod.active { background: var(--yellow); color: #000; }
+  .pad.scene { background: #400060; color: #9060c0; }
+  .pad.scene.empty { background: #1a1a1a; color: #333; }
+  .pad.off { background: #111; }
+
+  .pad.flash-x {
+    animation: flashX 1s ease-in-out infinite;
+  }
+  .pad.flash-y {
+    animation: flashY 1s ease-in-out infinite;
+  }
+
+  @keyframes flashX {
+    0%, 100% { opacity: 1; }
+    50% { background: white; color: #000; }
+  }
+  @keyframes flashY {
+    0%, 100% { opacity: 1; }
+    50% { background: var(--soft-blue); color: #000; }
+  }
+
+  /* Side buttons */
+  .side-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.5rem;
+    margin: 2px 0;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.2rem;
+    margin: 1rem 0;
+  }
+
+  .gesture {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+    margin: 0.8rem 0;
+  }
+
+  .gesture-action {
+    flex-shrink: 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.8rem;
+    font-size: 0.75rem;
+    color: var(--yellow);
+    min-width: 160px;
+    text-align: center;
+  }
+
+  .gesture-result {
+    font-size: 0.8rem;
+    color: var(--text);
+  }
+
+  /* View tabs */
+  .view-tabs {
+    display: flex;
+    gap: 4px;
+    margin: 1.5rem 0 1rem;
+  }
+
+  .view-tab {
+    padding: 0.5rem 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px 6px 0 0;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    cursor: default;
+  }
+
+  .view-tab.active {
+    background: var(--card);
+    color: var(--white);
+    border-bottom-color: var(--card);
+  }
+
+  /* Keyboard shortcuts table */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.8rem;
+  }
+
+  th {
+    text-align: left;
+    padding: 0.5rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--text-dim);
+    font-weight: normal;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  td {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  td:first-child { color: var(--yellow); white-space: nowrap; }
+
+  .tag {
+    display: inline-block;
+    padding: 0.1rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.65rem;
+    font-weight: bold;
+    margin-right: 4px;
+  }
+
+  .tag.new { background: var(--accent); color: white; }
+  .tag.v02 { background: #444; color: #888; }
+
+  code {
+    background: var(--surface);
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
+    color: var(--cyan);
+  }
+
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0.5rem 0;
+  }
+
+  .flow-step {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+
+  .flow-arrow { color: var(--text-dim); font-size: 0.8rem; }
+
+  .warning {
+    background: #2a2000;
+    border: 1px solid #554400;
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.8rem;
+  }
+
+  .warning::before { content: "! "; color: var(--yellow); font-weight: bold; }
+
+  .tip {
+    background: #002a1a;
+    border: 1px solid #005544;
+    border-radius: 6px;
+    padding: 0.8rem 1rem;
+    margin: 1rem 0;
+    font-size: 0.8rem;
+  }
+
+  .tip::before { content: "TIP "; color: var(--green); font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>setforge<span>-live</span></h1>
+<div class="subtitle">
+  Performance guide &mdash; multi-song modes &mdash; v0.1<br>
+  Launchpad Pro MK2 &middot; single-grid mode
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2>The Grid</h2>
+
+<p>Four views share one Launchpad. Only one is active at a time. Audio always survives view changes.</p>
+
+<div class="view-tabs">
+  <div class="view-tab active">Solo</div>
+  <div class="view-tab">Per-Row</div>
+  <div class="view-tab">Dual-Song</div>
+  <div class="view-tab">Control</div>
+</div>
+
+<h3>Solo Mode (default)</h3>
+<p>All four stem rows source from one active preset. The classic MLR shape.</p>
+
+<div class="grid-container">
+<div class="grid">
+  <div class="grid-label">row 1 &mdash; drums</div>
+  <div class="pad drums soft">D1</div><div class="pad drums">D2</div><div class="pad drums soft">D3</div><div class="pad drums soft">D4</div><div class="pad drums soft">D5</div><div class="pad drums soft">D6</div><div class="pad drums soft">D7</div><div class="pad drums soft">D8</div>
+
+  <div class="grid-label">row 2 &mdash; bass</div>
+  <div class="pad bass soft">B1</div><div class="pad bass soft">B2</div><div class="pad bass soft">B3</div><div class="pad bass soft">B4</div><div class="pad bass soft">B5</div><div class="pad bass soft">B6</div><div class="pad bass soft">B7</div><div class="pad bass soft">B8</div>
+
+  <div class="grid-label">row 3 &mdash; other</div>
+  <div class="pad other soft">O1</div><div class="pad other soft">O2</div><div class="pad other soft">O3</div><div class="pad other soft">O4</div><div class="pad other soft">O5</div><div class="pad other soft">O6</div><div class="pad other soft">O7</div><div class="pad other soft">O8</div>
+
+  <div class="grid-label">row 4 &mdash; vox</div>
+  <div class="pad vox soft">V1</div><div class="pad vox soft">V2</div><div class="pad vox soft">V3</div><div class="pad vox soft">V4</div><div class="pad vox soft">V5</div><div class="pad vox soft">V6</div><div class="pad vox soft">V7</div><div class="pad vox soft">V8</div>
+
+  <div class="grid-label">row 5 &mdash; bank A</div>
+  <div class="pad preset-a">PA</div><div class="pad preset-b">PB</div><div class="pad preset-empty">PC</div><div class="pad preset-empty">PD</div><div class="pad preset-empty">PE</div><div class="pad preset-empty">PF</div><div class="pad preset-empty">PG</div><div class="pad preset-empty">PH</div>
+
+  <div class="grid-label">row 6 &mdash; bank B</div>
+  <div class="pad preset-b">PI</div><div class="pad preset-empty">PJ</div><div class="pad preset-empty">PK</div><div class="pad preset-empty">PL</div><div class="pad preset-empty">PM</div><div class="pad preset-empty">PN</div><div class="pad preset-empty">PO</div><div class="pad preset-empty">PP</div>
+
+  <div class="grid-label">row 7 &mdash; modifiers</div>
+  <div class="pad mod">HOLD</div><div class="pad mod">MUTE</div><div class="pad mod">SOLO</div><div class="pad mod">REV</div><div class="pad mod">STUT</div><div class="pad mod">HALF</div><div class="pad mod">DBL</div><div class="pad mod">KILL</div>
+
+  <div class="grid-label">row 8 &mdash; scenes</div>
+  <div class="pad scene">A</div><div class="pad scene">B</div><div class="pad scene">C</div><div class="pad scene">D</div><div class="pad scene empty">E</div><div class="pad scene empty">F</div><div class="pad scene empty">G</div><div class="pad scene empty">H</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2>Basic Performance (Solo Mode)</h2>
+
+<div class="card">
+<table>
+  <tr><th>Gesture</th><th>What happens</th></tr>
+  <tr><td>Tap preset pad (row 5/6)</td><td>Activate that preset. All stem rows source from it. Held chops migrate at the next launch-quant boundary (hot-swap).</td></tr>
+  <tr><td>Tap chop pad (rows 1-4)</td><td>Start playing that chop. Tap again to stop. Tap a different column in the same row to replace.</td></tr>
+  <tr><td>Hold HOLD + tap chop</td><td>One-shot: plays once, doesn't latch.</td></tr>
+  <tr><td>Double-tap modifier</td><td>Latch (stays active until tapped again). Single tap is momentary.</td></tr>
+  <tr><td>HOLD + tap scene pad</td><td>Save current state to that scene slot.</td></tr>
+  <tr><td>Tap scene pad</td><td>Recall: restores preset, held chops, modifiers, and view mode.</td></tr>
+  <tr><td>Triple-tap PANIC (side)</td><td>Stop everything. Reset to solo mode.</td></tr>
+</table>
+</div>
+
+<h3>Launch quantization</h3>
+<p>Each stem has its own quant &mdash; chops snap to the grid naturally:</p>
+<div class="card">
+<table>
+  <tr><th>Stem</th><th>Quant</th><th>Feel</th></tr>
+  <tr><td style="color:var(--orange)">Drums</td><td>1/16</td><td>Instant, tight chops</td></tr>
+  <tr><td style="color:var(--blue)">Bass</td><td>1 bar</td><td>Locked to the downbeat</td></tr>
+  <tr><td style="color:var(--yellow)">Other</td><td>1/4</td><td>Quarter-note grid</td></tr>
+  <tr><td style="color:var(--green)">Vox</td><td>1/2</td><td>Half-bar transitions</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="tag new">NEW</span> Per-Row Mode</h2>
+
+<p>Each stem row independently sources from its own preset. Drums from song C, bass from song F, vox from song A &mdash; all at once. The mashup move.</p>
+
+<div class="card">
+  <h3>Entry &amp; Exit</h3>
+  <div class="gesture">
+    <div class="gesture-action">Double-tap SOLO</div>
+    <div class="gesture-result">Enters per-row mode. SOLO pad latches <span style="color:var(--yellow)">yellow</span>. All rows initially source from the current preset.</div>
+  </div>
+  <div class="gesture">
+    <div class="gesture-action">Tap SOLO (while latched)</div>
+    <div class="gesture-result">Exits per-row mode. Returns to solo mode. Active preset becomes whatever drums row was sourcing.</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>Reassigning a Row</h3>
+  <div class="gesture">
+    <div class="gesture-action">Hold any stem pad +<br>tap a preset pad</div>
+    <div class="gesture-result">That stem row reassigns to the tapped preset. Clips reload for just that stem. If a chop was held, it migrates to the new preset at the next quant boundary.</div>
+  </div>
+
+  <div class="tip">The leftmost pad (col 1) of each stem row shows the source-preset color, so you can see at a glance which song each row is playing from.</div>
+</div>
+
+<div class="card">
+  <h3>Example: cross-song mashup</h3>
+  <div class="flow">
+    <div class="flow-step">Activate "Electric Relaxation"</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">Double-tap SOLO</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">Tap drums D3 (hold it)</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">Tap "Rebirth of Slick" preset</div>
+    <div class="flow-arrow">&rarr;</div>
+    <div class="flow-step">Release D3</div>
+  </div>
+  <p style="margin-top:0.5rem; color:var(--text-dim)">Now drums play Rebirth's kit while bass/other/vox still play Electric Relaxation. Tap bass chops &mdash; hear both songs layered.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="tag new">NEW</span> Staging &amp; Pre-Loading</h2>
+
+<p>Stage two songs for dual-song mode while you're still performing. The audio engine pre-loads both in the background so the view flip is instant.</p>
+
+<div class="card">
+  <h3>The Staging Gesture</h3>
+  <div class="gesture">
+    <div class="gesture-action">Hold deck-setup<br><span style="color:var(--text-dim);font-size:0.65rem">right side, position 2</span></div>
+    <div class="gesture-result">Side button lights <strong>bright white</strong>. You're now in staging mode.</div>
+  </div>
+  <div class="gesture">
+    <div class="gesture-action">Tap row 5 preset<br><span style="color:var(--text-dim);font-size:0.65rem">while deck-setup held</span></div>
+    <div class="gesture-result"><strong>Deck X</strong> staged. That pad flashes <span style="color:var(--white)">preset&thinsp;color&thinsp;&harr;&thinsp;white</span>. Pre-load begins.</div>
+  </div>
+  <div class="gesture">
+    <div class="gesture-action">Tap row 6 preset<br><span style="color:var(--text-dim);font-size:0.65rem">while deck-setup held</span></div>
+    <div class="gesture-result"><strong>Deck Y</strong> staged. That pad flashes <span style="color:var(--soft-blue)">preset&thinsp;color&thinsp;&harr;&thinsp;soft&thinsp;blue</span>. Pre-load begins.</div>
+  </div>
+  <div class="gesture">
+    <div class="gesture-action">Release deck-setup</div>
+    <div class="gesture-result">Exit staging mode. Staged pads keep flashing. Pre-load continues in background.</div>
+  </div>
+
+  <div class="warning">Wait ~5 seconds after staging for pre-load to complete before entering dual-song mode. If you enter immediately, there may be a brief load delay.</div>
+</div>
+
+<div class="card">
+  <h3>Side button indicators</h3>
+  <table>
+    <tr><th>Button</th><th>State</th><th>Color</th></tr>
+    <tr><td>Deck-setup</td><td>Idle</td><td style="color:var(--dim-white)">Dim white</td></tr>
+    <tr><td>Deck-setup</td><td>Held (staging)</td><td style="color:var(--white)">Bright white</td></tr>
+    <tr><td>Dual-song toggle</td><td>Neither staged</td><td style="color:var(--dim-white)">Dim white</td></tr>
+    <tr><td>Dual-song toggle</td><td>Both staged</td><td>Alternates X color / Y color</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2><span class="tag new">NEW</span> Dual-Song Mode</h2>
+
+<p>All 8 rows become stems. Top half from song X, bottom half from song Y. Eight simultaneous voices. <strong>Drum-on-drum.</strong></p>
+
+<div class="grid-container">
+<div class="grid">
+  <div class="grid-label">row 1 &mdash; X drums</div>
+  <div class="pad drums soft">XD1</div><div class="pad drums soft">XD2</div><div class="pad drums">XD3</div><div class="pad drums soft">XD4</div><div class="pad drums soft">XD5</div><div class="pad drums soft">XD6</div><div class="pad drums soft">XD7</div><div class="pad drums soft">XD8</div>
+
+  <div class="grid-label">row 2 &mdash; X bass</div>
+  <div class="pad bass soft">XB1</div><div class="pad bass">XB2</div><div class="pad bass soft">XB3</div><div class="pad bass soft">XB4</div><div class="pad bass soft">XB5</div><div class="pad bass soft">XB6</div><div class="pad bass soft">XB7</div><div class="pad bass soft">XB8</div>
+
+  <div class="grid-label">row 3 &mdash; X other</div>
+  <div class="pad other soft">XO1</div><div class="pad other soft">XO2</div><div class="pad other soft">XO3</div><div class="pad other soft">XO4</div><div class="pad other soft">XO5</div><div class="pad other soft">XO6</div><div class="pad other soft">XO7</div><div class="pad other soft">XO8</div>
+
+  <div class="grid-label">row 4 &mdash; X vox</div>
+  <div class="pad vox soft">XV1</div><div class="pad vox soft">XV2</div><div class="pad vox soft">XV3</div><div class="pad vox soft">XV4</div><div class="pad vox soft">XV5</div><div class="pad vox soft">XV6</div><div class="pad vox soft">XV7</div><div class="pad vox soft">XV8</div>
+
+  <div class="grid-label" style="color:var(--soft-blue)">row 5 &mdash; Y drums</div>
+  <div class="pad drums soft">YD1</div><div class="pad drums soft">YD2</div><div class="pad drums soft">YD3</div><div class="pad drums">YD4</div><div class="pad drums soft">YD5</div><div class="pad drums soft">YD6</div><div class="pad drums soft">YD7</div><div class="pad drums soft">YD8</div>
+
+  <div class="grid-label" style="color:var(--soft-blue)">row 6 &mdash; Y bass</div>
+  <div class="pad bass soft">YB1</div><div class="pad bass soft">YB2</div><div class="pad bass">YB3</div><div class="pad bass soft">YB4</div><div class="pad bass soft">YB5</div><div class="pad bass soft">YB6</div><div class="pad bass soft">YB7</div><div class="pad bass soft">YB8</div>
+
+  <div class="grid-label" style="color:var(--soft-blue)">row 7 &mdash; Y other</div>
+  <div class="pad other soft">YO1</div><div class="pad other soft">YO2</div><div class="pad other soft">YO3</div><div class="pad other soft">YO4</div><div class="pad other soft">YO5</div><div class="pad other soft">YO6</div><div class="pad other soft">YO7</div><div class="pad other soft">YO8</div>
+
+  <div class="grid-label" style="color:var(--soft-blue)">row 8 &mdash; Y vox</div>
+  <div class="pad vox soft">YV1</div><div class="pad vox soft">YV2</div><div class="pad vox soft">YV3</div><div class="pad vox soft">YV4</div><div class="pad vox soft">YV5</div><div class="pad vox soft">YV6</div><div class="pad vox soft">YV7</div><div class="pad vox soft">YV8</div>
+</div>
+</div>
+
+<div class="card">
+  <h3>Entry &amp; Exit</h3>
+  <div class="gesture">
+    <div class="gesture-action">Hold top-right side btn</div>
+    <div class="gesture-result"><strong>Peek</strong> into dual-song mode. Release to snap back to your previous view.</div>
+  </div>
+  <div class="gesture">
+    <div class="gesture-action">Double-tap top-right</div>
+    <div class="gesture-result"><strong>Latch</strong> into dual-song mode. Tap once more to exit.</div>
+  </div>
+  <div class="gesture">
+    <div class="gesture-action">Triple-tap PANIC</div>
+    <div class="gesture-result">Emergency exit: stops all audio, returns to solo mode.</div>
+  </div>
+</div>
+
+<div class="card">
+  <h3>What's hidden in dual-song view</h3>
+  <p><strong>Modifiers</strong> (row 7) and <strong>scenes</strong> (row 8) are replaced by song Y stems. To use modifiers or scenes, exit dual-song first.</p>
+  <p><strong>Preset banks</strong> are hidden. To swap a song, exit &rarr; restage &rarr; re-enter.</p>
+  <p><strong>Control view</strong> is still accessible via the top-left side button.</p>
+</div>
+
+<div class="tip">
+  <strong>The move this was built for:</strong> tap drums-X chop N and drums-Y chop N at the same time. Both fire at the next 1/16 boundary. Kick-on-kick, locked tight. Layer two completely different drum patterns from two different songs.
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2>Saving Your Work</h2>
+
+<div class="card">
+  <p>Send these messages to the device (via Max message box or the device UI):</p>
+  <table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>save</code></td><td>Full save: reads all clip markers from Live, writes manifest + set.json back to disk. Round-trips your edits.</td></tr>
+    <tr><td><code>sync</code></td><td>Reads clip state from Live into memory (no disk write). Use to preview before saving.</td></tr>
+    <tr><td><code>nudge 0.05</code></td><td>Nudge active preset's downbeat by +50ms. Negative values work too.</td></tr>
+    <tr><td><code>set_bpm 98.5</code></td><td>Set active preset's BPM.</td></tr>
+  </table>
+  <div class="warning">The manifest files are the source of truth. <code>save</code> overwrites them. If you want to preserve the original taste output, back up the manifest directory first.</div>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2>Side Button Map</h2>
+
+<div class="card">
+<table>
+  <tr><th>Position</th><th>Function</th><th>Gesture</th></tr>
+  <tr><td>Top-left</td><td>Control view toggle</td><td>Hold = peek, double-tap = latch</td></tr>
+  <tr><td style="color:var(--accent)">Top-right</td><td>Dual-song toggle <span class="tag new">NEW</span></td><td>Hold = peek, double-tap = latch</td></tr>
+  <tr><td style="color:var(--accent)">Right, pos 2</td><td>Deck-setup (staging) <span class="tag new">NEW</span></td><td>Hold while tapping presets</td></tr>
+  <tr><td>Left 1</td><td>Tap tempo</td><td>Tap</td></tr>
+  <tr><td>Left 2</td><td>Sync</td><td>Tap</td></tr>
+  <tr><td>Left 3-4</td><td>BPM &minus; / +</td><td>Tap</td></tr>
+  <tr><td>Left 5-6</td><td>Loop in / out</td><td>Tap</td></tr>
+  <tr><td>Left 8</td><td>PANIC</td><td>Triple-tap</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2>Quick Reference: View Transitions</h2>
+
+<div class="card" style="text-align:center; padding:2rem;">
+  <div class="flow" style="justify-content:center;">
+    <div class="flow-step" style="border-color:var(--green);color:var(--green)">Solo</div>
+    <div class="flow-arrow">&harr;</div>
+    <div class="flow-step" style="border-color:var(--yellow);color:var(--yellow)">Per-Row</div>
+  </div>
+  <p style="font-size:0.7rem; color:var(--text-dim); margin:0.5rem 0">double-tap SOLO</p>
+
+  <div class="flow" style="justify-content:center; margin-top:1rem;">
+    <div class="flow-step" style="border-color:var(--green);color:var(--green)">Solo / Per-Row</div>
+    <div class="flow-arrow">&harr;</div>
+    <div class="flow-step" style="border-color:var(--accent);color:var(--accent)">Dual-Song</div>
+  </div>
+  <p style="font-size:0.7rem; color:var(--text-dim); margin:0.5rem 0">top-right side button</p>
+
+  <div class="flow" style="justify-content:center; margin-top:1rem;">
+    <div class="flow-step" style="border-color:var(--text-dim);color:var(--text-dim)">Any view</div>
+    <div class="flow-arrow">&harr;</div>
+    <div class="flow-step" style="border-color:var(--cyan);color:var(--cyan)">Control</div>
+  </div>
+  <p style="font-size:0.7rem; color:var(--text-dim); margin:0.5rem 0">top-left side button</p>
+
+  <p style="margin-top:1.5rem; font-size:0.8rem;">Held audio <strong>always survives</strong> view transitions. Nothing ever stops unless you tell it to.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════ -->
+<h2>Audio Routing</h2>
+
+<div class="card">
+  <p>The device creates 8 audio tracks in Live:</p>
+  <table>
+    <tr><th>Track</th><th>Purpose</th></tr>
+    <tr><td><code>sf-drums</code></td><td>Deck X drums (solo/per-row/dual-song rows 1)</td></tr>
+    <tr><td><code>sf-bass</code></td><td>Deck X bass</td></tr>
+    <tr><td><code>sf-other</code></td><td>Deck X other</td></tr>
+    <tr><td><code>sf-vox</code></td><td>Deck X vox</td></tr>
+    <tr><td><code>sf-drums-y</code></td><td>Deck Y drums (dual-song row 5)</td></tr>
+    <tr><td><code>sf-bass-y</code></td><td>Deck Y bass</td></tr>
+    <tr><td><code>sf-other-y</code></td><td>Deck Y other</td></tr>
+    <tr><td><code>sf-vox-y</code></td><td>Deck Y vox</td></tr>
+  </table>
+  <p style="margin-top:0.5rem; color:var(--text-dim)">You can add Live effects to any of these tracks. FX target "drums" hits both sf-drums and sf-drums-y in dual-song mode.</p>
+</div>
+
+<div style="margin-top:3rem; padding-top:1rem; border-top:1px solid var(--border); color:var(--text-dim); font-size:0.7rem; text-align:center;">
+  setforge-live v0.1 &middot; multi-song modes &middot; 2026
+</div>
+
+</body>
+</html>

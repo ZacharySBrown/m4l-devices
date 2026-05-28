@@ -3,8 +3,8 @@
 /**
  * Preset banks — 16-slot state machine for loaded songs.
  *
- * Bank A = slots 0-7 (Grid 1, row 1)
- * Bank B = slots 8-15 (Grid 1, row 7)
+ * Bank A = slots 0-7 (Grid 1, row 5)
+ * Bank B = slots 8-15 (Grid 1, row 6)
  */
 
 const SLOTS_PER_BANK = 8;

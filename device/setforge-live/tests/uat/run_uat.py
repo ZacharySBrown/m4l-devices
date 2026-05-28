@@ -50,11 +50,20 @@ def find_iac_port():
 
 
 def preset_note(slot_index):
-    """MIDI note for a preset pad in programmer mode."""
+    """MIDI note for a preset pad in programmer mode.
+
+    New multi-song layout:
+      Row 5 (bank A, slots 0-7): LP row 5 → notes 41-48
+      Row 6 (bank B, slots 8-15): LP row 4 → notes 31-38
+
+    LP programmer mode: note = lpRow*10 + col, where lpRow = 9 - specRow.
+    Row 5 → lpRow 4 → notes 41-48
+    Row 6 → lpRow 3 → notes 31-38
+    """
     if slot_index < 8:
-        return 81 + slot_index  # Row 1 (bank A): notes 81-88
+        return 41 + slot_index   # Row 5 (bank A): notes 41-48
     else:
-        return 21 + (slot_index - 8)  # Row 7 (bank B): notes 21-28
+        return 31 + (slot_index - 8)  # Row 6 (bank B): notes 31-38
 
 
 def activate_preset(midi_port, slot_index):
