@@ -27,6 +27,15 @@ DEVICE_DIR = Path(__file__).parent.parent
 SRC_DIR = DEVICE_DIR / "src"
 OUT_DIR = DEVICE_DIR
 
+# Max Package deploy targets — JS modules are resolved by Max via package search
+# path (pitfall #16: only [js] searches Max Package paths). Build writes loader.js
+# and calibrate.js to whichever of these exist. No more manual cp to Max Library/.
+HOME = Path.home()
+MAX_PACKAGE_TARGETS = [
+    HOME / "Documents" / "Max 8" / "Packages" / "setforge-live" / "javascript",
+    HOME / "Documents" / "Max 9" / "Packages" / "setforge-live" / "javascript",
+]
+
 
 # ─────────────────────────────────────────────────────────────
 #  Loader device — setforge-loader.amxd
@@ -42,13 +51,10 @@ def build_loader():
     """
     p = P.empty_patcher(width=800, height=400, is_root=True)
     p["patcher"]["project"]["name"] = "setforge-loader"
-    # Register loader.js as a project dependency so it's found when .amxd loads
-    p["patcher"]["project"]["contents"]["code"] = {
-        "loader.js": {
-            "kind": "javascript",
-            "local": 1
-        }
-    }
+    # loader.js is resolved via Max Package search path
+    # (~/Documents/Max N/Packages/setforge-live/javascript/loader.js).
+    # Do NOT register as project-local — that forces Max to look only inside
+    # the .amxd project dir, where loader.js isn't embedded.
     p["patcher"]["openinpresentation"] = 1
     p["patcher"]["devicewidth"] = 800.0
 
@@ -300,6 +306,175 @@ def build_loader():
         "status-fxtarget", rect=(250, 500, 200, 18),
         text="fx target: all",
         presentation_rect=(400, 115, 200, 18),
+        fontsize=10.0,
+    ))
+
+    return p
+
+
+# ─────────────────────────────────────────────────────────────
+#  Standalone debug harness — setforge-loader-debug.maxpat
+#  (Phase B: iterate on dispatcher/JS logic without launching Live)
+# ─────────────────────────────────────────────────────────────
+
+def build_debug_harness():
+    """Standalone .maxpat that drives loader.js outside of Live.
+
+    Lets us verify routing/dispatch (handleNoteOn, handleMessage) and watch
+    JS outlets via [print] without the 10-minute Live reload cycle. Per the
+    stemforge m4l_device_development_guide.md §8: "NEVER debug in Ableton."
+
+    Open with: open setforge-loader-debug.maxpat
+    """
+    p = P.empty_patcher(width=1100, height=700, is_root=True)
+    p["patcher"]["project"]["name"] = "setforge-loader-debug"
+    p["patcher"]["openinpresentation"] = 0  # patching view for debugging
+
+    boxes = p["patcher"]["boxes"]
+    lines = p["patcher"]["lines"]
+
+    # ── JS controller under test ──
+    boxes.append(P.js_box(
+        "js-loader", "loader.js",
+        rect=(400, 240, 320, 22),
+        scripting_name="loader",
+        numinlets=3,
+        numoutlets=4,
+        outlettype=["", "", "", ""],
+    ))
+
+    # ── Print taps on every outlet (visible in Max Console) ──
+    outlet_labels = [
+        ("print-grid1-out", "SF-GRID1-OUT"),
+        ("print-grid2-out", "SF-GRID2-OUT"),
+        ("print-liveapi",   "SF-LIVEAPI"),
+        ("print-status",    "SF-STATUS"),
+    ]
+    for i, (vname, label) in enumerate(outlet_labels):
+        boxes.append(P.newobj(
+            vname, "print " + label,
+            rect=(400 + i * 170, 320, 150, 22),
+            numinlets=1, numoutlets=0,
+        ))
+        lines.append(P.line("js-loader", i, vname, 0))
+
+    # ── Loadbang → init (mirror the real device) ──
+    boxes.append(P.newobj(
+        "loadbang", "loadbang",
+        rect=(20, 20, 60, 22),
+        numinlets=1, numoutlets=1, outlettype=["bang"],
+    ))
+    boxes.append(P.box(
+        "msg-init", "message",
+        rect=(20, 50, 60, 22),
+        numinlets=2, numoutlets=1, outlettype=[""],
+        extras={"text": "init"},
+    ))
+    lines.append(P.line("loadbang", 0, "msg-init", 0))
+    lines.append(P.line("msg-init", 0, "js-loader", 2))
+
+    # ── Message palette: common commands → JS inlet 2 ──
+    fixture_path = str(DEVICE_DIR / "tests" / "fixtures" / "manifests" / "hiphop_v3.set.json")
+    cmd_messages = [
+        (f"load {fixture_path}", 90),
+        ("reload",               120),
+        ("eject",                150),
+        ("sync",                 180),
+        ("save",                 210),
+        ("inspect",              240),
+        ("panic",                270),
+        ("debug",                300),
+        ("save_manifest",        330),
+        ("save_set",             360),
+    ]
+    for text, y in cmd_messages:
+        vname = "msg-cmd-" + str(y)
+        width = 700 if "load " in text else 200
+        boxes.append(P.box(
+            vname, "message",
+            rect=(20, y, width, 22),
+            numinlets=2, numoutlets=1, outlettype=[""],
+            extras={"text": text},
+        ))
+        lines.append(P.line(vname, 0, "js-loader", 2))
+
+    # ── MIDI note-on injection → JS inlet 0 (Grid 1) ──
+    # The JS msg_int handler eats raw MIDI bytes one at a time. Use [iter]
+    # to split a list into ints. The label tells you which pad it fires.
+    note_messages = [
+        # (label,                       midi list,            y)
+        ("row1 col1 note-on (drums)",   "144 81 127",         420),
+        ("row1 col1 note-off",          "144 81 0",           450),
+        ("row2 col2 note-on (bass)",    "144 72 127",         480),
+        ("row5 col1 note-on (preset A)","144 51 127",         510),
+        ("row7 col3 note-on (SOLO)",    "144 33 127",         540),
+        ("row7 col3 note-off",          "144 33 0",           570),
+    ]
+    # iter box — turns the 3-int list into 3 separate ints
+    boxes.append(P.newobj(
+        "iter-grid1", "iter",
+        rect=(420, 600, 60, 22),
+        numinlets=1, numoutlets=1, outlettype=["int"],
+    ))
+    lines.append(P.line("iter-grid1", 0, "js-loader", 0))
+    for label, midi, y in note_messages:
+        vname = "msg-midi-" + str(y)
+        # Comment label
+        boxes.append(P.live_comment(
+            vname + "-lbl", rect=(180, y, 240, 18),
+            text=label, fontsize=10.0,
+        ))
+        boxes.append(P.box(
+            vname, "message",
+            rect=(20, y, 160, 22),
+            numinlets=2, numoutlets=1, outlettype=[""],
+            extras={"text": midi},
+        ))
+        lines.append(P.line(vname, 0, "iter-grid1", 0))
+
+    # ── Remote-CC injection (Phase C: CC replaces /tmp/setforge_cmd.txt poll) ──
+    # Pretend we're the UAT runner sending CCs over IAC.
+    cc_messages = [
+        # (label,             midi list,        y)
+        ("CC100 save",        "176 100 127",    420),
+        ("CC101 sync",        "176 101 127",    450),
+        ("CC102 inspect",     "176 102 127",    480),
+        ("CC103 panic",       "176 103 127",    510),
+        ("CC104 eject",       "176 104 127",    540),
+    ]
+    for label, midi, y in cc_messages:
+        vname = "msg-cc-" + str(y)
+        boxes.append(P.live_comment(
+            vname + "-lbl", rect=(960, y, 140, 18),
+            text=label, fontsize=10.0,
+        ))
+        boxes.append(P.box(
+            vname, "message",
+            rect=(800, y, 150, 22),
+            numinlets=2, numoutlets=1, outlettype=[""],
+            extras={"text": midi},
+        ))
+        lines.append(P.line(vname, 0, "iter-grid1", 0))
+
+    # ── Title comment ──
+    boxes.append(P.live_comment(
+        "title", rect=(420, 20, 600, 22),
+        text="setforge-loader DEBUG HARNESS — Max Console = Window menu",
+        fontsize=12.0,
+    ))
+    boxes.append(P.live_comment(
+        "subtitle", rect=(420, 45, 600, 18),
+        text="JS loaded from Max Package: ~/Documents/Max N/Packages/setforge-live/javascript/",
+        fontsize=10.0,
+    ))
+    boxes.append(P.live_comment(
+        "subtitle2", rect=(420, 65, 600, 18),
+        text="LiveAPI calls will fail outside Live — that's expected. Verify dispatch + prints.",
+        fontsize=10.0,
+    ))
+    boxes.append(P.live_comment(
+        "subtitle3", rect=(420, 85, 600, 18),
+        text="Edit loader-controller.js → rebuild → autowatch reloads → click messages.",
         fontsize=10.0,
     ))
 
@@ -613,6 +788,41 @@ def concat_loader_js():
     return out_path
 
 
+def deploy_js_to_packages():
+    """Copy loader.js and calibrate.js into Max Package javascript/ dirs so the
+    Max runtime finds them via the standard package search path. Replaces the
+    old manual `cp loader.js ~/Documents/Max 8/Library/` step.
+
+    Per stemforge memory feedback_js_source_of_truth.md: dual-location sync is
+    a known footgun — let the build do it, never hand-copy.
+    """
+    import shutil
+    sources = [OUT_DIR / "loader.js", OUT_DIR / "calibrate.js"]
+    deployed = []
+    for target_dir in MAX_PACKAGE_TARGETS:
+        if not target_dir.parent.parent.exists():
+            # Parent ~/Documents/Max N/ doesn't exist — skip silently
+            continue
+        target_dir.mkdir(parents=True, exist_ok=True)
+        for src in sources:
+            if not src.exists():
+                continue
+            dst = target_dir / src.name
+            shutil.copy2(src, dst)
+            deployed.append(dst)
+    if deployed:
+        for d in deployed:
+            # Show relative to home for readability
+            try:
+                rel = d.relative_to(HOME)
+                print(f"  → ~/{rel}")
+            except ValueError:
+                print(f"  → {d}")
+    else:
+        print("  (no Max Package targets found — install Max or create ~/Documents/Max 8|9/)")
+    return deployed
+
+
 # ─────────────────────────────────────────────────────────────
 #  Verify + Pack
 # ─────────────────────────────────────────────────────────────
@@ -730,6 +940,18 @@ def main():
         print(f"  calibrate.js exists ({cal_js.stat().st_size} bytes)")
     else:
         print(f"  WARNING: calibrate.js not found at {cal_js}")
+
+    # ── Build standalone debug harness (.maxpat only, no .amxd pack) ──
+    print("\n▸ Building setforge-loader-debug (standalone harness)...")
+    dbg_patcher = build_debug_harness()
+    dbg_path = OUT_DIR / "setforge-loader-debug.maxpat"
+    sha, size = write_maxpat(dbg_path, dbg_patcher)
+    print(f"  Wrote {dbg_path} ({size} bytes, sha256={sha[:12]}...)")
+    print(f"  Open with: open {dbg_path}")
+
+    # ── Deploy JS to Max Package dirs ──
+    print("\n▸ Deploying JS to Max Package(s)...")
+    deploy_js_to_packages()
 
     print("\n" + "=" * 60)
     if loader_ok and grid_ok and cal_ok and js_ok:

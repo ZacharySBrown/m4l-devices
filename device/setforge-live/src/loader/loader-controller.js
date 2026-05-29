@@ -1719,7 +1719,40 @@ function processMidiByte(b, grid, buffer) {
         handleNoteOff(grid, buffer[1]);
         buffer.length = 0;
         buffer.push(status | channel);
+    } else if (status === 0xB0 && buffer.length >= 3) {
+        // Control Change — used by UAT runner to invoke handleMessage commands
+        // deterministically (replaces the flaky /tmp/setforge_cmd.txt poll).
+        handleControlChange(buffer[1], buffer[2]);
+        buffer.length = 0;
+        buffer.push(status | channel);
     }
+}
+
+// ── Remote command CC map ──
+// External tools (the UAT harness, scripts) trigger handleMessage commands by
+// sending MIDI CCs on the loader's grid input. CC value 127 = invoke; CC 0 =
+// no-op (so the trailing CC release event from a Python helper is harmless).
+//
+// Pick numbers in the unassigned/general-purpose range so they don't collide
+// with standard MIDI semantics. Adjust here if any grid hardware sends these.
+var REMOTE_CC_MAP = {
+    100: "save",
+    101: "sync",
+    102: "inspect",
+    103: "panic",
+    104: "eject",
+    105: "reload",
+    106: "debug",
+    107: "save_manifest",
+    108: "save_set"
+};
+
+function handleControlChange(cc, value) {
+    if (value === 0) return;  // release / off
+    var cmd = REMOTE_CC_MAP[cc];
+    if (!cmd) return;
+    post("setforge-loader: remote cc " + cc + " → " + cmd + "\n");
+    handleMessage(cmd, []);
 }
 
 function rightSideButtonIndex(note) {
@@ -1727,8 +1760,8 @@ function rightSideButtonIndex(note) {
 }
 
 function handleNoteOn(grid, note, velocity) {
-    // Poll command file on every MIDI input (guaranteed to fire)
-    pollCommandFile();
+    // (Remote commands now arrive as MIDI CCs via handleControlChange,
+    // not via /tmp/setforge_cmd.txt file polling. See REMOTE_CC_MAP.)
 
     // Check for left side buttons via surface
     var sideIdx = surface.sideButtonIndex(note);
@@ -2731,7 +2764,6 @@ function handleMessage(msg, args) {
     } else if (msg === "panic") {
         executePanic();
     } else if (msg === "bar_tick") {
-        pollCommandFile();
         sendSurfaceRgb(1);
         sendSurfaceRgb(2);
     } else if (msg === "debug") {
@@ -2846,6 +2878,13 @@ function syncPresetClips(preset, mTrack, offset, trackIds) {
                     }
                 } catch (_) {}
 
+                // Diagnostic: dump raw clip props for every synced clip so the
+                // next hardware run reveals which branch each short-clip drum hits.
+                post("    [sync raw] " + stem + "[" + c + "] warping=" + warping +
+                     " loop=[" + loopStart.toFixed(3) + "," + loopEnd.toFixed(3) + "]" +
+                     " markers=[" + startMarker.toFixed(3) + "," + endMarker.toFixed(3) + "]" +
+                     " wmCount=" + markers.length + "\n");
+
                 if (warping === 1 && loopEnd > loopStart) {
                     // Warped clip: loop_start/end are in beats.
                     var beatSpan = loopEnd - loopStart;
@@ -2928,6 +2967,23 @@ function syncPresetClips(preset, mTrack, offset, trackIds) {
                     synced++;
                     post("  " + stem + "[" + c + "]: oneshot, start=" +
                          startMarker.toFixed(2) + "s, end=" + endMarker.toFixed(2) + "s\n");
+                }
+
+                // Unconditional fallback: if length_sec ended up <= 0 (e.g. both
+                // branches above bailed out, or Live reported loop_end=loop_start
+                // for a short drum clip), derive it from track BPM + length_bars.
+                // Better a reasonable default than zero — zero kills clip firing.
+                if (!mc.length_sec || mc.length_sec <= 0) {
+                    var fbBpm = (mTrack.bpm) ? mTrack.bpm : 95;
+                    var fbBars = mc.length_bars || 1;
+                    mc.length_sec = fbBars * BEATS_PER_BAR * (60.0 / fbBpm);
+                    mc.length_bars = fbBars;
+                    if (presetChops && presetChops[c]) {
+                        presetChops[c].clipLength = mc.length_sec;
+                        presetChops[c].lengthBars = fbBars;
+                    }
+                    post("  " + stem + "[" + c + "]: fallback len=" +
+                         mc.length_sec.toFixed(2) + "s (bpm=" + fbBpm + ", bars=" + fbBars + ")\n");
                 }
 
             } catch (e) {

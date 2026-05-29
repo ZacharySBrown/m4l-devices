@@ -986,22 +986,10 @@
 			"showdependencies": 1,
 			"autolocalize": 0,
 			"contents": {
-				"patchers": {},
-				"code": {
-					"loader.js": {
-						"kind": "javascript",
-						"local": 1
-					}
-				}
+				"patchers": {}
 			},
 			"layout": {},
-			"searchpath": {
-				"setforge-live": {
-					"kind": "folder",
-					"local": 1,
-					"path": "/Users/zak/zacharysbrown/m4l-devices/.claude/worktrees/setforge-live/device/setforge-live"
-				}
-			},
+			"searchpath": {},
 			"detailsvisible": 0,
 			"amxdtype": 1633771873,
 			"readonly": 0,
