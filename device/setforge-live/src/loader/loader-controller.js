@@ -743,10 +743,25 @@ function loadClipsToSlotSet(presetIdx, offset) {
 
                     var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
 
-                    clipApi.set("name", slot.trackId + "-" + stem + "-" + clipLabel);
+                    // Identity-prefix the clip name so sync can reconcile
+                    // moves / deletes / copies. Format: [sf:trackId/stem/idx]
+                    // where idx is the chop's position in the manifest's
+                    // chop list. Sync parses this off the name; falls back
+                    // to positional mapping if absent.
+                    var identityKey = slot.trackId + "/" + stem + "/" + c;
+                    clipApi.set("name", "[sf:" + identityKey + "] " + clipLabel);
 
                     if (beatCount > 0) {
                         clipApi.set("warping", 1);
+                        // Op 2: per-clip BPM override. If the manifest carries
+                        // a chop.bpm field, write it to Live as warp_bpm before
+                        // the warp-marker correction pass runs (which still
+                        // computes marker positions from clipStart/clipLength,
+                        // independently). The sacred BPM-correction code is
+                        // untouched; this is additive.
+                        if (chop.bpm) {
+                            try { clipApi.set("warp_bpm", chop.bpm); } catch (_) {}
+                        }
                         clipApi.set("warp_mode", WARP_MODES[stem] || 0);
                         clipApi.set("looping", 1);
                         clipApi.set("start_marker", 0);
@@ -807,10 +822,15 @@ function loadStemClipsToTrack(stem, presetIdx, offset, trackPath) {
                     (chop.kind ? " [" + chop.kind + "]" : "");
                 var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
 
-                clipApi.set("name", slot.trackId + "-" + stem + "-" + clipLabel);
+                // Identity-prefixed name; sync uses it to track moves/copies.
+                var identityKey = slot.trackId + "/" + stem + "/" + c;
+                clipApi.set("name", "[sf:" + identityKey + "] " + clipLabel);
 
                 if (beatCount > 0) {
                     clipApi.set("warping", 1);
+                    if (chop.bpm) {
+                        try { clipApi.set("warp_bpm", chop.bpm); } catch (_) {}
+                    }
                     clipApi.set("warp_mode", WARP_MODES[stem] || 0);
                     clipApi.set("looping", 1);
                     clipApi.set("start_marker", 0);
@@ -2907,6 +2927,14 @@ function syncFromLive() {
     return synced;
 }
 
+// Parse a clip name's identity prefix "[sf:trackId/stem/IDX] …" → numeric IDX.
+// Returns null if the prefix is missing or malformed (legacy / user-renamed).
+function parseClipIdentity(name) {
+    if (!name) return null;
+    var m = String(name).match(/^\[sf:[^\/]+\/[^\/]+\/(\d+)\]/);
+    return m ? parseInt(m[1], 10) : null;
+}
+
 function syncPresetClips(preset, mTrack, offset, trackIds) {
     var synced = 0;
 
@@ -2922,22 +2950,78 @@ function syncPresetClips(preset, mTrack, offset, trackIds) {
 
         var presetChops = preset.chops ? preset.chops[stem] : null;
 
-        for (var c = 0; c < mStem.chops.length; c++) {
-            var mc = mStem.chops[c];
-            var clipSlot = offset + c;
+        // ── Pass 1: scan all 8 slots, build live-clip list ─────────────
+        var liveClips = []; // {slot, clipApi, identity, name}
+        for (var ls = 0; ls < 8; ls++) {
+            var actualSlot = offset + ls;
+            var lcsPath = trackPath + " clip_slots " + actualSlot;
+            try {
+                var lcsApi = new LiveAPI(lcsPath);
+                var lhasClip = lcsApi.get("has_clip");
+                if (!lhasClip || lhasClip.toString() !== "1") continue;
+                var lclipApi = new LiveAPI(lcsPath + " clip");
+                if (!lclipApi || lclipApi.id === "0") continue;
+                var lname = "";
+                try { lname = String(lclipApi.get("name") || ""); } catch (_) {}
+                liveClips.push({
+                    slot: ls,
+                    clipApi: lclipApi,
+                    identity: parseClipIdentity(lname),
+                    name: lname
+                });
+            } catch (_) {}
+        }
+
+        // ── Pass 2: reconcile manifest.chops with live clips by identity ──
+        var matchedMc = {};      // manifest-chop-index → true
+        var seenIdentity = {};   // identity → true (dup detection)
+        var newChops = [];       // freshly-added chops for copy/new clips
+
+        for (var lci = 0; lci < liveClips.length; lci++) {
+            var lc = liveClips[lci];
+            var mc = null;
+            var c = lc.slot; // for the legacy per-slot property branch below
+
+            if (lc.identity !== null && !seenIdentity[lc.identity] &&
+                lc.identity < mStem.chops.length) {
+                // Original clip from this preset — maps to its manifest entry
+                mc = mStem.chops[lc.identity];
+                matchedMc[lc.identity] = true;
+                seenIdentity[lc.identity] = true;
+                mc.column = lc.slot + 1;
+            } else {
+                // Either a copy of an existing identity (dup), OR a clip with
+                // no recognizable identity (legacy / user-renamed). Make a
+                // brand new chop entry inherited from the source if possible.
+                var srcMc = (lc.identity !== null && lc.identity < mStem.chops.length)
+                    ? mStem.chops[lc.identity] : null;
+                mc = srcMc ? cloneChop(srcMc) : { column: lc.slot + 1 };
+                mc.column = lc.slot + 1;
+                newChops.push(mc);
+                // Stamp the live clip with a fresh identity so the next sync
+                // pass recognizes it as a distinct chop.
+                try {
+                    var freshIdx = mStem.chops.length + newChops.length - 1;
+                    var labelTail = lc.name.replace(/^\[sf:[^\]]+\]\s*/, "");
+                    lc.clipApi.set("name",
+                        "[sf:" + preset.trackId + "/" + stem + "/" + freshIdx + "] " + labelTail);
+                } catch (_) {}
+            }
+
+            // Continue into existing property-extraction body with this mc
+            var clipApi = lc.clipApi;
+            var hasClip = "1"; // we already confirmed
+            var clipSlot = offset + lc.slot;
             var csPath = trackPath + " clip_slots " + clipSlot;
+            var csApi = null;
+            try { csApi = new LiveAPI(csPath); } catch (_) {}
 
             try {
-                var csApi = new LiveAPI(csPath);
-                var hasClip = csApi.get("has_clip");
-                if (!hasClip || hasClip.toString() !== "1") continue;
-
-                var clipApi = new LiveAPI(csPath + " clip");
-                if (!clipApi || clipApi.id === "0") continue;
 
                 // Read clip properties from Live
                 var warping = 0, loopStart = 0, loopEnd = 0;
-                var startMarker = 0, endMarker = 0, warpMode = 0;
+                var startMarker = 0, endMarker = 0, warpMode = 0, warpBpm = 0;
+                var clipName = "";
 
                 try { warping = Number(clipApi.get("warping")); } catch (_) {}
                 try { loopStart = Number(clipApi.get("loop_start")); } catch (_) {}
@@ -2945,6 +3029,20 @@ function syncPresetClips(preset, mTrack, offset, trackIds) {
                 try { startMarker = Number(clipApi.get("start_marker")); } catch (_) {}
                 try { endMarker = Number(clipApi.get("end_marker")); } catch (_) {}
                 try { warpMode = Number(clipApi.get("warp_mode")); } catch (_) {}
+                try { warpBpm = Number(clipApi.get("warp_bpm")); } catch (_) {}
+                try {
+                    var rawName = clipApi.get("name");
+                    if (rawName) clipName = String(rawName);
+                } catch (_) {}
+
+                // Op 2: capture per-clip BPM into manifest if user changed it
+                // in Live. Only record if it differs notably from the track-
+                // level BPM; otherwise the track default applies.
+                if (warpBpm > 0 && mTrack.bpm && Math.abs(warpBpm - mTrack.bpm) > 0.5) {
+                    mc.bpm = warpBpm;
+                } else if (warpBpm > 0 && !mTrack.bpm) {
+                    mc.bpm = warpBpm;
+                }
 
                 // Read warp markers to compute sample-time offsets
                 var markers = [];
@@ -3069,10 +3167,44 @@ function syncPresetClips(preset, mTrack, offset, trackIds) {
             } catch (e) {
                 post("  " + stem + "[" + c + "]: sync error: " + e + "\n");
             }
+        } // end live-clip loop
+
+        // ── Pass 3: structural reconciliation ───────────────────────────
+        // Drop manifest chops whose identity didn't appear in Live (deletes),
+        // append newChops collected during the loop (copies / new clips),
+        // and re-sort by column so the manifest stays in display order.
+        var survivors = [];
+        var removed = 0;
+        for (var mci = 0; mci < mStem.chops.length; mci++) {
+            if (matchedMc[mci]) {
+                survivors.push(mStem.chops[mci]);
+            } else {
+                removed++;
+            }
         }
-    }
+        for (var ni = 0; ni < newChops.length; ni++) {
+            survivors.push(newChops[ni]);
+        }
+        survivors.sort(function(a, b) { return (a.column || 0) - (b.column || 0); });
+        if (removed > 0 || newChops.length > 0) {
+            post("  " + stem + ": structural-sync removed=" + removed +
+                 " added=" + newChops.length + " total=" + survivors.length + "\n");
+        }
+        mStem.chops = survivors;
+    } // end stem loop
 
     return synced;
+}
+
+// Shallow-copy a chop's manifest entry. Used when sync sees a duplicate of an
+// existing identity (the user copied a clip in Live) — we clone the source
+// chop's properties as the seed for the new manifest entry.
+function cloneChop(src) {
+    var dst = {};
+    for (var k in src) {
+        if (src.hasOwnProperty(k)) dst[k] = src[k];
+    }
+    return dst;
 }
 
 // Full save: sync from Live, then write manifest + set to disk
