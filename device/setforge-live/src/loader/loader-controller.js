@@ -1664,7 +1664,7 @@ function pollCommandFile() {
 
         // Clear the file so we don't re-execute
         var del = new File(CMD_FILE, "w");
-        if (del.isopen) { del.writestring(""); del.close(); }
+        if (del.isopen) { del.eof = 0; del.writestring(""); del.close(); }
 
         content = content.replace(/[\r\n\0]/g, "").trim();
         if (content.length > 0) {
@@ -2648,6 +2648,7 @@ function writeStringChunked(filePath, str) {
         post("setforge-loader: cannot open for write: " + filePath + "\n");
         return false;
     }
+    f.eof = 0;  // truncate — Max's "w" mode does not by default
     var chunkSize = 16384;
     for (var i = 0; i < str.length; i += chunkSize) {
         f.writestring(str.substring(i, Math.min(i + chunkSize, str.length)));
@@ -3145,6 +3146,7 @@ function inspectClips() {
         var jsonOut = JSON.stringify(result, null, 2);
         var outFile = new File("/tmp/setforge_inspect.json", "w");
         if (outFile.isopen) {
+            outFile.eof = 0;
             outFile.writestring(jsonOut);
             outFile.close();
             post("inspect: wrote /tmp/setforge_inspect.json\n");
@@ -3247,7 +3249,7 @@ var LAST_SET_PATH_FILE = "/tmp/setforge_last_set.txt";
 function saveLastSetPath(path) {
     try {
         var f = new File(LAST_SET_PATH_FILE, "w");
-        if (f.isopen) { f.writestring(path); f.close(); }
+        if (f.isopen) { f.eof = 0; f.writestring(path); f.close(); }
     } catch (_) {}
 }
 
