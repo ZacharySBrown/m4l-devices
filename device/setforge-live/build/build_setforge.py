@@ -409,14 +409,16 @@ def build_debug_harness():
     # ── MIDI note-on injection → JS inlet 0 (Grid 1) ──
     # The JS msg_int handler eats raw MIDI bytes one at a time. Use [iter]
     # to split a list into ints. The label tells you which pad it fires.
+    # MK2 programmer mode mapping: note = (9 - specRow) * 10 + col
     note_messages = [
         # (label,                       midi list,            y)
         ("row1 col1 note-on (drums)",   "144 81 127",         420),
         ("row1 col1 note-off",          "144 81 0",           450),
         ("row2 col2 note-on (bass)",    "144 72 127",         480),
-        ("row5 col1 note-on (preset A)","144 51 127",         510),
-        ("row7 col3 note-on (SOLO)",    "144 33 127",         540),
-        ("row7 col3 note-off",          "144 33 0",           570),
+        ("row5 col1 note-on (preset A)","144 41 127",         510),
+        ("row5 col1 note-off",          "144 41 0",           540),
+        ("row7 col3 note-on (SOLO)",    "144 23 127",         570),
+        ("row7 col3 note-off",          "144 23 0",           600),
     ]
     # iter box — turns the 3-int list into 3 separate ints
     boxes.append(P.newobj(

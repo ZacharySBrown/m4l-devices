@@ -529,7 +529,7 @@
 					"outlettype": [
 						""
 					],
-					"text": "144 51 127"
+					"text": "144 41 127"
 				}
 			},
 			{
@@ -551,7 +551,7 @@
 						240,
 						18
 					],
-					"text": "row7 col3 note-on (SOLO)",
+					"text": "row5 col1 note-off",
 					"fontsize": 10.0
 				}
 			},
@@ -570,7 +570,7 @@
 					"outlettype": [
 						""
 					],
-					"text": "144 33 127"
+					"text": "144 41 0"
 				}
 			},
 			{
@@ -592,7 +592,7 @@
 						240,
 						18
 					],
-					"text": "row7 col3 note-off",
+					"text": "row7 col3 note-on (SOLO)",
 					"fontsize": 10.0
 				}
 			},
@@ -611,7 +611,48 @@
 					"outlettype": [
 						""
 					],
-					"text": "144 33 0"
+					"text": "144 23 127"
+				}
+			},
+			{
+				"box": {
+					"id": "msg-midi-600-lbl",
+					"maxclass": "live.comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						180,
+						600,
+						240,
+						18
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						180,
+						600,
+						240,
+						18
+					],
+					"text": "row7 col3 note-off",
+					"fontsize": 10.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-midi-600",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						20,
+						600,
+						160,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "144 23 0"
 				}
 			},
 			{
@@ -1181,6 +1222,18 @@
 				"patchline": {
 					"source": [
 						"msg-midi-570",
+						0
+					],
+					"destination": [
+						"iter-grid1",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-midi-600",
 						0
 					],
 					"destination": [
