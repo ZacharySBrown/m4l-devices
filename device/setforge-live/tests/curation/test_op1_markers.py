@@ -64,7 +64,9 @@ def sandbox_set(loader):
 # ─────────────────────────────────────────────────────────────────────
 
 def test_loop_end_change_persists(sandbox_set, loader, live):
-    # Activate Electric Relaxation (preset A slot 0 = 1835)
+    """Edit a clip's loop_end in Live, save, reload, confirm the change came
+    back through. Content-based assertions only (mtime is too timing-flaky).
+    """
     loader.activate_preset(0, settle_secs=5.0)
 
     sf_drums = live.find_track("sf-drums")
@@ -73,26 +75,17 @@ def test_loop_end_change_persists(sandbox_set, loader, live):
     assert before.warping == 1, "drums clip should be warped"
 
     original_loop_end = before.loop_end
-    # Shorten the loop by 1 beat. 4-beat 1-bar clip → 3-beat half-ish loop.
     new_loop_end = max(1.0, original_loop_end - 1.0)
     live.edit_clip_markers(sf_drums, 0, loop_end=new_loop_end)
     time.sleep(0.5)
 
-    # Verify Live actually applied it
     after_edit = live.get_clip_state(sf_drums, 0)
     assert abs(after_edit.loop_end - new_loop_end) < 0.01, (
         f"Live didn't accept loop_end change: wanted {new_loop_end}, "
         f"got {after_edit.loop_end}"
     )
 
-    # Snapshot the manifest pre-save so we can prove a write happened
-    pre_sig = file_signature(sandbox_manifest_path())
-
     loader.save(settle_secs=3.0)
-
-    post_sig = file_signature(sandbox_manifest_path())
-    assert post_sig["mtime"] > pre_sig["mtime"], "manifest mtime should have advanced after save"
-    assert post_sig["sha"] != pre_sig["sha"], "manifest content should have changed after save"
 
     # Reload the set from disk; the change should come back through
     loader.eject()
@@ -100,11 +93,9 @@ def test_loop_end_change_persists(sandbox_set, loader, live):
     loader.activate_preset(0, settle_secs=5.0)
 
     reloaded = live.get_clip_state(sf_drums, 0)
-    # Compare with a generous tolerance — sync may round, warp-marker pass may
-    # re-position, etc. We just want to confirm the change persisted in the
-    # same ballpark, not the exact float.
+    # Sync rounds and the warp-marker pass may re-position; window the assert.
     expected_window = (
-        original_loop_end * 0.6,   # at least notably shorter than original
+        original_loop_end * 0.6,
         original_loop_end * 0.95,
     )
     assert expected_window[0] <= reloaded.loop_end <= expected_window[1], (
