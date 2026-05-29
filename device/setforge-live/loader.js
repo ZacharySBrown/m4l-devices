@@ -427,6 +427,21 @@ function chopClipLength(bpm) {
     return BARS_PER_CHOP * secondsPerBar(bpm);
 }
 
+// Derive a clip's loop length (in beats) from its loop length (in seconds)
+// at the track's BPM, rounded to the nearest integer beat so the loop locks
+// to the global grid. `length_sec` is the source of truth for loop duration
+// (user-edits update it precisely via syncPresetClips); `length_bars` is a
+// coarse integer hint that can't represent sub-bar loops. If trackBpm is
+// missing, degrade to the old `lengthBars * 4` behavior so a bad-data chop
+// gets a wrong *length* rather than a wrong *tempo*.
+function chopBeatCount(chop, trackBpm) {
+    if (trackBpm && trackBpm > 0 && chop && chop.clipLength > 0) {
+        var beats = Math.round(chop.clipLength / (60.0 / trackBpm));
+        return beats;
+    }
+    return (chop && chop.lengthBars) ? chop.lengthBars * BEATS_PER_BAR : 0;
+}
+
 function computeTrackChops(track) {
     var result = {};
     for (var s = 0; s < STEM_NAMES.length; s++) {
@@ -989,7 +1004,7 @@ function loadClipsToSlotSet(presetIdx, offset) {
                     var clipLabel = (chop.label ? chop.label : "chop") +
                         (chop.kind ? " [" + chop.kind + "]" : "");
 
-                    var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
+                    var beatCount = chopBeatCount(chop, slot.track && slot.track.bpm);
 
                     // Identity-prefix the clip name so sync can reconcile
                     // moves / deletes / copies. Format: [sf:trackId/stem/idx]
@@ -1068,7 +1083,7 @@ function loadStemClipsToTrack(stem, presetIdx, offset, trackPath) {
             if (clipApi && clipApi.id !== "0") {
                 var clipLabel = (chop.label ? chop.label : "chop") +
                     (chop.kind ? " [" + chop.kind + "]" : "");
-                var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
+                var beatCount = chopBeatCount(chop, slot.track && slot.track.bpm);
 
                 // Identity-prefixed name; sync uses it to track moves/copies.
                 var identityKey = slot.trackId + "/" + stem + "/" + c;
@@ -1172,7 +1187,7 @@ function fixWarpMarkers(presetIdx, offset) {
     if (!slot || !slot.chops) return;
 
     post("setforge-loader: fixing warp markers for " + slot.trackId + "...\n");
-    var trackBpm = (slot.track && slot.track.bpm) ? slot.track.bpm : 95;
+    var trackBpm = (slot.track && slot.track.bpm) ? slot.track.bpm : 0;
 
     for (var s = 0; s < STEM_NAMES.length; s++) {
         var stem = STEM_NAMES[s];
@@ -1186,8 +1201,11 @@ function fixWarpMarkers(presetIdx, offset) {
             var chop = chopList[c];
             if (chop.disabled) continue;
 
-            var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
-            if (beatCount <= 0) continue;
+            var beatCount = chopBeatCount(chop, trackBpm);
+            if (beatCount <= 0) {
+                post("  " + stem + "[" + c + "]: skipping warp fix (beatCount=0, clipLength=" + chop.clipLength + ", bpm=" + trackBpm + ")\n");
+                continue;
+            }
 
             var clipSlot = offset + (chop.column - 1);
             var csPath = trackPath + " clip_slots " + clipSlot;
@@ -1275,6 +1293,7 @@ function fixWarpMarkersOnTracks(presetIdx, offset, trackIdMap) {
     if (!slot || !slot.chops) return;
 
     post("setforge-loader: fixing warp markers (deck Y) for " + slot.trackId + "...\n");
+    var trackBpm = (slot.track && slot.track.bpm) ? slot.track.bpm : 0;
 
     for (var s = 0; s < STEM_NAMES.length; s++) {
         var stem = STEM_NAMES[s];
@@ -1288,8 +1307,11 @@ function fixWarpMarkersOnTracks(presetIdx, offset, trackIdMap) {
             var chop = chopList[c];
             if (chop.disabled) continue;
 
-            var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
-            if (beatCount <= 0) continue;
+            var beatCount = chopBeatCount(chop, trackBpm);
+            if (beatCount <= 0) {
+                post("  " + stem + "[" + c + "]: skipping warp fix (beatCount=0, clipLength=" + chop.clipLength + ", bpm=" + trackBpm + ")\n");
+                continue;
+            }
 
             var clipSlot = offset + (chop.column - 1);
             var csPath = trackPath + " clip_slots " + clipSlot;
@@ -2486,13 +2508,17 @@ function fixWarpMarkersForStem(stem, presetIdx, offset, trackPath) {
     var slot = presetSlots[presetIdx];
     if (!slot || !slot.chops || !slot.chops[stem]) return;
 
+    var trackBpm = (slot.track && slot.track.bpm) ? slot.track.bpm : 0;
     var chopList = slot.chops[stem];
     for (var c = 0; c < chopList.length; c++) {
         var chop = chopList[c];
         if (chop.disabled) continue;
 
-        var beatCount = (chop.lengthBars || 0) * BEATS_PER_BAR;
-        if (beatCount <= 0) continue;
+        var beatCount = chopBeatCount(chop, trackBpm);
+        if (beatCount <= 0) {
+            post("  " + stem + "[" + c + "]: skipping warp fix (beatCount=0, clipLength=" + chop.clipLength + ", bpm=" + trackBpm + ")\n");
+            continue;
+        }
 
         var clipSlot = offset + (chop.column - 1);
         var csPath = trackPath + " clip_slots " + clipSlot;
