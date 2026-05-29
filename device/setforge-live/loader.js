@@ -323,7 +323,7 @@ var lastActiveBankA = null;
 var lastActiveBankB = null;
 
 // Side button function assignments (right side)
-var SIDE_FUNC_RIGHT = [null, "DUAL_SONG_TOGGLE", "DECK_SETUP", null, null, null, null, null];
+var SIDE_FUNC_RIGHT = ["DUAL_SONG_TOGGLE", "DECK_SETUP", null, null, null, null, null, null];
 var SIDE_BUTTONS_RIGHT = [89, 79, 69, 59, 49, 39, 29, 19];
 
 // Module-level: flash SysEx messages queued by updateGrid1Colors, sent by sendSurfaceRgb
@@ -791,9 +791,11 @@ function bypassFx() {
 // ═══════════════════════════════════════════════════════════
 
 var liveApi = null;
-var stemTrackIds = {};       // deck X tracks: { drums: "live_set tracks N", ... }
+var stemTrackIds = {};       // SOLO / active-preset tracks: sf-drums, sf-bass, ...
 var stemTrackIndices = {};
-var stemTrackIdsY = {};      // deck Y tracks: { drums: "live_set tracks M", ... }
+var stemTrackIdsX = {};      // Deck X (multi-song) tracks: sf-drums-x, sf-bass-x, ...
+var stemTrackIndicesX = {};
+var stemTrackIdsY = {};      // Deck Y (multi-song) tracks: sf-drums-y, sf-bass-y, ...
 var stemTrackIndicesY = {};
 
 var WARP_MODES = { drums: 0, bass: 0, other: 4, vox: 4 };
@@ -858,6 +860,36 @@ function ensureStemTracks() {
 
         stemTrackIndices[stem] = trackIdx;
         stemTrackIds[stem] = "live_set tracks " + trackIdx;
+    }
+
+    // ── Deck X tracks (multi-song: separate from solo so staging doesn't
+    //    overwrite the currently-playing preset) ──
+    for (var s = 0; s < STEM_NAMES.length; s++) {
+        var stem = STEM_NAMES[s];
+        var trackName = "sf-" + stem + "-x";
+        var trackIdx = findTrackByName(trackName);
+
+        if (trackIdx < 0) {
+            post("setforge-loader: creating deck-X track '" + trackName + "'\n");
+            try {
+                var trackCount = liveApi.get("tracks").length / 2;
+                var insertIdx = Math.max(0, trackCount - 1);
+                liveApi.call("create_audio_track", insertIdx);
+                trackIdx = insertIdx;
+
+                var tApi = new LiveAPI("live_set tracks " + trackIdx);
+                tApi.set("name", trackName);
+                post("setforge-loader: created '" + trackName + "' at index " + trackIdx + "\n");
+            } catch (e) {
+                post("setforge-loader: error creating deck-X track '" + trackName + "': " + e + "\n");
+                continue;
+            }
+        } else {
+            post("setforge-loader: found deck-X track '" + trackName + "' at index " + trackIdx + "\n");
+        }
+
+        stemTrackIndicesX[stem] = trackIdx;
+        stemTrackIdsX[stem] = "live_set tracks " + trackIdx;
     }
 
     // ── Deck Y tracks (for dual-song mode) ──
@@ -1075,7 +1107,9 @@ function loadPresetToDeckY(presetIdx) {
     return totalLoaded;
 }
 
-// Load all 4 stems of a preset into deck X tracks (existing tracks).
+// Load all 4 stems of a preset into deck X tracks (dedicated sf-{stem}-x tracks,
+// separate from solo's active-preset tracks — staging pre-loads here without
+// disturbing what solo is playing).
 function loadPresetToDeckX(presetIdx) {
     var slot = presetSlots[presetIdx];
     if (!slot || !slot.chops) return 0;
@@ -1084,16 +1118,15 @@ function loadPresetToDeckX(presetIdx) {
     var totalLoaded = 0;
     for (var s = 0; s < STEM_NAMES.length; s++) {
         var stem = STEM_NAMES[s];
-        var trackPath = stemTrackIds[stem];
+        var trackPath = stemTrackIdsX[stem];
         if (!trackPath) continue;
-        var loaded = loadStemClipsToTrack(stem, presetIdx, activeSetOffset(), trackPath);
+        var loaded = loadStemClipsToTrack(stem, presetIdx, 0, trackPath);
         post("  " + stem + "-x: " + loaded + " clips\n");
         totalLoaded += loaded;
     }
 
-    var offset = activeSetOffset();
     var fixTask = new Task(function() {
-        fixWarpMarkers(presetIdx, offset);
+        fixWarpMarkersOnTracks(presetIdx, 0, stemTrackIdsX);
     });
     fixTask.schedule(4000);
 
@@ -1166,19 +1199,11 @@ function fixWarpMarkers(presetIdx, offset) {
                     }
                 } catch (_) {}
 
-                // Move existing markers to correct beat positions
-                var moved = 0;
-                for (var ei = 0; ei < existingMarkers.length; ei++) {
-                    var em = existingMarkers[ei];
-                    var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
-                    var delta = correctBeat - em.beat_time;
-                    if (Math.abs(delta) >= 0.0001) {
-                        try {
-                            clipApi.call("move_warp_marker", em.beat_time, delta);
-                            moved++;
-                        } catch (_) {}
-                    }
-                }
+                // (Removed: move_warp_marker pass. The delta math passed a
+                // beat-delta where Live's API expects a sample_time delta, so
+                // every call failed with `The specified warp marker doesn't
+                // exist`. The auto-generated markers Live creates after import
+                // are close enough; only the end-marker add below matters.)
 
                 // If there's no marker near the end of the clip, add one.
                 // This is critical for long clips where Live only auto-generates
@@ -1264,14 +1289,8 @@ function fixWarpMarkersOnTracks(presetIdx, offset, trackIdMap) {
                     }
                 } catch (_) {}
 
-                for (var ei = 0; ei < existingMarkers.length; ei++) {
-                    var em = existingMarkers[ei];
-                    var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
-                    var delta = correctBeat - em.beat_time;
-                    if (Math.abs(delta) >= 0.0001) {
-                        try { clipApi.call("move_warp_marker", em.beat_time, delta); } catch (_) {}
-                    }
-                }
+                // (Removed: move_warp_marker pass — same bug as in
+                // fixWarpMarkers; calls always fail. End-marker add only.)
 
                 var hasEndMarker = false;
                 for (var ei = 0; ei < existingMarkers.length; ei++) {
@@ -1688,6 +1707,9 @@ function updateGrid1Colors() {
 
     // Queue flash SysEx for staged pads (sent after RGB flush in sendSurfaceRgb)
     pendingFlashMessages = pendingFlash;
+
+    // Refresh the dual-song toggle side button LED so it reflects staging state.
+    updateDualSongToggleLed();
 }
 
 function updateDualSongColors() {
@@ -2158,6 +2180,8 @@ function handleRightSideButtonPress(rightIdx) {
     } else if (func === "DECK_SETUP") {
         staging.stagingHeld = true;
         post("setforge-loader: staging mode entered\n");
+        // Light the side button bright white per spec §5.1
+        surface.queueRgbNote(1, SIDE_BUTTONS_RIGHT[rightIdx], [127, 127, 127]);
         updateAllPadColors();
         sendSurfaceRgb(1);
     }
@@ -2174,9 +2198,36 @@ function handleRightSideButtonRelease(rightIdx) {
     } else if (func === "DECK_SETUP") {
         staging.stagingHeld = false;
         post("setforge-loader: staging mode exited\n");
+        // Dim the side button back down — color reflects staging state
+        surface.queueRgbNote(1, SIDE_BUTTONS_RIGHT[rightIdx], deckSetupIdleColor());
         updateAllPadColors();
         sendSurfaceRgb(1);
     }
+}
+
+// While held: full white. Released, decks staged: dim white (low signal).
+// Released, no staging: off. Independent of dual-song toggle visual.
+function deckSetupIdleColor() {
+    var hasStage = (staging.deckX !== null) || (staging.deckY !== null);
+    return hasStage ? [16, 16, 16] : [0, 0, 0];
+}
+
+// Top-right side button visual:
+// - Both decks staged: solid dim white (full alternation flash deferred)
+// - One deck staged:   solid dim white
+// - Neither staged:    off
+// Called from updateAllPadColors / dual-song entry/exit / staging changes.
+function updateDualSongToggleLed() {
+    var anyStaged = (staging.deckX !== null) || (staging.deckY !== null);
+    var color;
+    if (dualSongActive) {
+        color = [127, 127, 127];     // bright white when in dual-song
+    } else if (anyStaged) {
+        color = [40, 40, 40];        // mid white when something's staged
+    } else {
+        color = [0, 0, 0];           // off
+    }
+    surface.queueRgbNote(1, SIDE_BUTTONS_RIGHT[0], color);
 }
 
 // Flash a side button red for ~500ms, then revert to dim white.
@@ -2435,14 +2486,8 @@ function fixWarpMarkersForStem(stem, presetIdx, offset, trackPath) {
                 }
             } catch (_) {}
 
-            for (var ei = 0; ei < existingMarkers.length; ei++) {
-                var em = existingMarkers[ei];
-                var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
-                var delta = correctBeat - em.beat_time;
-                if (Math.abs(delta) >= 0.0001) {
-                    try { clipApi.call("move_warp_marker", em.beat_time, delta); } catch (_) {}
-                }
-            }
+            // (Removed: move_warp_marker pass — beat-delta vs sample-time
+            // mismatch; calls always fail. Live's auto-markers suffice.)
 
             clipApi.set("start_marker", 0);
             clipApi.set("end_marker", beatCount);
@@ -2475,7 +2520,7 @@ function onDualSongChopPress(row, col) {
     if (row >= 1 && row <= 4) {
         deck = "deckX";
         stem = STEM_NAMES[row - 1];
-        trackIds = stemTrackIds;  // deck X uses main tracks
+        trackIds = stemTrackIdsX; // deck X uses -x tracks (separate from solo)
     } else {
         deck = "deckY";
         stem = STEM_NAMES[row - 5];
@@ -3060,6 +3105,20 @@ function syncFromLive() {
     var synced = syncPresetClips(active, mTrack, offset, stemTrackIds);
     post("setforge-loader: synced " + synced + " clips for " + active.trackId + "\n");
 
+    // Also sync deck X (-x tracks) if staged
+    if (loadedDecks.deckX !== null && loadedDecks.deckX !== undefined &&
+        loadedDecks.deckX !== presetSlots.indexOf(active)) {
+        var deckXSlot = presetSlots[loadedDecks.deckX];
+        if (deckXSlot && deckXSlot.trackId) {
+            var mTrackX = resolveTrack(deckXSlot.trackId);
+            if (mTrackX) {
+                var syncedX = syncPresetClips(deckXSlot, mTrackX, 0, stemTrackIdsX);
+                post("setforge-loader: synced " + syncedX + " deck-X clips for " + deckXSlot.trackId + "\n");
+                synced += syncedX;
+            }
+        }
+    }
+
     // Also sync deck Y if loaded
     if (loadedDecks.deckY !== null && loadedDecks.deckY !== undefined) {
         var deckYSlot = presetSlots[loadedDecks.deckY];
@@ -3454,7 +3513,9 @@ function dumpState() {
 
     for (var i = 0; i < STEM_NAMES.length; i++) {
         var stem = STEM_NAMES[i];
-        post("  track[" + stem + "]: " + (stemTrackIds[stem] || "not created") + "\n");
+        post("  track[" + stem + "]:   " + (stemTrackIds[stem]  || "not created") +
+             "   X=" + (stemTrackIdsX[stem] || "—") +
+             "   Y=" + (stemTrackIdsY[stem] || "—") + "\n");
     }
     post("=== end state ===\n\n");
 }
