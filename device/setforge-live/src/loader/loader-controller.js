@@ -2989,17 +2989,30 @@ function syncPresetClips(preset, mTrack, offset, trackIds) {
                 matchedMc[lc.identity] = true;
                 seenIdentity[lc.identity] = true;
                 mc.column = lc.slot + 1;
+            } else if (lc.identity === null && !matchedMc[lc.slot] &&
+                       lc.slot < mStem.chops.length) {
+                // Legacy clip (no identity prefix): fall back to positional
+                // mapping — slot N → manifest chop[N]. Stamp identity in
+                // Live so future syncs are identity-tracked.
+                mc = mStem.chops[lc.slot];
+                matchedMc[lc.slot] = true;
+                mc.column = lc.slot + 1;
+                try {
+                    var stampLabel = lc.name || ((mc.label || "chop") +
+                        (mc.kind ? " [" + mc.kind + "]" : ""));
+                    lc.clipApi.set("name",
+                        "[sf:" + preset.trackId + "/" + stem + "/" + lc.slot + "] " + stampLabel);
+                } catch (_) {}
             } else {
-                // Either a copy of an existing identity (dup), OR a clip with
-                // no recognizable identity (legacy / user-renamed). Make a
-                // brand new chop entry inherited from the source if possible.
+                // Either a duplicate of an existing identity (the copy case),
+                // OR a clip whose identity points to a missing manifest entry.
+                // Either way, treat it as a brand-new chop and stamp a fresh
+                // identity in Live so the next sync pass disambiguates it.
                 var srcMc = (lc.identity !== null && lc.identity < mStem.chops.length)
                     ? mStem.chops[lc.identity] : null;
                 mc = srcMc ? cloneChop(srcMc) : { column: lc.slot + 1 };
                 mc.column = lc.slot + 1;
                 newChops.push(mc);
-                // Stamp the live clip with a fresh identity so the next sync
-                // pass recognizes it as a distinct chop.
                 try {
                     var freshIdx = mStem.chops.length + newChops.length - 1;
                     var labelTail = lc.name.replace(/^\[sf:[^\]]+\]\s*/, "");
