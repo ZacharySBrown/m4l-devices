@@ -274,13 +274,32 @@
 			},
 			{
 				"box": {
+					"id": "regexp-posix",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						500,
+						220,
+						240,
+						22
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"text": "regexp (.+):(/.*) @substitute %2"
+				}
+			},
+			{
+				"box": {
 					"id": "prepend-load",
 					"maxclass": "newobj",
 					"numinlets": 1,
 					"numoutlets": 1,
 					"patching_rect": [
 						500,
-						190,
+						250,
 						100,
 						22
 					],
@@ -842,6 +861,18 @@
 				"patchline": {
 					"source": [
 						"opendialog",
+						0
+					],
+					"destination": [
+						"regexp-posix",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"regexp-posix",
 						0
 					],
 					"destination": [

@@ -162,13 +162,21 @@ def build_loader():
     ))
     lines.append(P.line("btn-browse", 0, "opendialog", 0))
 
-    # opendialog → prepend "load" → js
+    # opendialog → HFS→POSIX regexp → prepend "load" → js
+    # Pitfall #8: opendialog emits HFS paths ("Macintosh HD:/Users/..."), but
+    # File() in JS needs POSIX. The regexp strips everything up to the colon.
+    boxes.append(P.newobj(
+        "regexp-posix", "regexp (.+):(/.*) @substitute %2",
+        rect=(500, 220, 240, 22),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+    ))
     boxes.append(P.newobj(
         "prepend-load", "prepend load",
-        rect=(500, 190, 100, 22),
+        rect=(500, 250, 100, 22),
         numinlets=1, numoutlets=1, outlettype=[""],
     ))
-    lines.append(P.line("opendialog", 0, "prepend-load", 0))
+    lines.append(P.line("opendialog", 0, "regexp-posix", 0))
+    lines.append(P.line("regexp-posix", 0, "prepend-load", 0))
     lines.append(P.line("prepend-load", 0, "js-loader", 2))
 
     # ── Test fixture loader (click to test without Launchpads) ──
