@@ -1199,11 +1199,19 @@ function fixWarpMarkers(presetIdx, offset) {
                     }
                 } catch (_) {}
 
-                // (Removed: move_warp_marker pass. The delta math passed a
-                // beat-delta where Live's API expects a sample_time delta, so
-                // every call failed with `The specified warp marker doesn't
-                // exist`. The auto-generated markers Live creates after import
-                // are close enough; only the end-marker add below matters.)
+                // Move existing markers to correct beat positions
+                var moved = 0;
+                for (var ei = 0; ei < existingMarkers.length; ei++) {
+                    var em = existingMarkers[ei];
+                    var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
+                    var delta = correctBeat - em.beat_time;
+                    if (Math.abs(delta) >= 0.0001) {
+                        try {
+                            clipApi.call("move_warp_marker", em.beat_time, delta);
+                            moved++;
+                        } catch (_) {}
+                    }
+                }
 
                 // If there's no marker near the end of the clip, add one.
                 // This is critical for long clips where Live only auto-generates
@@ -1289,8 +1297,14 @@ function fixWarpMarkersOnTracks(presetIdx, offset, trackIdMap) {
                     }
                 } catch (_) {}
 
-                // (Removed: move_warp_marker pass — same bug as in
-                // fixWarpMarkers; calls always fail. End-marker add only.)
+                for (var ei = 0; ei < existingMarkers.length; ei++) {
+                    var em = existingMarkers[ei];
+                    var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
+                    var delta = correctBeat - em.beat_time;
+                    if (Math.abs(delta) >= 0.0001) {
+                        try { clipApi.call("move_warp_marker", em.beat_time, delta); } catch (_) {}
+                    }
+                }
 
                 var hasEndMarker = false;
                 for (var ei = 0; ei < existingMarkers.length; ei++) {
@@ -2486,8 +2500,14 @@ function fixWarpMarkersForStem(stem, presetIdx, offset, trackPath) {
                 }
             } catch (_) {}
 
-            // (Removed: move_warp_marker pass — beat-delta vs sample-time
-            // mismatch; calls always fail. Live's auto-markers suffice.)
+            for (var ei = 0; ei < existingMarkers.length; ei++) {
+                var em = existingMarkers[ei];
+                var correctBeat = (em.sample_time - loopStartSec) * secToBeat;
+                var delta = correctBeat - em.beat_time;
+                if (Math.abs(delta) >= 0.0001) {
+                    try { clipApi.call("move_warp_marker", em.beat_time, delta); } catch (_) {}
+                }
+            }
 
             clipApi.set("start_marker", 0);
             clipApi.set("end_marker", beatCount);
