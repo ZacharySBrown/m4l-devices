@@ -472,13 +472,18 @@ function computeTrackChops(track) {
                     loopEnd = (mc.start_sec || 0) + (mc.length_sec || 0);
                 }
                 chops.push({
-                    column: c + 1,
+                    // Honor the persisted column when present (post-sync,
+                    // post-move, post-delete) so structural ops survive
+                    // reload. Legacy / pre-sync manifests fall back to
+                    // sequential numbering.
+                    column: (mc.column !== undefined && mc.column !== null) ? mc.column : (c + 1),
                     clipStart: loopStart,
                     clipLength: loopEnd - loopStart,
                     stemPath: chopPath,
                     disabled: false,
                     label: mc.label || "",
                     kind: mc.kind || "",
+                    bpm: mc.bpm,
                     lengthBars: mc.length_bars || 0
                 });
             }
@@ -3559,6 +3564,7 @@ function inspectClips() {
                     name: "",
                     warping: 0,
                     warp_mode: 0,
+                    warp_bpm: 0,
                     loop_start: 0,
                     loop_end: 0,
                     start_marker: 0,
@@ -3570,6 +3576,11 @@ function inspectClips() {
                 try { clipData.name = String(clipApi.get("name")); } catch (_) {}
                 try { clipData.warping = Number(clipApi.get("warping")); } catch (_) {}
                 try { clipData.warp_mode = Number(clipApi.get("warp_mode")); } catch (_) {}
+                // Note: clipApi.get("warp_bpm") always returns 0 in M4L LiveAPI
+                // — Live exposes warp_bpm via Python LOM but not via the M4L
+                // bridge. Per-clip BPM persistence is documented as out-of-scope
+                // pending a warp-marker-manipulation redesign.
+                try { clipData.warp_bpm = Number(clipApi.get("warp_bpm")); } catch (_) {}
                 try { clipData.loop_start = Number(clipApi.get("loop_start")); } catch (_) {}
                 try { clipData.loop_end = Number(clipApi.get("loop_end")); } catch (_) {}
                 try { clipData.start_marker = Number(clipApi.get("start_marker")); } catch (_) {}
