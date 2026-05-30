@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "name": "hiphop_v3",
+  "global_tempo": 94.0,
+  "preset_bank_A": [
+    { "track_id": "the_next_episode", "scenes": [
+      { "activePresetIndex": 0, "heldChops": [{"row": 2, "col": 1}, {"row": 3, "col": 1}], "modifiers": {} },
+      null, null, null, null, null,
+      { "activePresetIndex": 0, "heldChops": [{"row": 5, "col": 3}], "modifiers": {} },
+      null
+    ]},
+    { "track_id": "big_poppa", "scenes": [] },
+    null, null, null, null, null, null
+  ],
+  "preset_bank_B": [
+    null, null, null, null, null, null, null, null
+  ],
+  "setlist": [
+    "the_next_episode", "big_poppa"
+  ]
+}

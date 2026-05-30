@@ -1,0 +1,77 @@
+{
+  "schema_version": "2.0",
+  "set_id": "hiphop_v3",
+  "global_tempo_hint": 94,
+  "tracks": [
+    {
+      "id": "the_next_episode",
+      "display_name": "the next episode",
+      "artist": "dr. dre",
+      "bpm": 94.7,
+      "downbeat_sec": 2.31,
+      "drift_bpm": 0.05,
+      "grid_tightness_ms": 11.8,
+      "octave_confidence": "verified",
+      "varying": false,
+      "energy": 0.7,
+      "genre": "hiphop",
+      "color_hue": "#ff8c5a",
+      "stems": {
+        "drums": {
+          "path": "/fixtures/stems/the_next_episode/drums.wav",
+          "sha": "abc123"
+        },
+        "bass": {
+          "path": "/fixtures/stems/the_next_episode/bass.wav",
+          "sha": "def456"
+        },
+        "other": {
+          "path": "/fixtures/stems/the_next_episode/other.wav",
+          "sha": "ghi789"
+        },
+        "vox": {
+          "path": "/fixtures/stems/the_next_episode/vox.wav",
+          "sha": "jkl012"
+        }
+      },
+      "chop_quant_override": null,
+      "validated": true,
+      "validated_at": "2026-05-20T18:30:00Z"
+    },
+    {
+      "id": "big_poppa",
+      "display_name": "big poppa",
+      "artist": "the notorious b.i.g.",
+      "bpm": 107.5,
+      "downbeat_sec": 0.85,
+      "drift_bpm": 0.02,
+      "grid_tightness_ms": 8.5,
+      "octave_confidence": "verified",
+      "varying": false,
+      "energy": 0.6,
+      "genre": "hiphop",
+      "color_hue": "#ff8c5a",
+      "stems": {
+        "drums": {
+          "path": "/fixtures/stems/big_poppa/drums.wav",
+          "sha": "aaa111"
+        },
+        "bass": {
+          "path": "/fixtures/stems/big_poppa/bass.wav",
+          "sha": "bbb222"
+        },
+        "other": {
+          "path": "/fixtures/stems/big_poppa/other.wav",
+          "sha": "ccc333"
+        },
+        "vox": {
+          "path": "/fixtures/stems/big_poppa/vox.wav",
+          "sha": "ddd444"
+        }
+      },
+      "chop_quant_override": null,
+      "validated": true,
+      "validated_at": "2026-05-20T19:00:00Z"
+    }
+  ]
+}

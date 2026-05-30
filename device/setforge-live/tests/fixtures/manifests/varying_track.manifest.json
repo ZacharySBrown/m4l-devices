@@ -1,0 +1,24 @@
+{
+  "schema_version": "2.0",
+  "set_id": "varying_test",
+  "global_tempo_hint": 140.0,
+  "tracks": [
+    {
+      "id": "sicko_mode",
+      "display_name": "SICKO MODE",
+      "artist": "travis scott",
+      "bpm": 140.0,
+      "downbeat_sec": 0.0,
+      "varying": true,
+      "energy": 0.9,
+      "genre": "hiphop",
+      "stems": {
+        "drums": { "path": "/fixtures/stems/sicko_mode/drums.wav", "sha": "xxx" },
+        "bass":  { "path": "/fixtures/stems/sicko_mode/bass.wav", "sha": "yyy" },
+        "other": { "path": "/fixtures/stems/sicko_mode/other.wav", "sha": "zzz" },
+        "vox":   { "path": "/fixtures/stems/sicko_mode/vox.wav", "sha": "www" }
+      },
+      "validated": true
+    }
+  ]
+}

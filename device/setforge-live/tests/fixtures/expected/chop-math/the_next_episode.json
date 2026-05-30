@@ -1,0 +1,19 @@
+{
+  "track_id": "the_next_episode",
+  "bpm": 94.7,
+  "downbeat_sec": 2.31,
+  "seconds_per_bar": 2.5343189017951424,
+  "clip_length": 10.13727560718057,
+  "chops": {
+    "drums": [
+      { "column": 1, "clipStart": 2.31 },
+      { "column": 2, "clipStart": 12.44727560718057 },
+      { "column": 3, "clipStart": 22.584551214361138 },
+      { "column": 4, "clipStart": 32.72182682154171 },
+      { "column": 5, "clipStart": 42.85910242872228 },
+      { "column": 6, "clipStart": 52.99637803590285 },
+      { "column": 7, "clipStart": 63.13365364308342 },
+      { "column": 8, "clipStart": 73.27092925026399 }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "2.0",
+  "set_id": "invalid_bpm_test",
+  "global_tempo_hint": 0,
+  "tracks": [
+    {
+      "id": "bad_track",
+      "display_name": "bad track",
+      "artist": "test",
+      "bpm": 0,
+      "downbeat_sec": 0.0,
+      "varying": false,
+      "energy": 0.5,
+      "genre": "rock",
+      "stems": {
+        "drums": { "path": "/fixtures/stems/bad/drums.wav", "sha": "d1" }
+      },
+      "validated": false
+    }
+  ]
+}

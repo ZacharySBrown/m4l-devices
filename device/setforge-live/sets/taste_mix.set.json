@@ -1,0 +1,33 @@
+{
+  "schema_version": "1.0",
+  "name": "taste_mix",
+  "global_tempo": 136.0,
+  "preset_bank_A": [
+    {
+      "track_id": "5131",
+      "scenes": []
+    },
+    {
+      "track_id": "29681",
+      "scenes": []
+    },
+    null, null, null, null, null, null
+  ],
+  "preset_bank_B": [
+    {
+      "track_id": "6086",
+      "scenes": []
+    },
+    {
+      "track_id": "6093",
+      "scenes": []
+    },
+    null, null, null, null, null, null
+  ],
+  "setlist": [
+    "5131",
+    "29681",
+    "6086",
+    "6093"
+  ]
+}

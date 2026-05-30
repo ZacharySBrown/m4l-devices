@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>setforge-live — Walkthrough: Electric Relaxation × Rebirth of Slick</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --card: #1e2a47;
+    --border: #2a3a5c;
+    --text: #e0e0e0;
+    --text-dim: #8899aa;
+    --accent: #e94560;
+    --orange: #ff6b2b;
+    --blue: #2b7fff;
+    --green: #2bff6b;
+    --yellow: #ffe02b;
+    --cyan: #2bffe0;
+    --white: #fff;
+    --soft-blue: #7799cc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'JetBrains Mono', monospace;
+    background: var(--bg); color: var(--text);
+    line-height: 1.6; padding: 2rem;
+    max-width: 900px; margin: 0 auto;
+  }
+  h1 { font-size: 1.6rem; color: var(--white); margin-bottom: 0.3rem; }
+  h1 span { color: var(--accent); }
+  .subtitle { color: var(--text-dim); font-size: 0.85rem; margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1rem; }
+  h2 { font-size: 1.15rem; color: var(--white); margin: 2.5rem 0 0.8rem; }
+  h2 .step-num { color: var(--accent); margin-right: 0.3rem; }
+  h3 { font-size: 0.95rem; color: var(--cyan); margin: 1.2rem 0 0.4rem; }
+  p, li { font-size: 0.85rem; margin-bottom: 0.5rem; }
+
+  .card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1.2rem; margin: 1rem 0;
+  }
+
+  .action {
+    background: var(--surface); border-left: 3px solid var(--yellow);
+    padding: 0.8rem 1rem; margin: 0.8rem 0; border-radius: 0 6px 6px 0;
+  }
+  .action .do { color: var(--yellow); font-weight: bold; font-size: 0.85rem; }
+  .action .result { color: var(--text-dim); font-size: 0.8rem; margin-top: 0.3rem; }
+
+  .listen {
+    background: #1a1a00; border-left: 3px solid var(--orange);
+    padding: 0.8rem 1rem; margin: 0.8rem 0; border-radius: 0 6px 6px 0;
+  }
+  .listen::before { content: "LISTEN "; color: var(--orange); font-weight: bold; font-size: 0.75rem; }
+
+  .look {
+    background: #001a1a; border-left: 3px solid var(--cyan);
+    padding: 0.8rem 1rem; margin: 0.8rem 0; border-radius: 0 6px 6px 0;
+  }
+  .look::before { content: "LOOK "; color: var(--cyan); font-weight: bold; font-size: 0.75rem; }
+
+  .warn {
+    background: #2a0000; border-left: 3px solid var(--accent);
+    padding: 0.8rem 1rem; margin: 0.8rem 0; border-radius: 0 6px 6px 0;
+  }
+  .warn::before { content: "NOTE "; color: var(--accent); font-weight: bold; font-size: 0.75rem; }
+
+  .song-tag {
+    display: inline-block; padding: 0.1rem 0.5rem; border-radius: 3px;
+    font-size: 0.7rem; font-weight: bold; margin-right: 4px;
+  }
+  .song-er { background: var(--orange); color: #000; }
+  .song-rb { background: var(--blue); color: #fff; }
+
+  .grid-mini {
+    display: grid; grid-template-columns: 70px repeat(8, 1fr);
+    gap: 2px; margin: 0.8rem 0; font-size: 0.6rem;
+  }
+  .grid-mini .gl { display: flex; align-items: center; justify-content: flex-end;
+    padding-right: 6px; color: var(--text-dim); font-size: 0.6rem; }
+  .grid-mini .p {
+    aspect-ratio: 1; border-radius: 3px; display: flex; align-items: center;
+    justify-content: center; font-weight: bold; color: rgba(0,0,0,0.5); min-height: 32px;
+  }
+  .p.dr { background: #993f1a; } .p.dr.on { background: #ff6b2b; }
+  .p.ba { background: #1a4c99; } .p.ba.on { background: #2b7fff; }
+  .p.ot { background: #6e6e2a; } .p.ot.on { background: #c8c84a; }
+  .p.vx { background: #1a994a; } .p.vx.on { background: #2bff6b; }
+  .p.pa { background: #ff6b2b; } .p.pa.dim { background: #663010; }
+  .p.pb { background: #2b7fff; } .p.pb.dim { background: #103060; }
+  .p.em { background: #222; color: #333; }
+  .p.md { background: #333; color: #666; } .p.md.on { background: var(--yellow); color: #000; }
+  .p.sc { background: #400060; color: #9060c0; } .p.sc.em { background: #1a1a1a; }
+
+  .chop-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin: 0.8rem 0; }
+  .chop-table th { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--border);
+    color: var(--text-dim); font-weight: normal; font-size: 0.65rem; text-transform: uppercase; }
+  .chop-table td { padding: 0.3rem 0.5rem; border-bottom: 1px solid #1a2030; }
+  .chop-table td:first-child { color: var(--yellow); }
+
+  .divider { border: none; border-top: 1px dashed var(--border); margin: 2rem 0; }
+
+  code { background: var(--surface); padding: 0.15rem 0.4rem; border-radius: 3px;
+    font-size: 0.8rem; color: var(--cyan); }
+</style>
+</head>
+<body>
+
+<h1>Walkthrough<span>: two-song mashup</span></h1>
+<div class="subtitle">
+  <span class="song-tag song-er">Electric Relaxation</span> A Tribe Called Quest &middot; 97.98 BPM<br>
+  <span class="song-tag song-rb">Rebirth of Slick</span> Digable Planets &middot; 98.29 BPM<br><br>
+  Set: <code>multi_song_test.set.json</code> &middot; Bank A = Electric Relaxation &middot; Bank B = Rebirth of Slick
+</div>
+
+<!-- ═══════════════════════════════ -->
+<h2><span class="step-num">0.</span> Your chop map</h2>
+
+<p>Here's what's loaded on each pad. Memorize the drums &mdash; you'll use them the most.</p>
+
+<div class="card">
+  <h3><span class="song-tag song-er">Electric Relaxation</span> Bank A, slot 1</h3>
+  <table class="chop-table">
+    <tr><th>Col</th><th>Drums</th><th>Bass</th><th>Other</th><th>Vox</th></tr>
+    <tr><td>1</td><td>MAIN (1 bar)</td><td>verse 3 (16 bar)</td><td>verse 1 (8 bar)</td><td>verse 3 (16 bar)</td></tr>
+    <tr><td>2</td><td>ALT-1 (1 bar)</td><td>verse 1 (8 bar)</td><td>intro (4 bar)</td><td>verse 1 (8 bar)</td></tr>
+    <tr><td>3</td><td>ALT-2 (1 bar)</td><td>phrase (2 bar)</td><td>phrase (2 bar)</td><td>intro (4 bar)</td></tr>
+    <tr><td>4</td><td>ALT-3 (1 bar)</td><td>phrase (2 bar)</td><td>phrase (2 bar)</td><td>verse 2 (4 bar)</td></tr>
+    <tr><td>5</td><td>fill (2 bar)</td><td>phrase (2 bar)</td><td>phrase (2 bar)</td><td>phrase (8 bar)</td></tr>
+    <tr><td>6</td><td>fill (2 bar)</td><td>phrase (2 bar)</td><td>phrase (2 bar)</td><td>phrase (4 bar)</td></tr>
+    <tr><td>7</td><td>loop (1 bar)</td><td>fill (2 bar)</td><td>fill (2 bar)</td><td>loop (1 bar)</td></tr>
+    <tr><td>8</td><td>hit (oneshot)</td><td>loop (1 bar)</td><td>loop (1 bar)</td><td>hit (oneshot)</td></tr>
+  </table>
+</div>
+
+<div class="card">
+  <h3><span class="song-tag song-rb">Rebirth of Slick</span> Bank B, slot 1</h3>
+  <table class="chop-table">
+    <tr><th>Col</th><th>Drums</th><th>Bass</th><th>Other</th><th>Vox</th></tr>
+    <tr><td>1</td><td>MAIN (1 bar)</td><td>chorus 1 (8 bar)</td><td>chorus 3 (32 bar)</td><td>chorus 3 (32 bar)</td></tr>
+    <tr><td>2</td><td>ALT-2 (1 bar)</td><td>chorus 2 (4 bar)</td><td>chorus 2 (4 bar)</td><td>chorus 5 (16 bar)</td></tr>
+    <tr><td>3</td><td>ALT-1 (1 bar)</td><td>phrase (2 bar)</td><td>phrase (2 bar)</td><td>chorus 2 (4 bar)</td></tr>
+    <tr><td>4</td><td>ALT-3 (1 bar)</td><td>phrase (2 bar)</td><td>phrase (2 bar)</td><td>chorus 4 (8 bar)</td></tr>
+    <tr><td>5</td><td>fill (2 bar)</td><td>phrase (2 bar)</td><td>phrase (2 bar)</td><td>phrase (4 bar)</td></tr>
+    <tr><td>6</td><td>fill (2 bar)</td><td>phrase (2 bar)</td><td>phrase (2 bar)</td><td>phrase (4 bar)</td></tr>
+    <tr><td>7</td><td>loop (1 bar)</td><td>fill (2 bar)</td><td>fill (2 bar)</td><td>loop (1 bar)</td></tr>
+    <tr><td>8</td><td>hit (oneshot)</td><td>loop (1 bar)</td><td>loop (1 bar)</td><td>hit (oneshot)</td></tr>
+  </table>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<h2><span class="step-num">1.</span> Load the set</h2>
+
+<div class="action">
+  <div class="do">Click browse... on the setforge-loader device</div>
+  <div class="result">Navigate to <code>/Users/zak/Desktop/sets/multi_song_test.set.json</code></div>
+</div>
+
+<div class="look">The Max console should print <code>setforge-loader: set loaded (2 tracks)</code>. Row 5, col 1 lights up (Electric Relaxation). Row 6, col 1 lights up (Rebirth of Slick). Everything else is dark.</div>
+
+<!-- ═══════════════════════════════ -->
+<h2><span class="step-num">2.</span> Solo mode &mdash; get to know the chops</h2>
+
+<div class="action">
+  <div class="do">Tap row 5, col 1 &mdash; activate Electric Relaxation</div>
+  <div class="result">Row 5 col 1 brightens (active). Stem rows 1-4 light up with chop colors. Session tempo locks to 97.98 BPM.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 1, col 1 &mdash; drums MAIN</div>
+  <div class="result">The classic Tribe drum loop starts playing. Pad goes bright orange.</div>
+</div>
+
+<div class="listen">That head-nod kick pattern. This is your anchor. Let it ride for a few bars.</div>
+
+<div class="action">
+  <div class="do">Tap row 2, col 3 &mdash; bass phrase</div>
+  <div class="result">A 2-bar bass phrase enters at the next bar boundary. Pad goes bright blue.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 4, col 1 &mdash; vox verse 3</div>
+  <div class="result">Phife's verse enters at the next half-bar. 16 bars of lyrics over the drums + bass.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 1, col 2 &mdash; swap to ALT-1 drums</div>
+  <div class="result">Drum pattern swaps at the next 1/16 boundary. Tight. Bass and vox keep playing.</div>
+</div>
+
+<div class="listen">Hear how the drum swap is instant (1/16 quant) but the bass stays locked to bars. That's the per-stem quantization working.</div>
+
+<hr class="divider">
+
+<div class="action">
+  <div class="do">Now tap row 6, col 1 &mdash; switch to Rebirth of Slick</div>
+  <div class="result">Hot-swap: all held chops migrate to Rebirth's stems at the next quant boundary. Tempo shifts to 98.29 BPM. Different song, same positions.</div>
+</div>
+
+<div class="listen">The drums change character completely &mdash; Rebirth's jazz-inflected break replaces Tribe's boom-bap. Same column positions, totally different feel.</div>
+
+<div class="action">
+  <div class="do">Play through Rebirth's chops: try col 3 on each row</div>
+  <div class="result">Each stem's col 3 is a 2-bar phrase. Short, tight loops you can layer.</div>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<h2><span class="step-num">3.</span> Per-row mode &mdash; the cross-song mashup</h2>
+
+<p>This is where it gets interesting. You'll play Tribe's drums under Rebirth's bass.</p>
+
+<div class="action">
+  <div class="do">First, activate Electric Relaxation (row 5, col 1)</div>
+  <div class="result">Back on Tribe. All stems sourcing from Electric Relaxation.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 1, col 1 &mdash; start Tribe drums MAIN</div>
+  <div class="result">Drums playing. Your foundation.</div>
+</div>
+
+<div class="action">
+  <div class="do">Double-tap SOLO (row 7, col 3)</div>
+  <div class="result">SOLO pad latches yellow. You're in per-row mode. All four rows still source from Electric Relaxation.</div>
+</div>
+
+<div class="look">Col 1 of each stem row should now show the source-preset color (Electric Relaxation's orange) instead of the stem color. This tells you "every row is sourcing from the same preset."</div>
+
+<div class="action">
+  <div class="do">Hold any pad on row 2 (bass) + tap row 6, col 1 (Rebirth)</div>
+  <div class="result">Bass row reassigns to Rebirth of Slick. Clips reload for bass only. Col 1 of row 2 changes to Rebirth's blue.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 2, col 1 &mdash; bass chorus 1 from Rebirth</div>
+  <div class="result">Rebirth's upright bass enters over Tribe's drums. 8 bars of Digable's low end under ATCQ's kick.</div>
+</div>
+
+<div class="listen">This is the mashup moment. Two different songs, two different producers' bass and drums, locked to the same grid at ~98 BPM. The tempos are 0.3 BPM apart &mdash; Live's warping keeps them phase-locked.</div>
+
+<div class="action">
+  <div class="do">Now hold row 4 (vox) + tap row 6, col 1 (Rebirth)</div>
+  <div class="result">Vox reassigns to Rebirth too. Drums = Tribe, bass = Rebirth, vox = Rebirth.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 4, col 3 &mdash; Rebirth vox (chorus 2, 4 bars)</div>
+  <div class="result">"We're cool like dat" over Tribe's drums and Rebirth's bass. Three layers from two songs.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap SOLO once to exit per-row mode</div>
+  <div class="result">Returns to solo mode. Active preset becomes whatever drums was sourcing (Electric Relaxation). Held chops keep playing.</div>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<h2><span class="step-num">4.</span> Stage the decks</h2>
+
+<p>Now set up for dual-song mode. You'll pre-load both songs so the view flip is instant.</p>
+
+<div class="action">
+  <div class="do">Hold the deck-setup side button (right side, position 2)</div>
+  <div class="result">Side button lights bright white. You're in staging mode.</div>
+</div>
+
+<div class="action">
+  <div class="do">While holding deck-setup: tap row 5, col 1 (Electric Relaxation)</div>
+  <div class="result">Deck X staged. That pad starts flashing (preset color &harr; white). Pre-load begins &mdash; all 4 stems loading into the X tracks.</div>
+</div>
+
+<div class="action">
+  <div class="do">While still holding: tap row 6, col 1 (Rebirth of Slick)</div>
+  <div class="result">Deck Y staged. That pad starts flashing (preset color &harr; soft blue). Pre-load begins on the Y tracks.</div>
+</div>
+
+<div class="action">
+  <div class="do">Release deck-setup</div>
+  <div class="result">Side button dims. Both pads keep flashing. The top-right side button (dual-song toggle) now alternates between orange and blue &mdash; both decks ready.</div>
+</div>
+
+<div class="warn">Wait about 5 seconds for pre-load to finish. The stems are streaming into Live's audio engine in the background. If you enter dual-song mode before pre-load completes, there may be a brief delay.</div>
+
+<!-- ═══════════════════════════════ -->
+<h2><span class="step-num">5.</span> Dual-song mode &mdash; drum-on-drum</h2>
+
+<p>This is what the whole system was built for.</p>
+
+<div class="action">
+  <div class="do">Double-tap the top-right side button</div>
+  <div class="result">Grid flips to dual-song view. All 8 rows are stems. Top half (rows 1-4) = Electric Relaxation. Bottom half (rows 5-8) = Rebirth of Slick.</div>
+</div>
+
+<div class="grid-mini">
+  <div class="gl">X drums</div>
+  <div class="p dr">D1</div><div class="p dr">D2</div><div class="p dr">D3</div><div class="p dr">D4</div><div class="p dr">D5</div><div class="p dr">D6</div><div class="p dr">D7</div><div class="p dr">D8</div>
+  <div class="gl">X bass</div>
+  <div class="p ba">B1</div><div class="p ba">B2</div><div class="p ba">B3</div><div class="p ba">B4</div><div class="p ba">B5</div><div class="p ba">B6</div><div class="p ba">B7</div><div class="p ba">B8</div>
+  <div class="gl">X other</div>
+  <div class="p ot">O1</div><div class="p ot">O2</div><div class="p ot">O3</div><div class="p ot">O4</div><div class="p ot">O5</div><div class="p ot">O6</div><div class="p ot">O7</div><div class="p ot">O8</div>
+  <div class="gl">X vox</div>
+  <div class="p vx">V1</div><div class="p vx">V2</div><div class="p vx">V3</div><div class="p vx">V4</div><div class="p vx">V5</div><div class="p vx">V6</div><div class="p vx">V7</div><div class="p vx">V8</div>
+  <div class="gl" style="color:var(--soft-blue)">Y drums</div>
+  <div class="p dr">D1</div><div class="p dr">D2</div><div class="p dr">D3</div><div class="p dr">D4</div><div class="p dr">D5</div><div class="p dr">D6</div><div class="p dr">D7</div><div class="p dr">D8</div>
+  <div class="gl" style="color:var(--soft-blue)">Y bass</div>
+  <div class="p ba">B1</div><div class="p ba">B2</div><div class="p ba">B3</div><div class="p ba">B4</div><div class="p ba">B5</div><div class="p ba">B6</div><div class="p ba">B7</div><div class="p ba">B8</div>
+  <div class="gl" style="color:var(--soft-blue)">Y other</div>
+  <div class="p ot">O1</div><div class="p ot">O2</div><div class="p ot">O3</div><div class="p ot">O4</div><div class="p ot">O5</div><div class="p ot">O6</div><div class="p ot">O7</div><div class="p ot">O8</div>
+  <div class="gl" style="color:var(--soft-blue)">Y vox</div>
+  <div class="p vx">V1</div><div class="p vx">V2</div><div class="p vx">V3</div><div class="p vx">V4</div><div class="p vx">V5</div><div class="p vx">V6</div><div class="p vx">V7</div><div class="p vx">V8</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 1, col 1 &mdash; Tribe drums MAIN</div>
+  <div class="result">Electric Relaxation's main drum loop. Playing on <code>sf-drums</code> track.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 5, col 1 &mdash; Rebirth drums MAIN</div>
+  <div class="result">Rebirth's drum loop enters <em>simultaneously</em> on <code>sf-drums-y</code> track. Two drum patterns, two separate audio tracks, phase-locked at the 1/16 boundary.</div>
+</div>
+
+<div class="listen" style="font-size:0.9rem; padding:1rem 1.2rem;">
+  <strong>This is it.</strong> Tribe's kick and Rebirth's kick hitting together. Two different producers' groove pockets superimposed. The tempos are 0.3 BPM apart &mdash; Live's warping fuses them into one grid. Listen for the composite pattern that neither song has on its own.
+</div>
+
+<h3>Now layer up</h3>
+
+<div class="action">
+  <div class="do">Tap row 2, col 3 &mdash; Tribe bass phrase (2 bars)</div>
+  <div class="result">Electric Relaxation bass over the dual drums.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 6, col 1 &mdash; Rebirth bass chorus 1 (8 bars)</div>
+  <div class="result">Rebirth's upright bass enters on <code>sf-bass-y</code>. Two bass lines. If it's too thick, stop one.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 4, col 3 &mdash; Tribe vox (intro, 4 bars)</div>
+  <div class="result">Q-Tip over both drum patterns.</div>
+</div>
+
+<div class="action">
+  <div class="do">Tap row 8, col 3 &mdash; Rebirth vox (chorus 2, 4 bars)</div>
+  <div class="result">"We're cool like dat" from Ladybug over Q-Tip. Two MCs, two songs, one grid.</div>
+</div>
+
+<div class="listen">You now have up to 8 simultaneous stems. Pull layers in and out. Try swapping drum patterns &mdash; tap row 1 col 2 to swap Tribe's drums to ALT-1 while Rebirth's drums keep going. The 1/16 quant means drum swaps are surgical.</div>
+
+<h3>Tricks to try</h3>
+
+<div class="card">
+  <p><strong>Drum-swap call-and-response:</strong> Alternate tapping row 1 col 1 and row 1 col 2 every bar. Tribe's drums shift between MAIN and ALT-1 while Rebirth holds steady underneath.</p>
+  <p><strong>Bass drop:</strong> Stop both basses (tap their active pads). Let just the dual drums ride for 4 bars. Then bring Rebirth's bass back on the downbeat (row 6, col 1). Instant drop.</p>
+  <p><strong>Vox trade:</strong> Have Tribe vox going. Stop it (tap the active pad). Immediately tap Rebirth vox. The half-bar quant on vox means the handoff happens on the 2 or the 4.</p>
+  <p><strong>Strip down:</strong> Stop everything except one drum and one bass from opposite songs. Minimal but groovy.</p>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<h2><span class="step-num">6.</span> Exit and save</h2>
+
+<div class="action">
+  <div class="do">Tap the top-right side button to exit dual-song mode</div>
+  <div class="result">Returns to your previous view (solo or per-row). Held chops from dual-song keep playing.</div>
+</div>
+
+<div class="action">
+  <div class="do">To stop everything: triple-tap PANIC (left side, bottom button)</div>
+  <div class="result">All audio stops. All modes reset to solo. Clean slate.</div>
+</div>
+
+<div class="action">
+  <div class="do">To save your clip edits: send <code>save</code> to the device</div>
+  <div class="result">Reads all clip markers from Live, writes manifest + set.json back to disk. Your edits round-trip.</div>
+</div>
+
+<!-- ═══════════════════════════════ -->
+<h2><span class="step-num">7.</span> Session workflow</h2>
+
+<div class="card">
+  <h3>The loop</h3>
+  <p style="font-size:0.9rem; line-height:1.8;">
+    <strong>1.</strong> taste curates your stems and chops<br>
+    <strong>2.</strong> Load the set in setforge-live<br>
+    <strong>3.</strong> Play, explore, find combinations that work<br>
+    <strong>4.</strong> Tweak clip boundaries in Live's clip view if needed<br>
+    <strong>5.</strong> Send <code>save</code> to persist changes back to the manifest<br>
+    <strong>6.</strong> Next session: load the same set &mdash; your tweaks are there
+  </p>
+</div>
+
+<div style="margin-top:3rem; padding-top:1rem; border-top:1px solid var(--border); color:var(--text-dim); font-size:0.7rem; text-align:center;">
+  setforge-live v0.1 &middot; Electric Relaxation &times; Rebirth of Slick &middot; 2026
+</div>
+
+</body>
+</html>
