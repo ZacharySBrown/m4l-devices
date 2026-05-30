@@ -734,6 +734,1008 @@
 					"text": "fx target: all",
 					"fontsize": 10.0
 				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-0",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						100,
+						560,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						425,
+						38,
+						32,
+						18
+					],
+					"varname": "preset_A1",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_A1",
+							"parameter_shortname": "A1",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"A1"
+							]
+						}
+					},
+					"text": "A1",
+					"texton": "A1",
+					"textoff": "A1",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-0",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						100,
+						582,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 0"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-1",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						190,
+						560,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						461,
+						38,
+						32,
+						18
+					],
+					"varname": "preset_A2",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_A2",
+							"parameter_shortname": "A2",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"A2"
+							]
+						}
+					},
+					"text": "A2",
+					"texton": "A2",
+					"textoff": "A2",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-1",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						190,
+						582,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 1"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-2",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						280,
+						560,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						497,
+						38,
+						32,
+						18
+					],
+					"varname": "preset_A3",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_A3",
+							"parameter_shortname": "A3",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"A3"
+							]
+						}
+					},
+					"text": "A3",
+					"texton": "A3",
+					"textoff": "A3",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-2",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						280,
+						582,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 2"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-3",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						370,
+						560,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						533,
+						38,
+						32,
+						18
+					],
+					"varname": "preset_A4",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_A4",
+							"parameter_shortname": "A4",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"A4"
+							]
+						}
+					},
+					"text": "A4",
+					"texton": "A4",
+					"textoff": "A4",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-3",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						370,
+						582,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 3"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-4",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						460,
+						560,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						569,
+						38,
+						32,
+						18
+					],
+					"varname": "preset_A5",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_A5",
+							"parameter_shortname": "A5",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"A5"
+							]
+						}
+					},
+					"text": "A5",
+					"texton": "A5",
+					"textoff": "A5",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-4",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						460,
+						582,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 4"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-5",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						550,
+						560,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						605,
+						38,
+						32,
+						18
+					],
+					"varname": "preset_A6",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_A6",
+							"parameter_shortname": "A6",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"A6"
+							]
+						}
+					},
+					"text": "A6",
+					"texton": "A6",
+					"textoff": "A6",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-5",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						550,
+						582,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 5"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-6",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						640,
+						560,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						641,
+						38,
+						32,
+						18
+					],
+					"varname": "preset_A7",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_A7",
+							"parameter_shortname": "A7",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"A7"
+							]
+						}
+					},
+					"text": "A7",
+					"texton": "A7",
+					"textoff": "A7",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-6",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						640,
+						582,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 6"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-7",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						730,
+						560,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						677,
+						38,
+						32,
+						18
+					],
+					"varname": "preset_A8",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_A8",
+							"parameter_shortname": "A8",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"A8"
+							]
+						}
+					},
+					"text": "A8",
+					"texton": "A8",
+					"textoff": "A8",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-7",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						730,
+						582,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 7"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-8",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						100,
+						610,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						425,
+						58,
+						32,
+						18
+					],
+					"varname": "preset_B1",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_B1",
+							"parameter_shortname": "B1",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"B1"
+							]
+						}
+					},
+					"text": "B1",
+					"texton": "B1",
+					"textoff": "B1",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-8",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						100,
+						632,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 8"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-9",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						190,
+						610,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						461,
+						58,
+						32,
+						18
+					],
+					"varname": "preset_B2",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_B2",
+							"parameter_shortname": "B2",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"B2"
+							]
+						}
+					},
+					"text": "B2",
+					"texton": "B2",
+					"textoff": "B2",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-9",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						190,
+						632,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 9"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-10",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						280,
+						610,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						497,
+						58,
+						32,
+						18
+					],
+					"varname": "preset_B3",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_B3",
+							"parameter_shortname": "B3",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"B3"
+							]
+						}
+					},
+					"text": "B3",
+					"texton": "B3",
+					"textoff": "B3",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-10",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						280,
+						632,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 10"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-11",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						370,
+						610,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						533,
+						58,
+						32,
+						18
+					],
+					"varname": "preset_B4",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_B4",
+							"parameter_shortname": "B4",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"B4"
+							]
+						}
+					},
+					"text": "B4",
+					"texton": "B4",
+					"textoff": "B4",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-11",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						370,
+						632,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 11"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-12",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						460,
+						610,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						569,
+						58,
+						32,
+						18
+					],
+					"varname": "preset_B5",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_B5",
+							"parameter_shortname": "B5",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"B5"
+							]
+						}
+					},
+					"text": "B5",
+					"texton": "B5",
+					"textoff": "B5",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-12",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						460,
+						632,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 12"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-13",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						550,
+						610,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						605,
+						58,
+						32,
+						18
+					],
+					"varname": "preset_B6",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_B6",
+							"parameter_shortname": "B6",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"B6"
+							]
+						}
+					},
+					"text": "B6",
+					"texton": "B6",
+					"textoff": "B6",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-13",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						550,
+						632,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 13"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-14",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						640,
+						610,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						641,
+						58,
+						32,
+						18
+					],
+					"varname": "preset_B7",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_B7",
+							"parameter_shortname": "B7",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"B7"
+							]
+						}
+					},
+					"text": "B7",
+					"texton": "B7",
+					"textoff": "B7",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-14",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						640,
+						632,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 14"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-preset-15",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						730,
+						610,
+						32,
+						18
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						677,
+						58,
+						32,
+						18
+					],
+					"varname": "preset_B8",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "preset_B8",
+							"parameter_shortname": "B8",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"B8"
+							]
+						}
+					},
+					"text": "B8",
+					"texton": "B8",
+					"textoff": "B8",
+					"mode": 0,
+					"fontsize": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-preset-15",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						730,
+						632,
+						140,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "activate_preset 15"
+				}
+			},
+			{
+				"box": {
+					"id": "btn-save",
+					"maxclass": "live.text",
+					"numinlets": 1,
+					"numoutlets": 2,
+					"patching_rect": [
+						150,
+						660,
+						80,
+						25
+					],
+					"outlettype": [
+						"",
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						615,
+						115,
+						80,
+						20
+					],
+					"varname": "save",
+					"saved_attribute_attributes": {
+						"valueof": {
+							"parameter_longname": "save",
+							"parameter_shortname": "SAVE",
+							"parameter_type": 1,
+							"parameter_enum": [
+								"save"
+							]
+						}
+					},
+					"text": "SAVE",
+					"texton": "SAVE",
+					"textoff": "SAVE",
+					"mode": 0
+				}
+			},
+			{
+				"box": {
+					"id": "msg-save",
+					"maxclass": "message",
+					"numinlets": 2,
+					"numoutlets": 1,
+					"patching_rect": [
+						150,
+						690,
+						80,
+						20
+					],
+					"outlettype": [
+						""
+					],
+					"text": "save"
+				}
 			}
 		],
 		"lines": [
@@ -993,6 +1995,414 @@
 				"patchline": {
 					"source": [
 						"btn-panic",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-0",
+						0
+					],
+					"destination": [
+						"msg-preset-0",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-0",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-1",
+						0
+					],
+					"destination": [
+						"msg-preset-1",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-1",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-2",
+						0
+					],
+					"destination": [
+						"msg-preset-2",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-2",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-3",
+						0
+					],
+					"destination": [
+						"msg-preset-3",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-3",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-4",
+						0
+					],
+					"destination": [
+						"msg-preset-4",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-4",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-5",
+						0
+					],
+					"destination": [
+						"msg-preset-5",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-5",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-6",
+						0
+					],
+					"destination": [
+						"msg-preset-6",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-6",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-7",
+						0
+					],
+					"destination": [
+						"msg-preset-7",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-7",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-8",
+						0
+					],
+					"destination": [
+						"msg-preset-8",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-8",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-9",
+						0
+					],
+					"destination": [
+						"msg-preset-9",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-9",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-10",
+						0
+					],
+					"destination": [
+						"msg-preset-10",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-10",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-11",
+						0
+					],
+					"destination": [
+						"msg-preset-11",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-11",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-12",
+						0
+					],
+					"destination": [
+						"msg-preset-12",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-12",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-13",
+						0
+					],
+					"destination": [
+						"msg-preset-13",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-13",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-14",
+						0
+					],
+					"destination": [
+						"msg-preset-14",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-14",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-preset-15",
+						0
+					],
+					"destination": [
+						"msg-preset-15",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-preset-15",
+						0
+					],
+					"destination": [
+						"js-loader",
+						2
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"btn-save",
+						0
+					],
+					"destination": [
+						"msg-save",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"msg-save",
 						0
 					],
 					"destination": [

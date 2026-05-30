@@ -317,6 +317,87 @@ def build_loader():
         fontsize=10.0,
     ))
 
+    # ── Curation UI: per-preset activator buttons + SAVE ──
+    # Lets the user activate any preset + save without the Launchpad
+    # attached. Buttons are arranged as two rows of 8 (A1-A8, B1-B8)
+    # mirroring the Launchpad bank layout, plus a SAVE button.
+    # Each button → message box ("activate_preset N") → js inlet 2.
+    # Goes through onPresetPress, the same code path as a pad press.
+    curation_y_patch_base = 560
+    for bank_idx, bank_label in enumerate(["A", "B"]):
+        y_pres = 38 + bank_idx * 20    # presentation: y=38 (A), y=58 (B)
+        y_patch = curation_y_patch_base + bank_idx * 50
+        for col in range(8):
+            slot_idx = bank_idx * 8 + col
+            label = f"{bank_label}{col + 1}"
+            btn_name = f"btn-preset-{slot_idx}"
+            msg_name = f"msg-preset-{slot_idx}"
+            x_pres = 425 + col * 36
+            x_patch = 100 + col * 90
+            boxes.append(P.box(
+                btn_name, "live.text",
+                rect=(x_patch, y_patch, 32, 18),
+                presentation=True,
+                presentation_rect=(x_pres, y_pres, 32, 18),
+                numinlets=1, numoutlets=2, outlettype=["", ""],
+                extras={
+                    "varname": f"preset_{bank_label}{col + 1}",
+                    "saved_attribute_attributes": {
+                        "valueof": {
+                            "parameter_longname": f"preset_{bank_label}{col + 1}",
+                            "parameter_shortname": label,
+                            "parameter_type": 1,
+                            "parameter_enum": [label],
+                        }
+                    },
+                    "text": label,
+                    "texton": label,
+                    "textoff": label,
+                    "mode": 0,
+                    "fontsize": 9.0,
+                },
+            ))
+            boxes.append(P.box(
+                msg_name, "message",
+                rect=(x_patch, y_patch + 22, 140, 20),
+                numinlets=2, numoutlets=1, outlettype=[""],
+                extras={"text": f"activate_preset {slot_idx}"},
+            ))
+            lines.append(P.line(btn_name, 0, msg_name, 0))
+            lines.append(P.line(msg_name, 0, "js-loader", 2))
+
+    # SAVE button — next to PANIC in the bottom row
+    boxes.append(P.box(
+        "btn-save", "live.text",
+        rect=(150, 660, 80, 25),
+        presentation=True,
+        presentation_rect=(615, 115, 80, 20),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+        extras={
+            "varname": "save",
+            "saved_attribute_attributes": {
+                "valueof": {
+                    "parameter_longname": "save",
+                    "parameter_shortname": "SAVE",
+                    "parameter_type": 1,
+                    "parameter_enum": ["save"],
+                }
+            },
+            "text": "SAVE",
+            "texton": "SAVE",
+            "textoff": "SAVE",
+            "mode": 0,
+        },
+    ))
+    boxes.append(P.box(
+        "msg-save", "message",
+        rect=(150, 690, 80, 20),
+        numinlets=2, numoutlets=1, outlettype=[""],
+        extras={"text": "save"},
+    ))
+    lines.append(P.line("btn-save", 0, "msg-save", 0))
+    lines.append(P.line("msg-save", 0, "js-loader", 2))
+
     return p
 
 

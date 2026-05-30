@@ -2887,6 +2887,17 @@ function handleMessage(msg, args) {
         dumpState();
     } else if (msg === "inspect") {
         inspectClips();
+    } else if (msg === "activate_preset") {
+        // UI-driven preset activation (for curation without Launchpad)
+        // — same code path as a pad press on the surface.
+        if (args.length > 0) {
+            var idx = parseInt(args[0], 10);
+            if (!isNaN(idx) && idx >= 0 && idx < TOTAL_SLOTS) {
+                onPresetPress(idx);
+            } else {
+                post("setforge-loader: activate_preset out of range: " + args[0] + "\n");
+            }
+        }
     }
 }
 
