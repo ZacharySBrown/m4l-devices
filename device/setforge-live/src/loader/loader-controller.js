@@ -296,8 +296,15 @@ function computeTrackChops(track) {
             for (var c = numChops; c < NUM_CHOPS; c++) {
                 chops.push({ column: c + 1, clipStart: 0, clipLength: 0, stemPath: stem.path, disabled: true });
             }
+        } else if (stem.curated) {
+            // User curated this stem and deleted ALL its clips. Honor the empty
+            // state on reload — do NOT blind-grid it back. (The `curated` flag
+            // is stamped by syncPresetClips when the user saves.)
+            for (var ec = 1; ec <= NUM_CHOPS; ec++) {
+                chops.push({ column: ec, clipStart: 0, clipLength: 0, stemPath: stem.path, disabled: true });
+            }
         } else {
-            // Fallback: fixed 4-bar grid from downbeat + BPM
+            // Fallback: fixed 4-bar grid from downbeat + BPM (never curated)
             var length = track.varying ? 0 : chopClipLength(track.bpm);
             for (var c = 1; c <= NUM_CHOPS; c++) {
                 if (track.varying) {
@@ -765,13 +772,22 @@ function findTrackByName(name) {
     return -1;
 }
 
-// ── Dual slot-set A/B architecture ──
-var activeClipSet = "A";
+// ── Fixed bank→slot-set mapping ──
+// Bank A presets (preset index 0..7) ALWAYS load their clips into Live slots
+// 0..7; Bank B presets (index 8..15) ALWAYS into slots 8..15. The slot-set is
+// DERIVED from the preset's bank, not an alternating "active set" flag. This
+// guarantees the offset used to LOAD a preset and the offset used to
+// SYNC/SAVE it are identical — eliminating the bug where a B-bank preset
+// loaded into one set but save read the other and silently wiped its chops.
 var stagingPresetIndex = -1;
 var stagingReady = false;
 
-function activeSetOffset() { return activeClipSet === "A" ? 0 : 8; }
-function stagingSetOffset() { return activeClipSet === "A" ? 8 : 0; }
+function bankSetOffset(presetIdx) {
+    return (presetIdx != null && presetIdx >= SLOTS_PER_BANK) ? SLOTS_PER_BANK : 0;
+}
+function activeSetOffset() { return bankSetOffset(activeSlotIndex); }
+function stagingSetOffset() { return bankSetOffset(stagingPresetIndex); }
+function activeBankLabel() { return (activeSlotIndex >= SLOTS_PER_BANK) ? "B" : "A"; }
 
 function loadClipsToSlotSet(presetIdx, offset) {
     var slot = presetSlots[presetIdx];
@@ -1002,10 +1018,10 @@ function loadPresetToDeckX(presetIdx) {
 }
 
 function loadClipsForPreset(presetIdx) {
-    loadClipsToSlotSet(presetIdx, activeSetOffset());
+    var offset = bankSetOffset(presetIdx);
+    loadClipsToSlotSet(presetIdx, offset);
     // Defer warp marker adjustment — Live needs time to analyze new clips
     // before we can read and move its auto-generated markers.
-    var offset = activeSetOffset();
     var fixTask = new Task(function() {
         fixWarpMarkers(presetIdx, offset);
     });
@@ -1314,10 +1330,10 @@ function stagePreset(presetIdx) {
 }
 
 function commitStagedPreset() {
-    activeClipSet = (activeClipSet === "A") ? "B" : "A";
+    // No set-flip: the active preset's bank determines its slot-set.
     stagingPresetIndex = -1;
     stagingReady = false;
-    post("setforge-loader: committed, active set now " + activeClipSet + "\n");
+    post("setforge-loader: committed, active set now " + activeBankLabel() + "\n");
 }
 
 function launchClipInTrack(stemName, slotIndex, chop) {
@@ -3158,6 +3174,30 @@ function syncPresetClips(preset, mTrack, offset, trackIds) {
 
     post("setforge-loader: syncing clips from Live → manifest for " + preset.trackId + "...\n");
 
+    // ── Safety net: never wipe a whole track on an empty read ──
+    // If EVERY stem track reports zero clips at this offset, the read almost
+    // certainly hit the wrong slot-set (or Live isn't ready) — a real edit
+    // never deletes all four stems at once. Abort without mutating so a bad
+    // read can't silently erase the track's curation. (A legitimate per-stem
+    // full deletion still syncs, because the other stems still have clips.)
+    var totalLive = 0;
+    for (var ps = 0; ps < STEM_NAMES.length; ps++) {
+        var psPath = trackIds[STEM_NAMES[ps]];
+        if (!psPath) continue;
+        for (var psl = 0; psl < SLOTS_PER_BANK; psl++) {
+            try {
+                var psApi = new LiveAPI(psPath + " clip_slots " + (offset + psl));
+                var psHas = psApi.get("has_clip");
+                if (psHas && psHas.toString() === "1") totalLive++;
+            } catch (_) {}
+        }
+    }
+    if (totalLive === 0) {
+        post("setforge-loader: sync ABORTED — 0 clips found at offset " + offset +
+             " across all stems; refusing to wipe " + preset.trackId + "\n");
+        return 0;
+    }
+
     for (var s = 0; s < STEM_NAMES.length; s++) {
         var stem = STEM_NAMES[s];
         var trackPath = trackIds[stem];
@@ -3437,6 +3477,10 @@ function syncPresetClips(preset, mTrack, offset, trackIds) {
                  " added=" + newChops.length + " total=" + survivors.length + "\n");
         }
         mStem.chops = survivors;
+        // Mark the stem user-curated so reload honors an empty chops list
+        // literally (load NOTHING) instead of falling back to a blind grid.
+        // This is what lets "delete all the 'other' clips" actually stick.
+        mStem.curated = true;
     } // end stem loop
 
     return synced;
@@ -3480,7 +3524,7 @@ function inspectClips() {
         preset_index: activeSlotIndex,
         track_id: active.trackId || null,
         track_bpm: (active.track && active.track.bpm) ? active.track.bpm : null,
-        clip_set: activeClipSet,
+        clip_set: activeBankLabel(),
         clip_offset: offset,
         session_tempo: null,
         stems: {}
