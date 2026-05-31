@@ -1,0 +1,30 @@
+{
+  "schema_version": "2.1",
+  "set_id": "full_vocal",
+  "global_tempo_hint": 120.0,
+  "tracks": [
+    {
+      "id": "vtest",
+      "display_name": "vocal test",
+      "artist": "tester",
+      "bpm": 120.0,
+      "downbeat_sec": 0.0,
+      "drift_bpm": 0.0,
+      "grid_tightness_ms": 0.0,
+      "octave_confidence": "verified",
+      "varying": false,
+      "energy": 0.5,
+      "genre": "test",
+      "color_hue": "#3380cc",
+      "stems": {
+        "drums": { "path": "/fixtures/stems/vtest/drums.wav", "sha": "" },
+        "bass":  { "path": "/fixtures/stems/vtest/bass.wav",  "sha": "" },
+        "other": { "path": "/fixtures/stems/vtest/other.wav", "sha": "" },
+        "vox":   { "path": "/fixtures/stems/vtest/vocals.wav", "sha": "", "mode": "full_stem", "chops": [] }
+      },
+      "chop_quant_override": null,
+      "validated": true,
+      "validated_at": "2026-05-30T00:00:00Z"
+    }
+  ]
+}

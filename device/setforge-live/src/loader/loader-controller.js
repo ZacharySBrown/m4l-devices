@@ -206,6 +206,59 @@ function computeTrackChops(track) {
 
         var chops = [];
 
+        // Full-stem mode (e.g. vocals): a single long clip warped by its own
+        // Ableton .asd sidecar. taste exports vocals.wav + vocals.wav.asd with
+        // a per-beat warp grid; Live auto-imports it on create_audio_clip. We
+        // expose it as ONE enabled clip on column 1 (the rest disabled) and
+        // flag it fullVocal so the load + warp-fix paths leave its markers and
+        // length alone — no blind 4-bar slicing, no re-linearizing. You chop it
+        // yourself in Ableton.
+        if (stem.mode === "full_stem") {
+            // Cleaned per-bar warp anchors [[beat_time, sample_time_sec], ...]
+            // from taste; written into Live via add_warp_marker (Live can't read
+            // taste's gzip .asd). See writeVocalWarpGrid().
+            var voxGrid = stem.warp_grid || null;
+            if (stem.chops && stem.chops.length > 0) {
+                // Restore the user's saved vocal regions: one clip per chop,
+                // each the full warped vocal limited to its [start, start+len]
+                // region. fullVocal:true → trusts the warp grid (no re-warp);
+                // the region markers are applied in the deferred warp pass.
+                var nv = Math.min(stem.chops.length, NUM_CHOPS);
+                for (var vc = 0; vc < nv; vc++) {
+                    var vm = stem.chops[vc];
+                    chops.push({
+                        column: (vm.column !== undefined && vm.column !== null) ? vm.column : (vc + 1),
+                        clipStart: vm.start_sec || 0,
+                        clipLength: vm.length_sec || 0,
+                        stemPath: stem.path,
+                        disabled: false,
+                        label: vm.label || "vocals", kind: vm.kind || "full",
+                        fullVocal: true, warpGrid: voxGrid,
+                        // Exact beats the user set (grid-independent restore).
+                        startMarkerBeat: vm.start_marker_beat,
+                        endMarkerBeat: vm.end_marker_beat,
+                        loopStartBeat: vm.loop_start_beat,
+                        loopEndBeat: vm.loop_end_beat
+                    });
+                }
+                for (var vd = nv; vd < NUM_CHOPS; vd++) {
+                    chops.push({ column: vd + 1, clipStart: 0, clipLength: 0, stemPath: stem.path, disabled: true });
+                }
+            } else {
+                // No saved regions → one full-length warped clip.
+                chops.push({
+                    column: 1, clipStart: 0, clipLength: 0, stemPath: stem.path,
+                    disabled: false, label: stem.label || "vocals", kind: "full",
+                    fullVocal: true, warpGrid: voxGrid
+                });
+                for (var fc = 1; fc < NUM_CHOPS; fc++) {
+                    chops.push({ column: fc + 1, clipStart: 0, clipLength: 0, stemPath: stem.path, disabled: true });
+                }
+            }
+            result[stemName] = chops;
+            continue;
+        }
+
         // Use manifest chops if available (variable-length, song-structure-aware)
         if (stem.chops && stem.chops.length > 0) {
             var numChops = Math.min(stem.chops.length, NUM_CHOPS);
@@ -771,7 +824,19 @@ function loadClipsToSlotSet(presetIdx, offset) {
                     var identityKey = slot.trackId + "/" + stem + "/" + c;
                     clipApi.set("name", "[sf:" + identityKey + "] " + clipLabel);
 
-                    if (beatCount > 0) {
+                    if (chop.fullVocal) {
+                        // Full vocal: trust the .asd warp grid. A saved REGION
+                        // (a chop the user set) LOOPS; an un-chopped full vocal
+                        // plays through. The exact loop + start/end markers are
+                        // restored in the deferred pass once the grid is placed.
+                        var voxHasRegion = (chop.startMarkerBeat !== undefined && chop.startMarkerBeat !== null) || chop.clipLength > 0;
+                        clipApi.set("warping", 1);
+                        clipApi.set("warp_mode", WARP_MODES[stem] || 0);
+                        clipApi.set("looping", voxHasRegion ? 1 : 0);
+                        clipApi.set("start_marker", 0);
+                        clipApi.set("loop_start", 0);
+                        clipApi.set("launch_quantization", ROW_QUANT[stem]);
+                    } else if (beatCount > 0) {
                         clipApi.set("warping", 1);
                         // Op 2: per-clip BPM override. If the manifest carries
                         // a chop.bpm field, write it to Live as warp_bpm before
@@ -846,7 +911,18 @@ function loadStemClipsToTrack(stem, presetIdx, offset, trackPath) {
                 var identityKey = slot.trackId + "/" + stem + "/" + c;
                 clipApi.set("name", "[sf:" + identityKey + "] " + clipLabel);
 
-                if (beatCount > 0) {
+                if (chop.fullVocal) {
+                    // Full vocal: trust the imported .asd warp grid; a saved
+                    // region LOOPS, an un-chopped full vocal plays through.
+                    // Loop + markers restored in the deferred pass.
+                    var voxHasRegionY = (chop.startMarkerBeat !== undefined && chop.startMarkerBeat !== null) || chop.clipLength > 0;
+                    clipApi.set("warping", 1);
+                    clipApi.set("warp_mode", WARP_MODES[stem] || 0);
+                    clipApi.set("looping", voxHasRegionY ? 1 : 0);
+                    clipApi.set("start_marker", 0);
+                    clipApi.set("loop_start", 0);
+                    clipApi.set("launch_quantization", ROW_QUANT[stem]);
+                } else if (beatCount > 0) {
                     clipApi.set("warping", 1);
                     if (chop.bpm) {
                         try { clipApi.set("warp_bpm", chop.bpm); } catch (_) {}
@@ -936,6 +1012,45 @@ function loadClipsForPreset(presetIdx) {
     fixTask.schedule(4000); // 4 seconds for Live to finish analysis (long clips need more time)
 }
 
+// Write taste's cleaned per-bar warp grid into a (warped) vocal clip via the
+// LOM. grid = [[beat_time, sample_time_sec], ...]. sample_time is in SECONDS —
+// the same unit the chop warp-fix already uses successfully (see the
+// add_warp_marker / loopEndSec calls below). Live ignores taste's .asd, so this
+// is how the per-bar grid actually reaches Live. We add a marker at each grid
+// beat; Live's own auto markers occupy a beat or two already, so collisions are
+// caught and skipped. The trailing non-movable "shadow" marker is left alone.
+function writeVocalWarpGrid(clipApi, grid) {
+    if (!grid || !grid.length) return 0;
+    var added = 0;
+    for (var g = 0; g < grid.length; g++) {
+        try {
+            var d = new Dict();
+            d.set("beat_time", grid[g][0]);
+            d.set("sample_time", grid[g][1]);
+            clipApi.call("add_warp_marker", d);
+            added++;
+        } catch (e) { /* beat already has a marker (e.g. Live's auto beat-0) — skip */ }
+    }
+    return added;
+}
+
+// Map a source-audio time (seconds) to a beat position using the warp grid
+// [[beat, sec], ...] (ascending). Linear interpolation between anchors, with
+// linear extrapolation past the ends. Used to place a vocal clip's region
+// (start/end markers, in beats) from its saved [start_sec, len_sec] region.
+function secToBeatGrid(grid, sec) {
+    if (!grid || !grid.length) return 0;
+    if (sec <= grid[0][1]) return grid[0][0];
+    for (var i = 1; i < grid.length; i++) {
+        if (sec <= grid[i][1]) {
+            var b0 = grid[i-1][0], s0 = grid[i-1][1], b1 = grid[i][0], s1 = grid[i][1];
+            return (s1 === s0) ? b1 : b0 + (sec - s0) * (b1 - b0) / (s1 - s0);
+        }
+    }
+    var n = grid.length, pb0 = grid[n-2][0], ps0 = grid[n-2][1], pb1 = grid[n-1][0], ps1 = grid[n-1][1];
+    return (ps1 === ps0) ? pb1 : pb1 + (sec - ps1) * (pb1 - pb0) / (ps1 - ps0);
+}
+
 // Deferred pass: read Live's auto-generated warp markers and move them
 // to match our known BPM. Called after create_audio_clip has had time
 // to complete Live's async analysis.
@@ -957,6 +1072,57 @@ function fixWarpMarkers(presetIdx, offset) {
         for (var c = 0; c < chopList.length; c++) {
             var chop = chopList[c];
             if (chop.disabled) continue;
+            if (chop.fullVocal) {
+                // Full vocal: write taste's cleaned per-bar grid into the clip.
+                // Done in this deferred pass so Live has finished its own
+                // analysis first (otherwise the markers don't stick).
+                var fvSlot = offset + (chop.column - 1);
+                var fvPath = trackPath + " clip_slots " + fvSlot;
+                try {
+                    var fvCs = new LiveAPI(fvPath);
+                    if (fvCs.get("has_clip").toString() === "1") {
+                        var fvClip = new LiveAPI(fvPath + " clip");
+                        if (fvClip && fvClip.id !== "0") {
+                            var nWrote = writeVocalWarpGrid(fvClip, chop.warpGrid);
+                            post("  " + stem + ": wrote " + nWrote + " vocal warp markers\n");
+                            // Restore the user's region. PREFER the exact beats
+                            // captured at save time (grid-independent — a chop
+                            // comes back identical). Fall back to the lossy
+                            // seconds→grid reprojection only for legacy chops
+                            // saved before beat capture existed.
+                            if (chop.startMarkerBeat !== undefined && chop.startMarkerBeat !== null) {
+                                var lsB = (chop.loopStartBeat !== undefined && chop.loopStartBeat !== null) ? chop.loopStartBeat : chop.startMarkerBeat;
+                                var leB = (chop.loopEndBeat !== undefined && chop.loopEndBeat !== null) ? chop.loopEndBeat : chop.endMarkerBeat;
+                                try {
+                                    // Enable looping so the region repeats, then set
+                                    // markers in a clamp-safe order: push end_marker
+                                    // out first (so loop/start can move freely),
+                                    // then the loop, then the start. Region == loop.
+                                    fvClip.set("looping", 1);
+                                    fvClip.set("end_marker", chop.endMarkerBeat);
+                                    fvClip.set("loop_end", leB);
+                                    fvClip.set("loop_start", lsB);
+                                    fvClip.set("start_marker", chop.startMarkerBeat);
+                                    post("  " + stem + " col " + chop.column + ": region beats " +
+                                         chop.startMarkerBeat.toFixed(2) + "-" + chop.endMarkerBeat.toFixed(2) + " looping (exact)\n");
+                                } catch (e) { post("  " + stem + ": region marker error: " + e + "\n"); }
+                            } else if (chop.clipLength > 0 && chop.warpGrid && chop.warpGrid.length) {
+                                var rb0 = secToBeatGrid(chop.warpGrid, chop.clipStart);
+                                var rb1 = secToBeatGrid(chop.warpGrid, chop.clipStart + chop.clipLength);
+                                try {
+                                    fvClip.set("start_marker", rb0);
+                                    fvClip.set("loop_start", rb0);
+                                    fvClip.set("end_marker", rb1);
+                                    fvClip.set("loop_end", rb1);
+                                    post("  " + stem + " col " + chop.column + ": region beats " +
+                                         rb0.toFixed(1) + "-" + rb1.toFixed(1) + " (legacy grid)\n");
+                                } catch (e) { post("  " + stem + ": region marker error: " + e + "\n"); }
+                            }
+                        }
+                    }
+                } catch (e) { post("  " + stem + ": vocal grid error: " + e + "\n"); }
+                continue;
+            }
 
             var beatCount = chopBeatCount(chop, trackBpm);
             if (beatCount <= 0) {
@@ -1063,6 +1229,7 @@ function fixWarpMarkersOnTracks(presetIdx, offset, trackIdMap) {
         for (var c = 0; c < chopList.length; c++) {
             var chop = chopList[c];
             if (chop.disabled) continue;
+            if (chop.fullVocal) continue; // .asd owns the grid — never re-warp
 
             var beatCount = chopBeatCount(chop, trackBpm);
             if (beatCount <= 0) {
@@ -2270,6 +2437,7 @@ function fixWarpMarkersForStem(stem, presetIdx, offset, trackPath) {
     for (var c = 0; c < chopList.length; c++) {
         var chop = chopList[c];
         if (chop.disabled) continue;
+        if (chop.fullVocal) continue; // .asd owns the grid — never re-warp
 
         var beatCount = chopBeatCount(chop, trackBpm);
         if (beatCount <= 0) {
@@ -2844,10 +3012,18 @@ function handleMessage(msg, args) {
         if (args.length > 0) loadSet(args[0]);
         else post("setforge-loader: load requires a path\n");
     } else if (msg === "reload") {
-        if (setData) {
+        // Re-READ the saved set from disk (not just re-populate from memory),
+        // so reload restores exactly what was last saved. Falls back to an
+        // in-memory repopulate only if no saved path is known.
+        var reloadPath = loadLastSetPath();
+        if (reloadPath) {
+            loadSet(reloadPath);
+        } else if (setData) {
             populateBanks();
             updateAllPadColors();
             updateStatus();
+        } else {
+            post("setforge-loader: reload — no saved set path; use 'load <path>'\n");
         }
     } else if (msg === "eject") {
         initPresetBanks();
@@ -3170,9 +3346,24 @@ function syncPresetClips(preset, mTrack, offset, trackIds) {
                     mc.start_sec = startSec;
                     mc.length_sec = lengthSec;
                     if (mc.loop_start_sec !== undefined) {
-                        mc.loop_start_sec = 0;
-                        mc.loop_end_sec = lengthSec;
+                        // PRESERVE the within-WAV offset (materialized chops are
+                        // padded; the real loop starts `startSec` into the WAV).
+                        // Zeroing this (the old behavior) made reload loop from
+                        // the WAV start (the pad) → every chop a bar early.
+                        // Verified: pristine = 2.81s, sync was overwriting → 0.
+                        mc.loop_start_sec = startSec;
+                        mc.loop_end_sec = startSec + lengthSec;
                     }
+
+                    // Beats-faithful region capture: store the EXACT Live
+                    // marker/loop beats. Reload restores these directly, so a
+                    // region the user sets comes back identical — no lossy
+                    // sec↔beat reprojection through the warp grid (the cause of
+                    // vocal regions shifting / clamping to bar 1 on reload).
+                    mc.start_marker_beat = startMarker;
+                    mc.end_marker_beat = endMarker;
+                    mc.loop_start_beat = loopStart;
+                    mc.loop_end_beat = loopEnd;
 
                     // Update in-memory preset chops too
                     if (presetChops && presetChops[c]) {

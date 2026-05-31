@@ -211,6 +211,16 @@ def main():
 
     os.makedirs(output_dir, exist_ok=True)
 
+    print("=" * 72)
+    print("WARNING: this bridge does NOT deliver taste's vocal warp grid.")
+    print("  It points vox at the raw stem (no co-located .asd), so Ableton")
+    print("  auto-analyzes the vocal and long sections DRIFT. For the")
+    print("  full-vocal workflow (vox loaded as one .asd-warped clip), generate")
+    print("  the set with taste instead:")
+    print("    python -m taste.cli export-ableton --set <name> --out <dir>")
+    print("  then load <dir>/<name>.set.json in setforge-loader.")
+    print("=" * 72)
+
     print(f"Converting taste data from {setlist_dir}...")
     tracks, set_assignments, deck_tracks = load_taste_data(setlist_dir)
     print(f"  Found {len(tracks)} unique tracks")
