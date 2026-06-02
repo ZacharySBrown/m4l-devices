@@ -211,44 +211,58 @@ describe('full-vocal: writeVocalWarpGrid (LOM marker writes)', () => {
   let env;
   beforeEach(() => { env = createRecordingEnv(); loadCtx(env); });
 
-  function recordingClip(markers) {
+  // Records adds + removes in call order. sampleLength=0 disables the tail guard.
+  function recordingClip(markers, removes, sampleLength) {
     return {
       id: "1",
-      call: function(method, d) {
-        if (method === 'add_warp_marker') {
-          markers.push([d.get('beat_time'), d.get('sample_time')]);
-        }
+      get: function(prop) { if (prop === 'sample_length') return sampleLength || 0; return ""; },
+      call: function(method, a) {
+        if (method === 'add_warp_marker') markers.push([a.get('beat_time'), a.get('sample_time')]);
+        else if (method === 'remove_warp_marker' && removes) removes.push(a);
       }
     };
   }
 
-  it('issues one add_warp_marker per grid anchor, in order, with (beat,sec) intact', () => {
+  it('beat-0 fix: adds beats>=4 first, then removes [0] default and re-adds beat 0 at its sec', () => {
     const grid = [[0, 0.36], [4, 2.81], [8, 5.26], [12, 7.72]];
-    const got = [];
-    const n = env._writeVocalWarpGrid(recordingClip(got), grid);
+    const got = [], removed = [];
+    const n = env._writeVocalWarpGrid(recordingClip(got, removed, 0), grid);
     expect(n).to.equal(4);
-    expect(got).to.deep.equal(grid);          // beat_time + sample_time(seconds) preserved
+    // beats >=4 added in order FIRST, beat 0 added LAST (after the remove)
+    expect(got).to.deep.equal([[4, 2.81], [8, 5.26], [12, 7.72], [0, 0.36]]);
+    // the [0,0] default was removed exactly once (beat 0)
+    expect(removed).to.deep.equal([0]);
   });
 
   it('returns 0 and writes nothing for an empty/missing grid', () => {
     const got = [];
-    expect(env._writeVocalWarpGrid(recordingClip(got), [])).to.equal(0);
-    expect(env._writeVocalWarpGrid(recordingClip(got), null)).to.equal(0);
+    expect(env._writeVocalWarpGrid(recordingClip(got, [], 0), [])).to.equal(0);
+    expect(env._writeVocalWarpGrid(recordingClip(got, [], 0), null)).to.equal(0);
     expect(got).to.have.length(0);
   });
 
-  it('skips a marker whose beat already exists (collision) and counts the rest', () => {
-    const grid = [[0, 0.36], [4, 2.81], [8, 5.26]];
+  it('tail guard: never writes a marker whose sample_time exceeds clip audio length', () => {
+    // sample_length 220500 frames / 44100 = 5.0s. Markers at 5.26 and 7.72 must be dropped.
+    const grid = [[0, 0.36], [4, 2.81], [8, 5.26], [12, 7.72]];
+    const got = [], removed = [];
+    const n = env._writeVocalWarpGrid(recordingClip(got, removed, 220500), grid);
+    // beat 4 (2.81 < 5.0) added; beats 8 & 12 dropped; beat 0 (0.36) re-added
+    expect(got).to.deep.equal([[4, 2.81], [0, 0.36]]);
+    expect(n).to.equal(2);
+  });
+
+  it('beat-0 re-add survives even if remove throws (no marker there yet)', () => {
+    const grid = [[0, 0.36], [4, 2.81]];
     const got = [];
-    let first = true;
-    const clip = { id: "1", call: function(method, d) {
-      if (method !== 'add_warp_marker') return;
-      if (first && d.get('beat_time') === 0) { first = false; throw new Error('marker exists'); }
-      got.push([d.get('beat_time'), d.get('sample_time')]);
-    }};
+    const clip = { id: "1",
+      get: function() { return 0; },
+      call: function(method, a) {
+        if (method === 'remove_warp_marker') throw new Error('no marker at 0');
+        if (method === 'add_warp_marker') got.push([a.get('beat_time'), a.get('sample_time')]);
+      }};
     const n = env._writeVocalWarpGrid(clip, grid);
-    expect(n).to.equal(2);                     // beat 0 collided (Live's auto marker)
-    expect(got).to.deep.equal([[4, 2.81], [8, 5.26]]);
+    expect(got).to.deep.equal([[4, 2.81], [0, 0.36]]);  // remove failure is caught; re-add still happens
+    expect(n).to.equal(2);
   });
 });
 

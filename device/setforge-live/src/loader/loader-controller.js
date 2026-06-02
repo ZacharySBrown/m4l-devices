@@ -1037,15 +1037,53 @@ function loadClipsForPreset(presetIdx) {
 // caught and skipped. The trailing non-movable "shadow" marker is left alone.
 function writeVocalWarpGrid(clipApi, grid) {
     if (!grid || !grid.length) return 0;
+
+    // Audio-length guard (defensive; taste's reconciled Step-5 cap already
+    // bounds this). Never write a marker whose sample_time exceeds the clip's
+    // audio length — that's what truncated long tracks (e.g. 8051). Materialized
+    // vocal stems are 44.1 kHz. If sample_length is unreadable, skip the guard.
+    var maxSec = null;
+    try {
+        var sl = Number(clipApi.get("sample_length"));
+        if (sl && sl > 0) maxSec = sl / 44100.0;
+    } catch (e) {}
+
+    // Beat-0 fix: Live auto-creates a default warp marker at [beat 0 -> sample 0]
+    // for a warped clip. add_warp_marker(beat=0,...) COLLIDES with it and is
+    // silently skipped, pinning beat 0 to sample 0 and cramming the whole intro
+    // into bar 1 (the "chipmunk intro") on every track. Fix: add beats >= 4
+    // first (no collision), then remove the [0,0] default (now safe — siblings
+    // exist) and re-add beat 0 at its true sample_time. Verified empirically:
+    // sample_time is SECONDS, and remove+re-add round-trips exactly.
     var added = 0;
+    var beat0sec = null;
     for (var g = 0; g < grid.length; g++) {
+        var beat = grid[g][0];
+        var sec = grid[g][1];
+        if (maxSec !== null && sec > maxSec) continue;   // tail guard
+        if (beat === 0 || beat < 0.5) { beat0sec = sec; continue; }  // defer beat 0
         try {
             var d = new Dict();
-            d.set("beat_time", grid[g][0]);
-            d.set("sample_time", grid[g][1]);
+            d.set("beat_time", beat);
+            d.set("sample_time", sec);
             clipApi.call("add_warp_marker", d);
             added++;
-        } catch (e) { /* beat already has a marker (e.g. Live's auto beat-0) — skip */ }
+        } catch (e) { /* beat already has a marker — skip */ }
+    }
+    // Now relocate the beat-0 default to its true position.
+    if (beat0sec !== null && (maxSec === null || beat0sec <= maxSec)) {
+        try { clipApi.call("remove_warp_marker", 0); } catch (e) {}
+        try {
+            var d0 = new Dict();
+            d0.set("beat_time", 0);
+            d0.set("sample_time", beat0sec);
+            clipApi.call("add_warp_marker", d0);
+            added++;
+        } catch (e) {
+            // Fallback: if re-add failed, the default [0,0] may still be there;
+            // leave it rather than end up with no beat-0 marker.
+            post("  writeVocalWarpGrid: beat-0 relocate failed: " + e + "\n");
+        }
     }
     return added;
 }
