@@ -1485,6 +1485,34 @@ var manifest = null;
 var setData = null;
 var manifestFilePath = null;
 
+function resolveManifestPaths(mf, baseDir) {
+    var tracks = mf && mf.tracks ? mf.tracks : (Array.isArray(mf) ? mf : []);
+    var resolved = 0;
+    for (var t = 0; t < tracks.length; t++) {
+        var stems = tracks[t].stems;
+        if (!stems) continue;
+        for (var sn in stems) {
+            if (!stems.hasOwnProperty(sn)) continue;
+            var stem = stems[sn];
+            if (stem.path && stem.path.charAt(0) !== "/") {
+                stem.path = baseDir + stem.path;
+                resolved++;
+            }
+            var chops = stem.chops;
+            if (!chops) continue;
+            for (var c = 0; c < chops.length; c++) {
+                if (chops[c].chop_path && chops[c].chop_path.charAt(0) !== "/") {
+                    chops[c].chop_path = baseDir + chops[c].chop_path;
+                    resolved++;
+                }
+            }
+        }
+    }
+    if (resolved > 0) {
+        post("setforge-loader: resolved " + resolved + " relative paths against " + baseDir + "\n");
+    }
+}
+
 function loadSet(path) {
     post("setforge-loader: loading set from " + path + "\n");
 
@@ -1516,6 +1544,12 @@ function loadSet(path) {
         mFile.close();
         post("setforge-loader: manifest read " + mStr.length + " chars\n");
         manifest = JSON.parse(mStr);
+
+        // Resolve relative paths in the manifest against the set directory.
+        // Manifests can use relative paths (e.g. "29679/drums/drums_0_main.wav")
+        // for portability — Live's create_audio_clip requires absolute paths,
+        // so we resolve them here at load time.
+        resolveManifestPaths(manifest, setDir);
 
         // Always try to init LiveAPI and find/create stem tracks.
         // After autowatch reload, deviceReady is false but LiveAPI still works.

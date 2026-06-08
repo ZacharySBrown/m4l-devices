@@ -324,7 +324,7 @@
 					"outlettype": [
 						""
 					],
-					"text": "load /Users/zak/zacharysbrown/m4l-devices/.claude/worktrees/setforge-live/device/setforge-live/tests/fixtures/manifests/hiphop_v3.set.json"
+					"text": "load /Users/zak/zacharysbrown/m4l-devices/device/setforge-live/tests/fixtures/manifests/hiphop_v3.set.json"
 				}
 			},
 			{
