@@ -14,13 +14,19 @@ import sys
 import json
 from pathlib import Path
 
-# Harness tools must be on PYTHONPATH
+# Resolve bundled tools (repo-local tools/ dir) so no external PYTHONPATH is needed.
+# Falls back to PYTHONPATH for backwards compat with the harness workflow.
+_TOOLS_DIR = str(Path(__file__).resolve().parent.parent.parent.parent / "tools")
+if _TOOLS_DIR not in sys.path:
+    sys.path.insert(0, _TOOLS_DIR)
+
 try:
     from stemforge_bridge import patcher as P, amxd_pack
     from forge_device import verifiers
 except ImportError:
-    print("ERROR: stemforge_bridge not found. Set PYTHONPATH to include harness tools dir.")
-    print("  PYTHONPATH=~/raindog/harness/quickstarts/max-plugin/tools python3 build/build_setforge.py")
+    print("ERROR: stemforge_bridge not found.")
+    print("  Expected at: " + _TOOLS_DIR)
+    print("  Or set PYTHONPATH to include harness tools dir.")
     sys.exit(1)
 
 DEVICE_DIR = Path(__file__).parent.parent
