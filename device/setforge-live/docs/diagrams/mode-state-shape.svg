@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="760" viewBox="0 0 980 760" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="u" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#c9a24a"/>
+    </marker>
+  </defs>
+  <rect x="0" y="0" width="980" height="760" fill="#1a1a1a"/>
+  <text x="30" y="36" fill="#f0f0f0" font-size="22" font-weight="bold">setforge-live — Mode State Shape (data)</text>
+  <text x="30" y="58" fill="#9aa0a6" font-size="13">No single "view" enum. State lives in independent variables, grouped by axis. The 4 view values unify ONLY in the serialized scene "view" field.</text>
+
+  <!-- VIEW-AXIS GROUP -->
+  <rect x="40" y="86" width="420" height="190" rx="10" fill="#1f2738" stroke="#5b86c9" stroke-width="2"/>
+  <text x="60" y="110" fill="#bcd0f0" font-size="15" font-weight="bold">View-axis variables</text>
+
+  <rect x="60" y="124" width="180" height="56" rx="6" fill="#27324a" stroke="#5b86c9"/>
+  <text x="150" y="146" fill="#e8efff" font-size="13" font-weight="bold" text-anchor="middle">viewMode</text>
+  <text x="150" y="166" fill="#9fb6d8" font-size="11" text-anchor="middle">"performance" | "control"</text>
+
+  <rect x="260" y="124" width="180" height="56" rx="6" fill="#27324a" stroke="#5b86c9"/>
+  <text x="350" y="146" fill="#e8efff" font-size="13" font-weight="bold" text-anchor="middle">performanceView</text>
+  <text x="350" y="166" fill="#9fb6d8" font-size="11" text-anchor="middle">"solo" | "perRow"</text>
+
+  <rect x="60" y="196" width="180" height="56" rx="6" fill="#27324a" stroke="#5b86c9"/>
+  <text x="150" y="218" fill="#e8efff" font-size="13" font-weight="bold" text-anchor="middle">dualSongActive</text>
+  <text x="150" y="238" fill="#9fb6d8" font-size="11" text-anchor="middle">bool (overrides view)</text>
+
+  <rect x="260" y="196" width="180" height="56" rx="6" fill="#27324a" stroke="#5b86c9"/>
+  <text x="350" y="218" fill="#e8efff" font-size="13" font-weight="bold" text-anchor="middle">dualSongLatched</text>
+  <text x="350" y="238" fill="#9fb6d8" font-size="11" text-anchor="middle">bool (peek vs latch)</text>
+
+  <!-- PER-ROW GROUP -->
+  <rect x="500" y="86" width="440" height="190" rx="10" fill="#1f2a1f" stroke="#5fa15f" stroke-width="2"/>
+  <text x="520" y="110" fill="#bfe6bf" font-size="15" font-weight="bold">Per-row variables</text>
+
+  <rect x="520" y="124" width="400" height="68" rx="6" fill="#243524" stroke="#5fa15f"/>
+  <text x="720" y="145" fill="#eafeea" font-size="13" font-weight="bold" text-anchor="middle">rowSources { drums, bass, other, vox }</text>
+  <text x="720" y="165" fill="#a8d6a8" font-size="11" text-anchor="middle">each: null | slot index. Per-stem preset source.</text>
+  <text x="720" y="182" fill="#a8d6a8" font-size="11" text-anchor="middle">read only when performanceView=='perRow'</text>
+
+  <rect x="520" y="206" width="195" height="56" rx="6" fill="#243524" stroke="#5fa15f"/>
+  <text x="617" y="228" fill="#eafeea" font-size="13" font-weight="bold" text-anchor="middle">heldPads</text>
+  <text x="617" y="248" fill="#a8d6a8" font-size="11" text-anchor="middle">'row,col'&#8594;true (rows 1-4)</text>
+
+  <rect x="725" y="206" width="195" height="56" rx="6" fill="#243524" stroke="#5fa15f"/>
+  <text x="822" y="228" fill="#eafeea" font-size="13" font-weight="bold" text-anchor="middle">playingChops</text>
+  <text x="822" y="248" fill="#a8d6a8" font-size="11" text-anchor="middle">per-stem playing column</text>
+
+  <!-- DUAL-SONG GROUP -->
+  <rect x="40" y="296" width="420" height="200" rx="10" fill="#2a1f2a" stroke="#b06ab0" stroke-width="2"/>
+  <text x="60" y="320" fill="#e6bce6" font-size="15" font-weight="bold">Dual-song variables</text>
+
+  <rect x="60" y="334" width="180" height="56" rx="6" fill="#352435" stroke="#b06ab0"/>
+  <text x="150" y="356" fill="#f6e6f6" font-size="13" font-weight="bold" text-anchor="middle">staging</text>
+  <text x="150" y="376" fill="#d6a8d6" font-size="11" text-anchor="middle">{deckX, deckY, stagingHeld}</text>
+
+  <rect x="260" y="334" width="180" height="56" rx="6" fill="#352435" stroke="#b06ab0"/>
+  <text x="350" y="356" fill="#f6e6f6" font-size="13" font-weight="bold" text-anchor="middle">loadedDecks</text>
+  <text x="350" y="376" fill="#d6a8d6" font-size="11" text-anchor="middle">{deckX, deckY}</text>
+
+  <rect x="60" y="406" width="180" height="56" rx="6" fill="#352435" stroke="#b06ab0"/>
+  <text x="150" y="428" fill="#f6e6f6" font-size="13" font-weight="bold" text-anchor="middle">dualSongPlaying</text>
+  <text x="150" y="448" fill="#d6a8d6" font-size="11" text-anchor="middle">{deck_stem &#8594; col}</text>
+
+  <rect x="260" y="406" width="180" height="56" rx="6" fill="#352435" stroke="#b06ab0"/>
+  <text x="350" y="428" fill="#f6e6f6" font-size="13" font-weight="bold" text-anchor="middle">preDualSongView</text>
+  <text x="350" y="448" fill="#d6a8d6" font-size="11" text-anchor="middle">saved performanceView</text>
+
+  <!-- SOLO GROUP -->
+  <rect x="500" y="296" width="440" height="200" rx="10" fill="#2a2620" stroke="#c9a24a" stroke-width="2"/>
+  <text x="520" y="320" fill="#e8d59a" font-size="15" font-weight="bold">Solo / shared variables</text>
+
+  <rect x="520" y="334" width="195" height="56" rx="6" fill="#352f20" stroke="#c9a24a"/>
+  <text x="617" y="356" fill="#fbf0d6" font-size="13" font-weight="bold" text-anchor="middle">activeSlotIndex</text>
+  <text x="617" y="376" fill="#d8c79a" font-size="11" text-anchor="middle">global active preset</text>
+
+  <rect x="725" y="334" width="195" height="56" rx="6" fill="#352f20" stroke="#c9a24a"/>
+  <text x="822" y="356" fill="#fbf0d6" font-size="13" font-weight="bold" text-anchor="middle">activeSlotIndex feeds</text>
+  <text x="822" y="376" fill="#d8c79a" font-size="11" text-anchor="middle">all 4 rows in solo view</text>
+
+  <rect x="520" y="406" width="400" height="68" rx="6" fill="#352f20" stroke="#c9a24a"/>
+  <text x="720" y="427" fill="#fbf0d6" font-size="13" font-weight="bold" text-anchor="middle">modState { HOLD, MUTE, SOLO, REV, STUT, HALF, DBL, KILL }</text>
+  <text x="720" y="447" fill="#d8c79a" font-size="11" text-anchor="middle">8 modifiers, each idle|held|latched.  Only HOLD &amp; SOLO are read on logic paths;</text>
+  <text x="720" y="463" fill="#d8c79a" font-size="11" text-anchor="middle">MUTE/REV/STUT/HALF/DBL/KILL are inert visual-only stubs.</text>
+
+  <!-- UNIFICATION node -->
+  <rect x="300" y="560" width="380" height="86" rx="10" fill="#3a3320" stroke="#e8c14a" stroke-width="2.5"/>
+  <text x="490" y="588" fill="#fbf0d6" font-size="15" font-weight="bold" text-anchor="middle">serialized scene "view" field</text>
+  <text x="490" y="610" fill="#e8d59a" font-size="12" text-anchor="middle">"solo" | "perRow" | "dualSong"</text>
+  <text x="490" y="628" fill="#bfae7a" font-size="11" text-anchor="middle">(never "control" — viewMode is NOT persisted)</text>
+
+  <!-- arrows from the three view-defining vars into the unify node -->
+  <line x1="350" y1="180" x2="430" y2="556" stroke="#c9a24a" stroke-width="1.8" marker-end="url(#u)"/>
+  <line x1="150" y1="252" x2="360" y2="556" stroke="#c9a24a" stroke-width="1.8" marker-end="url(#u)"/>
+  <line x1="720" y1="192" x2="560" y2="556" stroke="#c9a24a" stroke-width="1.8" marker-end="url(#u)"/>
+
+  <text x="490" y="672" fill="#9aa0a6" font-size="11.5" text-anchor="middle">performanceView (solo/perRow) + dualSongActive collapse into one of three values here; rowSources is deep-copied only when perRow.</text>
+  <text x="490" y="690" fill="#9aa0a6" font-size="11.5" text-anchor="middle">This is the ONLY place the otherwise-separate view variables unify into a single field.</text>
+
+  <rect x="40" y="708" width="900" height="40" rx="8" fill="#202020" stroke="#444"/>
+  <text x="55" y="733" fill="#b6bcc2" font-size="11.5">Per catalog &#167;2, &#167;3, &#167;4, &#167;7. viewMode (control) is orthogonal and is never serialized; it cannot be reconstructed from a recalled scene.</text>
+</svg>

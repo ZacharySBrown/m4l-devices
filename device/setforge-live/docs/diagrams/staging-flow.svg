@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="720" viewBox="0 0 980 720" font-family="Helvetica, Arial, sans-serif">
+  <defs>
+    <marker id="amsg" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#cfcfcf"/>
+    </marker>
+    <marker id="aret" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#8fbf8f"/>
+    </marker>
+    <marker id="adef" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L8,3 L0,6 Z" fill="#c9a24a"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="980" height="720" fill="#1a1a1a"/>
+  <text x="30" y="36" fill="#f0f0f0" font-size="22" font-weight="bold">setforge-live — Staging &#8594; Dual-song (sequence)</text>
+  <text x="30" y="58" fill="#9aa0a6" font-size="13">Clip creation is SYNCHRONOUS inside the press handler; only the warp-marker fix (~4s) is deferred.</text>
+
+  <!-- lifelines -->
+  <!-- Performer x=120, Loader x=370, LiveAPI/Clips x=640, Launchpad x=870 -->
+  <g font-size="14" font-weight="bold" text-anchor="middle">
+    <rect x="50" y="80" width="140" height="34" rx="6" fill="#2a3550" stroke="#5b86c9"/>
+    <text x="120" y="103" fill="#e8efff">Performer</text>
+    <rect x="300" y="80" width="140" height="34" rx="6" fill="#2a3550" stroke="#5b86c9"/>
+    <text x="370" y="103" fill="#e8efff">Loader (js)</text>
+    <rect x="560" y="80" width="160" height="34" rx="6" fill="#2a3550" stroke="#5b86c9"/>
+    <text x="640" y="103" fill="#e8efff">LiveAPI / Clips</text>
+    <rect x="800" y="80" width="140" height="34" rx="6" fill="#2a3550" stroke="#5b86c9"/>
+    <text x="870" y="103" fill="#e8efff">Launchpad</text>
+  </g>
+  <g stroke="#4a4a4a" stroke-width="1.5" stroke-dasharray="4 4">
+    <line x1="120" y1="114" x2="120" y2="660"/>
+    <line x1="370" y1="114" x2="370" y2="660"/>
+    <line x1="640" y1="114" x2="640" y2="660"/>
+    <line x1="870" y1="114" x2="870" y2="660"/>
+  </g>
+
+  <!-- 1. hold DECK-SETUP -->
+  <line x1="120" y1="150" x2="366" y2="150" stroke="#cfcfcf" stroke-width="2" marker-end="url(#amsg)"/>
+  <text x="125" y="143" fill="#dfe3e8" font-size="12">hold DECK-SETUP (note 79)</text>
+  <line x1="370" y1="178" x2="866" y2="178" stroke="#cfcfcf" stroke-width="2" marker-end="url(#amsg)"/>
+  <text x="375" y="171" fill="#dfe3e8" font-size="12">queueRgbNote &#8594; button lights SOLID white [127,127,127]</text>
+
+  <!-- 2. tap preset row5/row6 -->
+  <line x1="120" y1="222" x2="366" y2="222" stroke="#cfcfcf" stroke-width="2" marker-end="url(#amsg)"/>
+  <text x="125" y="215" fill="#dfe3e8" font-size="12">tap preset row 5 (deck X) / row 6 (deck Y)</text>
+
+  <!-- self-call onStageDeck activation bar -->
+  <rect x="362" y="240" width="16" height="170" fill="#33405e" stroke="#5b86c9"/>
+  <text x="388" y="256" fill="#bcd0f0" font-size="12" font-weight="bold">onStageDeck(deckX|Y, slot)</text>
+  <text x="388" y="274" fill="#9fb6d8" font-size="11">records staging.deckX/Y + loadedDecks</text>
+
+  <!-- synchronous clip creation -->
+  <line x1="378" y1="300" x2="636" y2="300" stroke="#cfcfcf" stroke-width="2" marker-end="url(#amsg)"/>
+  <text x="390" y="293" fill="#dfe3e8" font-size="12">SYNC: create_audio_clip on sf-{stem}-x / -y tracks</text>
+  <text x="390" y="313" fill="#9aa0a6" font-size="11">(delete old + create every enabled chop; sets warp, loop, launch_quant)</text>
+  <line x1="636" y1="338" x2="382" y2="338" stroke="#8fbf8f" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#aret)"/>
+  <text x="390" y="332" fill="#a8d6a8" font-size="11.5">clips PRE-LOADED now (blocking the handler)</text>
+
+  <!-- deferred warp fix -->
+  <line x1="378" y1="388" x2="636" y2="388" stroke="#c9a24a" stroke-width="2" stroke-dasharray="7 4" marker-end="url(#adef)"/>
+  <text x="390" y="381" fill="#e8d59a" font-size="12">schedule DEFERRED fixWarpMarkersOnTracks  Task.schedule(~4000ms)</text>
+  <text x="390" y="403" fill="#bfae7a" font-size="11">the ONLY async work — warp-marker correction</text>
+
+  <!-- pad flash -->
+  <line x1="370" y1="440" x2="866" y2="440" stroke="#cfcfcf" stroke-width="2" marker-end="url(#amsg)"/>
+  <text x="375" y="433" fill="#dfe3e8" font-size="12">buildFlashSysex &#8594; pad shows two-color FLASH</text>
+  <text x="375" y="455" fill="#9aa0a6" font-size="11">row 5: preset &#8596; WHITE  |  row 6: preset &#8596; SOFT_BLUE</text>
+
+  <!-- 3. double-tap dual-song -->
+  <line x1="120" y1="500" x2="366" y2="500" stroke="#cfcfcf" stroke-width="2" marker-end="url(#amsg)"/>
+  <text x="125" y="493" fill="#dfe3e8" font-size="12">double-tap DUAL-SONG (note 89)</text>
+
+  <rect x="362" y="518" width="16" height="110" fill="#3a2a3a" stroke="#b06ab0"/>
+  <text x="388" y="534" fill="#e8c6e8" font-size="12" font-weight="bold">enterDualSongMode(true)</text>
+  <text x="388" y="552" fill="#d6a8d6" font-size="11">dualSongActive = true; resolves deckX/Y from staging</text>
+
+  <!-- instant flip, no reload -->
+  <line x1="370" y1="588" x2="866" y2="588" stroke="#cfcfcf" stroke-width="2" marker-end="url(#amsg)"/>
+  <text x="375" y="581" fill="#dfe3e8" font-size="12">repaint grid: rows 1-4 = deck X, rows 5-8 = deck Y</text>
+  <text x="375" y="603" fill="#8fbf8f" font-size="11.5">INSTANT flip — NO reload; X/Y tracks already loaded at stage time</text>
+
+  <!-- annotation box -->
+  <rect x="40" y="636" width="900" height="66" rx="8" fill="#202020" stroke="#444"/>
+  <text x="55" y="658" fill="#cfcfcf" font-size="12" font-weight="bold">Key point</text>
+  <text x="55" y="677" fill="#b6bcc2" font-size="11.5">Clip creation (create_audio_clip into the dedicated sf-{stem}-x / sf-{stem}-y tracks) happens SYNCHRONOUSLY in the onStageDeck press handler.</text>
+  <text x="55" y="694" fill="#b6bcc2" font-size="11.5">Only the warp-marker fix is deferred (~4s). Therefore entering dual-song later is an instant view flip, not a load.</text>
+</svg>
