@@ -166,7 +166,7 @@
 								"box": {
 									"id": "plugin-in",
 									"maxclass": "newobj",
-									"numinlets": 1,
+									"numinlets": 2,
 									"numoutlets": 2,
 									"patching_rect": [
 										20,
@@ -178,7 +178,7 @@
 										"signal",
 										"signal"
 									],
-									"text": "plugin~ 2"
+									"text": "plugin~"
 								}
 							},
 							{
@@ -186,14 +186,18 @@
 									"id": "plugout",
 									"maxclass": "newobj",
 									"numinlets": 2,
-									"numoutlets": 0,
+									"numoutlets": 2,
 									"patching_rect": [
 										20,
 										800,
 										80,
 										22
 									],
-									"text": "plugout~ 2"
+									"outlettype": [
+										"signal",
+										"signal"
+									],
+									"text": "plugout~"
 								}
 							},
 							{
@@ -1209,7 +1213,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -1228,7 +1232,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -1247,7 +1251,7 @@
 														""
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -1266,7 +1270,7 @@
 														""
 													],
 													"comment": "",
-													"index": 4
+													"index": 3
 												}
 											},
 											{
@@ -1282,7 +1286,7 @@
 														30
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -1298,7 +1302,7 @@
 														30
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -1630,10 +1634,6 @@
 												}
 											}
 										],
-										"project": {
-											"name": "tl_saturate",
-											"amxdtype": 1633771873
-										},
 										"dependency_cache": [],
 										"autosave": 0
 									},
@@ -1724,7 +1724,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -1743,7 +1743,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -1762,7 +1762,7 @@
 														""
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -1781,7 +1781,7 @@
 														""
 													],
 													"comment": "",
-													"index": 4
+													"index": 3
 												}
 											},
 											{
@@ -1797,7 +1797,7 @@
 														30
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -1813,7 +1813,7 @@
 														30
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -1829,7 +1829,7 @@
 														30
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -2533,10 +2533,6 @@
 												}
 											}
 										],
-										"project": {
-											"name": "tl_model_eq",
-											"amxdtype": 1633771873
-										},
 										"dependency_cache": [],
 										"autosave": 0
 									},
@@ -2626,7 +2622,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -2645,7 +2641,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -2664,7 +2660,7 @@
 														""
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -2683,7 +2679,7 @@
 														""
 													],
 													"comment": "",
-													"index": 4
+													"index": 3
 												}
 											},
 											{
@@ -2702,7 +2698,7 @@
 														""
 													],
 													"comment": "",
-													"index": 5
+													"index": 4
 												}
 											},
 											{
@@ -2721,7 +2717,7 @@
 														""
 													],
 													"comment": "",
-													"index": 6
+													"index": 5
 												}
 											},
 											{
@@ -2740,7 +2736,7 @@
 														""
 													],
 													"comment": "",
-													"index": 7
+													"index": 6
 												}
 											},
 											{
@@ -2756,7 +2752,7 @@
 														30
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -2772,7 +2768,7 @@
 														30
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -2791,7 +2787,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 8
+													"index": 7
 												}
 											},
 											{
@@ -3123,10 +3119,6 @@
 												}
 											}
 										],
-										"project": {
-											"name": "tl_failure",
-											"amxdtype": 1633771873
-										},
 										"dependency_cache": [],
 										"autosave": 0
 									},
@@ -3216,7 +3208,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -3235,7 +3227,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -3254,7 +3246,7 @@
 														""
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -3273,7 +3265,7 @@
 														""
 													],
 													"comment": "",
-													"index": 4
+													"index": 3
 												}
 											},
 											{
@@ -3289,7 +3281,7 @@
 														30
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -3305,7 +3297,7 @@
 														30
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -3595,10 +3587,6 @@
 												}
 											}
 										],
-										"project": {
-											"name": "tl_wow",
-											"amxdtype": 1633771873
-										},
 										"dependency_cache": [],
 										"autosave": 0
 									},
@@ -3688,7 +3676,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -3707,7 +3695,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -3726,7 +3714,7 @@
 														""
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -3745,7 +3733,7 @@
 														""
 													],
 													"comment": "",
-													"index": 4
+													"index": 3
 												}
 											},
 											{
@@ -3761,7 +3749,7 @@
 														30
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -3777,7 +3765,7 @@
 														30
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -4025,10 +4013,6 @@
 												}
 											}
 										],
-										"project": {
-											"name": "tl_flutter",
-											"amxdtype": 1633771873
-										},
 										"dependency_cache": [],
 										"autosave": 0
 									},
@@ -4119,7 +4103,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -4138,7 +4122,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -4157,7 +4141,7 @@
 														""
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -4176,7 +4160,7 @@
 														""
 													],
 													"comment": "",
-													"index": 4
+													"index": 3
 												}
 											},
 											{
@@ -4195,7 +4179,7 @@
 														""
 													],
 													"comment": "",
-													"index": 5
+													"index": 4
 												}
 											},
 											{
@@ -4211,7 +4195,7 @@
 														30
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -4227,7 +4211,7 @@
 														30
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -4243,7 +4227,7 @@
 														30
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -4616,10 +4600,6 @@
 												}
 											}
 										],
-										"project": {
-											"name": "tl_aux",
-											"amxdtype": 1633771873
-										},
 										"dependency_cache": [],
 										"autosave": 0
 									},
@@ -4709,7 +4689,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -4728,7 +4708,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -4747,7 +4727,7 @@
 														""
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -4766,7 +4746,7 @@
 														""
 													],
 													"comment": "",
-													"index": 4
+													"index": 3
 												}
 											},
 											{
@@ -4782,7 +4762,7 @@
 														30
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -4798,7 +4778,7 @@
 														30
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -5167,10 +5147,6 @@
 												}
 											}
 										],
-										"project": {
-											"name": "tl_volume_mix",
-											"amxdtype": 1633771873
-										},
 										"dependency_cache": [],
 										"autosave": 0
 									},
@@ -5260,7 +5236,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -5279,7 +5255,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -5298,7 +5274,7 @@
 														""
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -5314,7 +5290,7 @@
 														30
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -5330,7 +5306,7 @@
 														30
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -5349,7 +5325,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 4
+													"index": 3
 												}
 											},
 											{
@@ -5368,7 +5344,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 5
+													"index": 4
 												}
 											},
 											{
@@ -5806,10 +5782,6 @@
 												}
 											}
 										],
-										"project": {
-											"name": "tl_dry_mix",
-											"amxdtype": 1633771873
-										},
 										"dependency_cache": [],
 										"autosave": 0
 									},
@@ -5899,7 +5871,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -5918,7 +5890,7 @@
 														"signal"
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -5937,7 +5909,7 @@
 														""
 													],
 													"comment": "",
-													"index": 3
+													"index": 2
 												}
 											},
 											{
@@ -5956,7 +5928,7 @@
 														""
 													],
 													"comment": "",
-													"index": 4
+													"index": 3
 												}
 											},
 											{
@@ -5975,7 +5947,7 @@
 														""
 													],
 													"comment": "",
-													"index": 5
+													"index": 4
 												}
 											},
 											{
@@ -5994,7 +5966,7 @@
 														""
 													],
 													"comment": "",
-													"index": 6
+													"index": 5
 												}
 											},
 											{
@@ -6010,7 +5982,7 @@
 														30
 													],
 													"comment": "",
-													"index": 1
+													"index": 0
 												}
 											},
 											{
@@ -6026,7 +5998,7 @@
 														30
 													],
 													"comment": "",
-													"index": 2
+													"index": 1
 												}
 											},
 											{
@@ -6442,10 +6414,6 @@
 												}
 											}
 										],
-										"project": {
-											"name": "tl_noise",
-											"amxdtype": 1633771873
-										},
 										"dependency_cache": [],
 										"autosave": 0
 									},
@@ -7178,8 +7146,32 @@
 							}
 						],
 						"project": {
-							"name": "tape-loss",
-							"amxdtype": 1633771873
+							"version": 1,
+							"creationdate": 0,
+							"modificationdate": 0,
+							"viewrect": [
+								0.0,
+								0.0,
+								300.0,
+								500.0
+							],
+							"autoorganize": 1,
+							"hideprojectwindow": 1,
+							"showdependencies": 1,
+							"autolocalize": 0,
+							"contents": {
+								"patchers": {}
+							},
+							"layout": {},
+							"searchpath": {},
+							"detailsvisible": 0,
+							"amxdtype": 1633771873,
+							"readonly": 0,
+							"devpathtype": 0,
+							"devpath": ".",
+							"sortmode": 0,
+							"viewmode": 0,
+							"name": "tape-loss"
 						},
 						"dependency_cache": [],
 						"autosave": 0
@@ -7358,8 +7350,32 @@
 			}
 		],
 		"project": {
-			"name": "tape-loss-debug",
-			"amxdtype": 1633771873
+			"version": 1,
+			"creationdate": 0,
+			"modificationdate": 0,
+			"viewrect": [
+				0.0,
+				0.0,
+				300.0,
+				500.0
+			],
+			"autoorganize": 1,
+			"hideprojectwindow": 1,
+			"showdependencies": 1,
+			"autolocalize": 0,
+			"contents": {
+				"patchers": {}
+			},
+			"layout": {},
+			"searchpath": {},
+			"detailsvisible": 0,
+			"amxdtype": 1633771873,
+			"readonly": 0,
+			"devpathtype": 0,
+			"devpath": ".",
+			"sortmode": 0,
+			"viewmode": 0,
+			"name": "tape-loss-debug"
 		},
 		"dependency_cache": [],
 		"autosave": 0

@@ -61,7 +61,7 @@
 						"signal"
 					],
 					"comment": "",
-					"index": 1
+					"index": 0
 				}
 			},
 			{
@@ -80,7 +80,7 @@
 						"signal"
 					],
 					"comment": "",
-					"index": 2
+					"index": 1
 				}
 			},
 			{
@@ -99,7 +99,7 @@
 						""
 					],
 					"comment": "",
-					"index": 3
+					"index": 2
 				}
 			},
 			{
@@ -118,7 +118,7 @@
 						""
 					],
 					"comment": "",
-					"index": 4
+					"index": 3
 				}
 			},
 			{
@@ -137,7 +137,7 @@
 						""
 					],
 					"comment": "",
-					"index": 5
+					"index": 4
 				}
 			},
 			{
@@ -156,7 +156,7 @@
 						""
 					],
 					"comment": "",
-					"index": 6
+					"index": 5
 				}
 			},
 			{
@@ -172,7 +172,7 @@
 						30
 					],
 					"comment": "",
-					"index": 1
+					"index": 0
 				}
 			},
 			{
@@ -188,7 +188,7 @@
 						30
 					],
 					"comment": "",
-					"index": 2
+					"index": 1
 				}
 			},
 			{
@@ -604,10 +604,6 @@
 				}
 			}
 		],
-		"project": {
-			"name": "tl_noise",
-			"amxdtype": 1633771873
-		},
 		"dependency_cache": [],
 		"autosave": 0
 	}

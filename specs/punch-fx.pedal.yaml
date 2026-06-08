@@ -1,0 +1,191 @@
+# punch-fx.pedal.yaml
+#
+# Structured DSL extracted from punch-fx-spec.md
+# Conformant to harness/quickstarts/max-plugin/specs/templates/pedal.schema.yaml
+#
+# Run:  PYTHONPATH=$HARNESS_TOOLS python3 -m forge_device analyze specs/punch-fx.pedal.yaml --repo-root .
+
+device:
+  name: punch-fx
+  display_name: Punch FX
+  class: audio_effect
+  io: stereo
+  size: { width: 600, height: 220 }
+  emulates:
+    brand: Teenage Engineering
+    model: EP-133 K.O. II Punch-In FX
+    year: 2023
+    reference_links:
+      - https://teenage.engineering/guides/ep-133/effects
+
+# ----------------------------------------------------------------------
+# Parameters — 21 total
+
+parameters:
+  # Performance triggers (4)
+  - { name: br_on,       type: bool,  range: [0, 1], default: 0, short_name: "BR On",   description: "Beat Repeat momentary trigger" }
+  - { name: st_on,       type: bool,  range: [0, 1], default: 0, short_name: "ST On",   description: "Stutter momentary trigger" }
+  - { name: ms_on,       type: bool,  range: [0, 1], default: 0, short_name: "MS On",   description: "Mute Slicer momentary trigger" }
+  - { name: od_on,       type: bool,  range: [0, 1], default: 0, short_name: "OD On",   description: "Octave Down momentary trigger" }
+
+  # Performance pressure (4)
+  - { name: br_pressure, type: float, range: [0.0, 1.0], default: 0.0, short_name: "BR Pres", description: "Beat Repeat pressure (0=long loop, 1=buzz)" }
+  - { name: st_pressure, type: float, range: [0.0, 1.0], default: 0.0, short_name: "ST Pres", description: "Stutter pressure (0=clean, 1=chaos)" }
+  - { name: ms_pressure, type: float, range: [0.0, 1.0], default: 0.0, short_name: "MS Pres", description: "Mute Slicer pressure (0=slow gate, 1=fast)" }
+  - { name: od_pressure, type: float, range: [0.0, 1.0], default: 0.0, short_name: "OD Pres", description: "Octave Down pressure (0=unison, 1=octave down)" }
+
+  # Global
+  - { name: pressure_source, type: enum, range: [0, 1], default: 0, enum_values: ["aftertouch", "velocity"], short_name: "P.Src", description: "Global pressure input mode" }
+  - { name: master_wet,      type: float, range: [0.0, 1.0], default: 1.0, short_name: "Wet", description: "Final dry/wet for whole device" }
+
+  # Character — Beat Repeat
+  - { name: br_curve,      type: enum,  range: [0, 2], default: 1, enum_values: ["linear", "exp", "s-curve"], short_name: "BR Crv", description: "Beat Repeat pressure response curve" }
+  - { name: br_min_length, type: enum,  range: [0, 3], default: 0, enum_values: ["1/32", "1/24", "1/16", "1/8"], short_name: "BR Min", description: "Tightest repeat division at full pressure" }
+  - { name: br_max_length, type: enum,  range: [0, 3], default: 2, enum_values: ["1/8", "1/4", "1/2", "1"], short_name: "BR Max", description: "Longest repeat division at zero pressure" }
+
+  # Character — Stutter
+  - { name: st_slice_length, type: float, range: [20.0, 150.0], default: 50.0, unit: "ms", short_name: "ST Len", description: "Fixed slice length for stutter" }
+  - { name: st_jitter_curve, type: enum,  range: [0, 1], default: 1, enum_values: ["linear", "exp"], short_name: "ST Jit", description: "Stutter jitter pressure response" }
+
+  # Character — Mute Slicer
+  - { name: ms_min_rate, type: enum, range: [0, 2], default: 1, enum_values: ["1/8", "1/4", "1/2"],  short_name: "MS Min", description: "Slowest gate division at zero pressure" }
+  - { name: ms_max_rate, type: enum, range: [0, 2], default: 2, enum_values: ["1/32", "1/16", "1/8"], short_name: "MS Max", description: "Fastest gate division at full pressure" }
+  - { name: ms_shape,    type: enum, range: [0, 1], default: 0, enum_values: ["hard", "soft"],        short_name: "MS Shp", description: "Gate edge shape" }
+
+  # Character — Octave Down
+  - { name: od_mode,       type: enum,  range: [0, 1], default: 0, enum_values: ["tempo-preserve", "varispeed"], short_name: "OD Mod", description: "Pitch shift method" }
+  - { name: od_curve,      type: enum,  range: [0, 2], default: 1, enum_values: ["linear", "exp", "s-curve"],    short_name: "OD Crv", description: "Octave Down pressure response" }
+  - { name: od_grain_size, type: float, range: [10.0, 200.0], default: 50.0, unit: "ms", short_name: "OD Grn", description: "Grain size for tempo-preserve mode" }
+
+# ----------------------------------------------------------------------
+# Signal chain — fixed order per spec §1.1
+
+signal_chain:
+  - pf_beat_repeat
+  - pf_stutter
+  - pf_mute_slicer
+  - pf_octave_down
+  - pf_output_mix
+
+# ----------------------------------------------------------------------
+# Modules
+
+modules:
+  pf_beat_repeat:
+    type: dsp
+    references_params: [br_on, br_pressure, br_curve, br_min_length, br_max_length]
+    sandbox_status: SANDBOX-OK
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/pf-beat-repeat-design.md
+      python_reference: dsp/reference/pf_beat_repeat.py
+      sample_rate_dependent: true
+
+  pf_stutter:
+    type: dsp
+    references_params: [st_on, st_pressure, st_slice_length, st_jitter_curve]
+    sandbox_status: SANDBOX-OK
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/pf-stutter-design.md
+      python_reference: dsp/reference/pf_stutter.py
+      sample_rate_dependent: true
+
+  pf_mute_slicer:
+    type: dsp
+    references_params: [ms_on, ms_pressure, ms_min_rate, ms_max_rate, ms_shape]
+    sandbox_status: SANDBOX-OK
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/pf-mute-slicer-design.md
+      python_reference: dsp/reference/pf_mute_slicer.py
+      sample_rate_dependent: true
+
+  pf_octave_down:
+    type: dsp
+    references_params: [od_on, od_pressure, od_mode, od_curve, od_grain_size]
+    sandbox_status: SANDBOX-PARTIAL
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/pf-octave-down-design.md
+      python_reference: dsp/reference/pf_octave_down.py
+      sample_rate_dependent: true
+
+  pf_output_mix:
+    type: dsp
+    references_params: [master_wet]
+    sandbox_status: SANDBOX-OK
+    dsp:
+      kind: custom
+      reference_doc: docs/design-docs/dsp/pf-output-mix-design.md
+      python_reference: dsp/reference/pf_output_mix.py
+      sample_rate_dependent: false
+
+# ----------------------------------------------------------------------
+# Reference behavior
+
+reference:
+  description: |
+    Pressure-sensitive punch-in performance effects inspired by the
+    Teenage Engineering EP-133 K.O. II. Four effects in series: Beat
+    Repeat (tempo-synced buffer loop), Stutter (short chaotic retrigger),
+    Mute Slicer (rhythmic amplitude gate), Octave Down (granular or
+    varispeed pitch drop). Each driven by a momentary trigger + continuous
+    pressure value. Should feel snappy and gestural — instant on, soft
+    release, exp curves for expression. CPU < 5% on M1 at 48kHz/64-sample.
+  audio_examples: []
+  measurement_data: []
+
+# ----------------------------------------------------------------------
+# Distribution
+
+distribution:
+  format: amxd
+  package_id: com.zacharysbrown.m4l-devices.punch-fx
+
+# ----------------------------------------------------------------------
+# Manual steps
+
+manual_steps:
+  - step: Drop punch-fx.amxd onto an audio track in Ableton Live
+    estimate_seconds: 10
+    why_manual: "LiveAPI cannot programmatically add a M4L device to a chain"
+    automate_when: null
+    blocks_phase: build
+
+  - step: Open standalone debug.maxpat in Max IDE; verify zero console errors
+    estimate_seconds: 10
+    why_manual: "Max IDE required to verify subpatch wiring before Ableton load"
+    automate_when: "When forge-telemetry render lands"
+    blocks_phase: build
+
+  - step: Play test audio through device; confirm no crashes / clicks
+    estimate_seconds: 30
+    why_manual: "Audio quality requires human ear for tuning"
+    automate_when: "Partially via golden-render regression"
+    blocks_phase: test
+
+  - step: MIDI-map all 8 performance params to controller; verify pressure response
+    estimate_seconds: 60
+    why_manual: "Requires physical MIDI controller + manual feel check"
+    automate_when: null
+    blocks_phase: test
+
+# ----------------------------------------------------------------------
+# Verifiers
+
+verifiers:
+  enabled: all
+
+# ----------------------------------------------------------------------
+# Telemetry
+
+telemetry:
+  udp_bus_port: 7432
+  udp_dump_port: 7433
+  log_path: ~/m4l-devices/punch-fx/logs/punch-fx_debug.log
+  canned_states:
+    idle: { kind: idle }
+    br_active: { kind: active, effect: beat_repeat }
+    all_active: { kind: active, effect: all }
+    bypass: { kind: bypass }

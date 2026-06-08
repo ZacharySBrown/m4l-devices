@@ -113,34 +113,33 @@ def _mk_module_skeleton(name: str, *, num_param_inlets: int = 0,
                         num_extra_outlets: int = 0) -> tuple[dict, list, list, dict]:
     """Returns (patcher, boxes, lines, ids). Sets up the standard
     L/R audio inlets + outlets and the requested param/extra ports."""
-    p = P.empty_patcher(width=400, height=300)
-    p["patcher"]["project"]["name"] = name
+    p = P.empty_patcher(width=400, height=300, is_root=False)
     boxes = p["patcher"]["boxes"]
     lines = p["patcher"]["lines"]
     ids: dict[str, str] = {}
 
-    # Audio inlets (L=index 1, R=index 2 in Max's 1-based convention)
-    boxes.append(inlet_box(f"{name}-in-L", 1, (40, 20, 30, 30), signal=True))
-    boxes.append(inlet_box(f"{name}-in-R", 2, (90, 20, 30, 30), signal=True))
+    # Audio inlets (L=index 0, R=index 1 — 0-based, matches lines[] refs)
+    boxes.append(inlet_box(f"{name}-in-L", 0, (40, 20, 30, 30), signal=True))
+    boxes.append(inlet_box(f"{name}-in-R", 1, (90, 20, 30, 30), signal=True))
     ids["in_L"] = f"{name}-in-L"
     ids["in_R"] = f"{name}-in-R"
 
-    # Param inlets (control-rate, indices 3+)
+    # Param inlets (control-rate, indices 2+)
     for i in range(num_param_inlets):
         oid = f"{name}-pin-{i}"
-        boxes.append(inlet_box(oid, 3 + i, (140 + 50 * i, 20, 30, 30), signal=False))
+        boxes.append(inlet_box(oid, 2 + i, (140 + 50 * i, 20, 30, 30), signal=False))
         ids[f"param_{i}"] = oid
 
-    # Audio outlets (L=index 1, R=index 2)
-    boxes.append(outlet_box(f"{name}-out-L", 1, (40, 260, 30, 30), signal=True))
-    boxes.append(outlet_box(f"{name}-out-R", 2, (90, 260, 30, 30), signal=True))
+    # Audio outlets (L=index 0, R=index 1)
+    boxes.append(outlet_box(f"{name}-out-L", 0, (40, 260, 30, 30), signal=True))
+    boxes.append(outlet_box(f"{name}-out-R", 1, (90, 260, 30, 30), signal=True))
     ids["out_L"] = f"{name}-out-L"
     ids["out_R"] = f"{name}-out-R"
 
-    # Extra outlets (e.g., tl_aux outlet 3 = failure_override)
+    # Extra outlets (e.g., tl_aux outlet 2 = failure_override)
     for i in range(num_extra_outlets):
         oid = f"{name}-eout-{i}"
-        boxes.append(outlet_box(oid, 3 + i, (140 + 50 * i, 260, 30, 30), signal=True))
+        boxes.append(outlet_box(oid, 2 + i, (140 + 50 * i, 260, 30, 30), signal=True))
         ids[f"extra_{i}"] = oid
 
     return p, boxes, lines, ids
@@ -284,9 +283,9 @@ def build_tl_failure() -> dict:
     )
 
     # Add the 4th-inlet contract: failure_override (signal-rate from tl_aux).
-    # This is inlet index 3+5 = 8. We add a signal inlet for it.
+    # 0-based index 7 = audio L/R (0,1) + 5 param inlets (2..6) + this (7).
     fov_id = f"{name}-in-fov"
-    boxes.append(inlet_box(fov_id, 8, (440, 20, 30, 30), signal=True))
+    boxes.append(inlet_box(fov_id, 7, (440, 20, 30, 30), signal=True))
     ids["failure_override"] = fov_id
 
     # gen~ codebox encapsulating the whole 4-sub-engine pipeline + the
@@ -556,13 +555,11 @@ def build_tl_dry_mix() -> dict:
     p, boxes, lines, ids = _mk_module_skeleton(
         name, num_param_inlets=1,  # dry_mode
     )
-    # Add dry inlets (signal) at indices 4, 5 — sequential after the
-    # 3 prior inlets (in-L=1, in-R=2, pin-0=dry_mode=3). Earlier code used
-    # 5, 6 which created a gap at index 4 → parent's wire to subpatcher
-    # inlet 4 landed correctly but its wire to inlet 5 went OOR.
+    # Add dry inlets (signal) at indices 3, 4 — sequential after the
+    # 3 prior inlets (in-L=0, in-R=1, pin-0=dry_mode=2). 0-based.
     for i, ch in enumerate(("L", "R")):
         dry_id = f"{name}-dry-in-{ch}"
-        boxes.append(inlet_box(dry_id, 4 + i, (200 + 50 * i, 20, 30, 30), signal=True))
+        boxes.append(inlet_box(dry_id, 3 + i, (200 + 50 * i, 20, 30, 30), signal=True))
         ids[f"dry_in_{ch}"] = dry_id
 
     # Per-mode gain table: NONE=0, SMALL=0.3981 (-8dB), UNITY=1.0
@@ -1172,18 +1169,20 @@ def main():
                 # so we filter that verifier out for module subpatches.
                 # But the verifier still runs — we just classify it.
                 effective_pass = r.passed
-                if r.verifier == "plugin_pair_required":
-                    # Subpatches legitimately don't have plugin~/plugout~ —
-                    # they have [inlet]/[outlet]. This is expected; we mark
-                    # it as N/A for module subpatches.
+                # Verifiers that legitimately don't apply to module subpatches:
+                # - plugin_pair_required: subpatches use inlet/outlet, not plugin~/plugout~
+                # - project_field_present, project_searchpath_present: canonical M4L
+                #   subpatchers have no `project` block (only the root does)
+                if r.verifier in ("plugin_pair_required",
+                                  "project_field_present",
+                                  "project_searchpath_present"):
                     audit.emit(f"verifier.{r.verifier}", phase="verify",
                                module=mname, verifier=r.verifier,
                                pitfall=r.pitfall,
                                pass_=True,  # N/A for subpatches
-                               detail=f"n/a for subpatcher (uses inlet~/outlet~ instead): {r.detail}",
+                               detail=f"n/a for subpatcher: {r.detail}",
                                nominal_result=r.passed)
-                    if effective_pass or True:  # subpatchers exempt
-                        verifier_pass += 1
+                    verifier_pass += 1
                 else:
                     audit.emit(f"verifier.{r.verifier}", phase="verify",
                                module=mname, verifier=r.verifier,
