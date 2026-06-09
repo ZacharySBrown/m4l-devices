@@ -254,10 +254,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						10,
-						80,
-						20
+						8,
+						8,
+						70,
+						22
 					],
 					"varname": "arr_browse",
 					"saved_attribute_attributes": {
@@ -291,10 +291,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						100,
-						10,
-						60,
-						20
+						86,
+						8,
+						70,
+						22
 					],
 					"varname": "arr_load",
 					"saved_attribute_attributes": {
@@ -346,10 +346,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						170,
-						10,
-						80,
-						20
+						164,
+						8,
+						70,
+						22
 					],
 					"varname": "arr_export",
 					"saved_attribute_attributes": {
@@ -401,10 +401,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						260,
-						10,
+						242,
+						8,
 						70,
-						20
+						22
 					],
 					"varname": "arr_reanchor",
 					"saved_attribute_attributes": {
@@ -417,43 +417,6 @@
 					"text": "Re-anchor",
 					"texton": "Re-anchor",
 					"textoff": "Re-anchor",
-					"mode": 0
-				}
-			},
-			{
-				"box": {
-					"id": "shift-input-arr",
-					"maxclass": "live.text",
-					"numinlets": 1,
-					"numoutlets": 2,
-					"patching_rect": [
-						350,
-						130,
-						40,
-						22
-					],
-					"outlettype": [
-						"",
-						""
-					],
-					"presentation": 1,
-					"presentation_rect": [
-						335,
-						10,
-						55,
-						20
-					],
-					"varname": "arr_shift",
-					"saved_attribute_attributes": {
-						"valueof": {
-							"parameter_longname": "arr_shift",
-							"parameter_shortname": "shift",
-							"parameter_type": 1
-						}
-					},
-					"text": "0",
-					"texton": "0",
-					"textoff": "0",
 					"mode": 0
 				}
 			},
@@ -493,10 +456,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						95,
-						60,
-						20
+						8,
+						96,
+						70,
+						22
 					],
 					"varname": "arr_eject",
 					"saved_attribute_attributes": {
@@ -544,13 +507,13 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						35,
+						8,
+						38,
 						380,
-						16
+						14
 					],
 					"text": "manifest: (none)",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			},
 			{
@@ -567,13 +530,13 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						52,
+						8,
+						54,
 						380,
-						16
+						14
 					],
 					"text": "bpm: --",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			},
 			{
@@ -590,13 +553,13 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						69,
+						8,
+						70,
 						380,
-						16
+						14
 					],
 					"text": "clips: 0",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			},
 			{
@@ -613,13 +576,13 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
+						8,
+						148,
 						200,
-						95,
-						190,
-						18
+						14
 					],
 					"text": "setforge-arranger",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			}
 		],

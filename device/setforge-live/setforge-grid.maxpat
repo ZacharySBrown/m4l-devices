@@ -37,7 +37,7 @@
 		"boxanimatetime": 200,
 		"enablehscroll": 1,
 		"enablevscroll": 1,
-		"devicewidth": 400.0,
+		"devicewidth": 300.0,
 		"description": "",
 		"digest": "",
 		"tags": "",
@@ -159,12 +159,12 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						10,
-						380,
-						18
+						8,
+						8,
+						280,
+						16
 					],
-					"text": "setforge-grid \u2014 MIDI bridge to Launchpad",
+					"text": "setforge-grid",
 					"fontsize": 10.0
 				}
 			},
@@ -182,12 +182,12 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
+						8,
 						28,
-						380,
-						16
+						280,
+						14
 					],
-					"text": "Set track I/O to Launchpad Standalone Port",
+					"text": "MIDI bridge \u2192 Launchpad",
 					"fontsize": 9.0
 				}
 			}

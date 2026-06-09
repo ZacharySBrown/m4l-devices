@@ -149,7 +149,7 @@ def build_loader():
         "btn-browse", "live.text",
         rect=(500, 130, 120, 22),
         presentation=True,
-        presentation_rect=(500, 10, 80, 20),
+        presentation_rect=(450, 8, 70, 22),
         numinlets=1, numoutlets=2, outlettype=["", ""],
         extras={
             "varname": "browse",
@@ -218,7 +218,7 @@ def build_loader():
         "umenu-set", "live.menu",
         rect=(20, 250, 200, 22),
         presentation=True,
-        presentation_rect=(70, 10, 200, 20),
+        presentation_rect=(8, 8, 200, 22),
         numinlets=1, numoutlets=3, outlettype=["", "", "float"],
         extras={
             "varname": "set_chooser",
@@ -242,7 +242,7 @@ def build_loader():
             f"btn-{name}", "live.text",
             rect=(280 + i * 70, 250, 60, 20),
             presentation=True,
-            presentation_rect=(280 + i * 70, 10, 60, 20),
+            presentation_rect=(216 + i * 78, 8, 70, 22),
             numinlets=1, numoutlets=2, outlettype=["", ""],
             extras={
                 "varname": name,
@@ -266,11 +266,11 @@ def build_loader():
     # Left column: set state. Right column: MIDI port selectors.
     # M4L strip height is ~170px, so everything must fit.
     status_labels = [
-        ("status-bankA", "bank A: —", (10, 35, 400, 16)),
-        ("status-bankB", "bank B: —", (10, 50, 400, 16)),
-        ("status-active", "active preset: —", (10, 65, 400, 16)),
-        ("status-scene", "active scene: —", (10, 80, 400, 16)),
-        ("status-tempo", "tempo: — bpm", (10, 95, 400, 16)),
+        ("status-bankA", "bank A: —", (8, 38, 380, 14)),
+        ("status-bankB", "bank B: —", (8, 54, 380, 14)),
+        ("status-active", "active preset: —", (8, 70, 380, 14)),
+        ("status-scene", "active scene: —", (8, 86, 380, 14)),
+        ("status-tempo", "tempo: — bpm", (8, 102, 380, 14)),
     ]
     y_patch = 300
     for sid, text, prect in status_labels:
@@ -278,7 +278,7 @@ def build_loader():
             sid, rect=(20, y_patch, prect[2], 18),
             text=text,
             presentation_rect=prect,
-            fontsize=10.0,
+            fontsize=9.0,
         ))
         y_patch += 25
 
@@ -287,7 +287,7 @@ def build_loader():
         "toggle-master", rect=(20, 500, 30, 25),
         parameter_name="master_bypass",
         initial=0,
-        presentation_rect=(10, 115, 80, 20),
+        presentation_rect=(8, 120, 70, 22),
     ))
     lines.append(P.line("toggle-master", 0, "js-loader", 2))
 
@@ -296,7 +296,7 @@ def build_loader():
         "btn-panic", "live.text",
         rect=(150, 500, 80, 25),
         presentation=True,
-        presentation_rect=(700, 115, 80, 20),
+        presentation_rect=(694, 120, 70, 22),
         numinlets=1, numoutlets=2, outlettype=["", ""],
         extras={
             "varname": "panic",
@@ -319,8 +319,8 @@ def build_loader():
     boxes.append(P.live_comment(
         "status-fxtarget", rect=(250, 500, 200, 18),
         text="fx target: all",
-        presentation_rect=(400, 115, 200, 18),
-        fontsize=10.0,
+        presentation_rect=(300, 122, 200, 14),
+        fontsize=9.0,
     ))
 
     # ── Curation UI: per-preset activator buttons + SAVE ──
@@ -330,21 +330,22 @@ def build_loader():
     # Each button → message box ("activate_preset N") → js inlet 2.
     # Goes through onPresetPress, the same code path as a pad press.
     curation_y_patch_base = 560
+    preset_x_positions = [400, 444, 488, 532, 576, 620, 664, 708]
     for bank_idx, bank_label in enumerate(["A", "B"]):
-        y_pres = 38 + bank_idx * 20    # presentation: y=38 (A), y=58 (B)
+        y_pres = 38 + bank_idx * 22    # presentation: y=38 (A), y=60 (B)
         y_patch = curation_y_patch_base + bank_idx * 50
         for col in range(8):
             slot_idx = bank_idx * 8 + col
             label = f"{bank_label}{col + 1}"
             btn_name = f"btn-preset-{slot_idx}"
             msg_name = f"msg-preset-{slot_idx}"
-            x_pres = 425 + col * 36
+            x_pres = preset_x_positions[col]
             x_patch = 100 + col * 90
             boxes.append(P.box(
                 btn_name, "live.text",
                 rect=(x_patch, y_patch, 32, 18),
                 presentation=True,
-                presentation_rect=(x_pres, y_pres, 32, 18),
+                presentation_rect=(x_pres, y_pres, 40, 18),
                 numinlets=1, numoutlets=2, outlettype=["", ""],
                 extras={
                     "varname": f"preset_{bank_label}{col + 1}",
@@ -377,7 +378,7 @@ def build_loader():
         "btn-save", "live.text",
         rect=(150, 660, 80, 25),
         presentation=True,
-        presentation_rect=(615, 115, 80, 20),
+        presentation_rect=(616, 120, 70, 22),
         numinlets=1, numoutlets=2, outlettype=["", ""],
         extras={
             "varname": "save",
@@ -596,7 +597,7 @@ def build_grid():
     p = P.empty_patcher(width=400, height=200, is_root=True)
     p["patcher"]["project"]["name"] = "setforge-grid"
     p["patcher"]["openinpresentation"] = 1
-    p["patcher"]["devicewidth"] = 400.0
+    p["patcher"]["devicewidth"] = 300.0
 
     boxes = p["patcher"]["boxes"]
     lines = p["patcher"]["lines"]
@@ -652,14 +653,14 @@ def build_grid():
     # ── Presentation: minimal status display ──
     boxes.append(P.live_comment(
         "title-grid", rect=(20, 160, 300, 22),
-        text="setforge-grid — MIDI bridge to Launchpad",
-        presentation_rect=(10, 10, 380, 18),
+        text="setforge-grid",
+        presentation_rect=(8, 8, 280, 16),
         fontsize=10.0,
     ))
     boxes.append(P.live_comment(
         "status-grid", rect=(20, 185, 300, 18),
-        text="Set track I/O to Launchpad Standalone Port",
-        presentation_rect=(10, 28, 380, 16),
+        text="MIDI bridge → Launchpad",
+        presentation_rect=(8, 28, 280, 14),
         fontsize=9.0,
     ))
 
@@ -675,7 +676,7 @@ def build_calibrator():
     p = P.empty_patcher(width=700, height=250, is_root=True)
     p["patcher"]["project"]["name"] = "setforge-calibrate"
     p["patcher"]["openinpresentation"] = 1
-    p["patcher"]["devicewidth"] = 700.0
+    p["patcher"]["devicewidth"] = 600.0
 
     boxes = p["patcher"]["boxes"]
     lines = p["patcher"]["lines"]
@@ -728,7 +729,7 @@ def build_calibrator():
         "umenu-track", "live.menu",
         rect=(20, 200, 250, 22),
         presentation=True,
-        presentation_rect=(70, 10, 250, 20),
+        presentation_rect=(8, 8, 200, 22),
         numinlets=1, numoutlets=3, outlettype=["", "", "float"],
         extras={
             "varname": "track_chooser",
@@ -752,7 +753,7 @@ def build_calibrator():
             f"btn-{name}", "live.text",
             rect=(330 + i * 80, 200, 70, 20),
             presentation=True,
-            presentation_rect=(330 + i * 80, 10, 70, 20),
+            presentation_rect=(216 + i * 78, 8, 70, 22),
             numinlets=1, numoutlets=2, outlettype=["", ""],
             extras={
                 "varname": name,
@@ -777,15 +778,15 @@ def build_calibrator():
         parameter_name="stem_select",
         items=["drums", "bass", "other", "vox"],
         initial=0,
-        presentation_rect=(10, 40, 300, 25),
+        presentation_rect=(8, 38, 280, 24),
     ))
     lines.append(P.line("tab-stem", 0, "js-calibrate", 0))
 
     # Status displays
     cal_labels = [
-        ("cal-downbeat", "calibrated downbeat: — sec", (10, 75, 400, 18)),
-        ("cal-marker", "current marker: — sec", (10, 93, 400, 18)),
-        ("cal-setstate", "set state: — validated", (10, 155, 600, 18)),
+        ("cal-downbeat", "calibrated downbeat: — sec", (8, 70, 400, 14)),
+        ("cal-marker", "current marker: — sec", (8, 86, 400, 14)),
+        ("cal-setstate", "set state: — validated", (8, 102, 580, 14)),
     ]
     y_patch = 280
     for sid, text, prect in cal_labels:
@@ -808,7 +809,7 @@ def build_calibrator():
             f"btn-{name}", "live.text",
             rect=(20 + i * 100, 350, 90, 22),
             presentation=True,
-            presentation_rect=(10 + i * 100, 120, 90, 22),
+            presentation_rect=(8 + i * 78, 120, 70, 22),
             numinlets=1, numoutlets=2, outlettype=["", ""],
             extras={
                 "varname": name,
@@ -831,8 +832,8 @@ def build_calibrator():
     boxes.append(P.live_comment(
         "title-cal", rect=(20, 400, 300, 22),
         text="setforge-calibrate",
-        presentation_rect=(10, 180, 300, 22),
-        fontsize=14.0,
+        presentation_rect=(8, 148, 200, 18),
+        fontsize=10.0,
     ))
 
     return p
@@ -931,7 +932,7 @@ def build_arranger():
         "btn-browse-arr", "live.text",
         rect=(20, 130, 80, 22),
         presentation=True,
-        presentation_rect=(10, 10, 80, 20),
+        presentation_rect=(8, 8, 70, 22),
         numinlets=1, numoutlets=2, outlettype=["", ""],
         extras={
             "varname": "arr_browse",
@@ -955,7 +956,7 @@ def build_arranger():
         "btn-load-arr", "live.text",
         rect=(110, 130, 60, 22),
         presentation=True,
-        presentation_rect=(100, 10, 60, 20),
+        presentation_rect=(86, 8, 70, 22),
         numinlets=1, numoutlets=2, outlettype=["", ""],
         extras={
             "varname": "arr_load",
@@ -986,7 +987,7 @@ def build_arranger():
         "btn-export-arr", "live.text",
         rect=(180, 130, 80, 22),
         presentation=True,
-        presentation_rect=(170, 10, 80, 20),
+        presentation_rect=(164, 8, 70, 22),
         numinlets=1, numoutlets=2, outlettype=["", ""],
         extras={
             "varname": "arr_export",
@@ -1017,7 +1018,7 @@ def build_arranger():
         "btn-reanchor-arr", "live.text",
         rect=(270, 130, 70, 22),
         presentation=True,
-        presentation_rect=(260, 10, 70, 20),
+        presentation_rect=(242, 8, 70, 22),
         numinlets=1, numoutlets=2, outlettype=["", ""],
         extras={
             "varname": "arr_reanchor",
@@ -1035,30 +1036,7 @@ def build_arranger():
         },
     ))
 
-    # Shift beats input (live.text as number entry)
-    boxes.append(P.box(
-        "shift-input-arr", "live.text",
-        rect=(350, 130, 40, 22),
-        presentation=True,
-        presentation_rect=(335, 10, 55, 20),
-        numinlets=1, numoutlets=2, outlettype=["", ""],
-        extras={
-            "varname": "arr_shift",
-            "saved_attribute_attributes": {
-                "valueof": {
-                    "parameter_longname": "arr_shift",
-                    "parameter_shortname": "shift",
-                    "parameter_type": 1,
-                }
-            },
-            "text": "0",
-            "texton": "0",
-            "textoff": "0",
-            "mode": 0,
-        },
-    ))
-
-    # Re-anchor message: prepend "reanchor" + shift value → js
+    # Re-anchor message: prepend "reanchor" → js
     boxes.append(P.newobj(
         "prepend-reanchor-arr", "prepend reanchor",
         rect=(270, 160, 120, 22),
@@ -1072,7 +1050,7 @@ def build_arranger():
         "btn-eject-arr", "live.text",
         rect=(20, 260, 60, 22),
         presentation=True,
-        presentation_rect=(10, 95, 60, 20),
+        presentation_rect=(8, 96, 70, 22),
         numinlets=1, numoutlets=2, outlettype=["", ""],
         extras={
             "varname": "arr_eject",
@@ -1100,9 +1078,9 @@ def build_arranger():
 
     # ── Status displays ──
     status_labels = [
-        ("status-manifest", "manifest: (none)", (10, 35, 380, 16)),
-        ("status-bpm", "bpm: --", (10, 52, 380, 16)),
-        ("status-clips", "clips: 0", (10, 69, 380, 16)),
+        ("status-manifest", "manifest: (none)", (8, 38, 380, 14)),
+        ("status-bpm", "bpm: --", (8, 54, 380, 14)),
+        ("status-clips", "clips: 0", (8, 70, 380, 14)),
     ]
     y_patch = 320
     for sid, text, prect in status_labels:
@@ -1110,7 +1088,7 @@ def build_arranger():
             sid, rect=(20, y_patch, prect[2], 18),
             text=text,
             presentation_rect=prect,
-            fontsize=10.0,
+            fontsize=9.0,
         ))
         y_patch += 25
 
@@ -1118,8 +1096,8 @@ def build_arranger():
     boxes.append(P.live_comment(
         "title-arr", rect=(20, 400, 300, 22),
         text="setforge-arranger",
-        presentation_rect=(200, 95, 190, 18),
-        fontsize=10.0,
+        presentation_rect=(8, 148, 200, 14),
+        fontsize=9.0,
     ))
 
     return p

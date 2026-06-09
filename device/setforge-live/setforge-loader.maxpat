@@ -253,10 +253,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						500,
-						10,
-						80,
-						20
+						450,
+						8,
+						70,
+						22
 					],
 					"varname": "browse",
 					"saved_attribute_attributes": {
@@ -382,10 +382,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						70,
-						10,
+						8,
+						8,
 						200,
-						20
+						22
 					],
 					"varname": "set_chooser",
 					"saved_attribute_attributes": {
@@ -422,10 +422,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						280,
-						10,
-						60,
-						20
+						216,
+						8,
+						70,
+						22
 					],
 					"varname": "load",
 					"saved_attribute_attributes": {
@@ -462,10 +462,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						350,
-						10,
-						60,
-						20
+						294,
+						8,
+						70,
+						22
 					],
 					"varname": "reload",
 					"saved_attribute_attributes": {
@@ -502,10 +502,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						420,
-						10,
-						60,
-						20
+						372,
+						8,
+						70,
+						22
 					],
 					"varname": "eject",
 					"saved_attribute_attributes": {
@@ -533,18 +533,18 @@
 					"patching_rect": [
 						20,
 						300,
-						400,
+						380,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						35,
-						400,
-						16
+						8,
+						38,
+						380,
+						14
 					],
 					"text": "bank A: \u2014",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			},
 			{
@@ -556,18 +556,18 @@
 					"patching_rect": [
 						20,
 						325,
-						400,
+						380,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						50,
-						400,
-						16
+						8,
+						54,
+						380,
+						14
 					],
 					"text": "bank B: \u2014",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			},
 			{
@@ -579,18 +579,18 @@
 					"patching_rect": [
 						20,
 						350,
-						400,
+						380,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						65,
-						400,
-						16
+						8,
+						70,
+						380,
+						14
 					],
 					"text": "active preset: \u2014",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			},
 			{
@@ -602,18 +602,18 @@
 					"patching_rect": [
 						20,
 						375,
-						400,
+						380,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						80,
-						400,
-						16
+						8,
+						86,
+						380,
+						14
 					],
 					"text": "active scene: \u2014",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			},
 			{
@@ -625,18 +625,18 @@
 					"patching_rect": [
 						20,
 						400,
-						400,
+						380,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						95,
-						400,
-						16
+						8,
+						102,
+						380,
+						14
 					],
 					"text": "tempo: \u2014 bpm",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			},
 			{
@@ -656,10 +656,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						115,
-						80,
-						20
+						8,
+						120,
+						70,
+						22
 					],
 					"varname": "master_bypass",
 					"saved_attribute_attributes": {
@@ -693,10 +693,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						700,
-						115,
-						80,
-						20
+						694,
+						120,
+						70,
+						22
 					],
 					"varname": "panic",
 					"saved_attribute_attributes": {
@@ -726,13 +726,13 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						400,
-						115,
+						300,
+						122,
 						200,
-						18
+						14
 					],
 					"text": "fx target: all",
-					"fontsize": 10.0
+					"fontsize": 9.0
 				}
 			},
 			{
@@ -753,9 +753,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						425,
+						400,
 						38,
-						32,
+						40,
 						18
 					],
 					"varname": "preset_A1",
@@ -812,9 +812,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						461,
+						444,
 						38,
-						32,
+						40,
 						18
 					],
 					"varname": "preset_A2",
@@ -871,9 +871,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						497,
+						488,
 						38,
-						32,
+						40,
 						18
 					],
 					"varname": "preset_A3",
@@ -930,9 +930,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						533,
+						532,
 						38,
-						32,
+						40,
 						18
 					],
 					"varname": "preset_A4",
@@ -989,9 +989,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						569,
+						576,
 						38,
-						32,
+						40,
 						18
 					],
 					"varname": "preset_A5",
@@ -1048,9 +1048,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						605,
+						620,
 						38,
-						32,
+						40,
 						18
 					],
 					"varname": "preset_A6",
@@ -1107,9 +1107,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						641,
+						664,
 						38,
-						32,
+						40,
 						18
 					],
 					"varname": "preset_A7",
@@ -1166,9 +1166,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						677,
+						708,
 						38,
-						32,
+						40,
 						18
 					],
 					"varname": "preset_A8",
@@ -1225,9 +1225,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						425,
-						58,
-						32,
+						400,
+						60,
+						40,
 						18
 					],
 					"varname": "preset_B1",
@@ -1284,9 +1284,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						461,
-						58,
-						32,
+						444,
+						60,
+						40,
 						18
 					],
 					"varname": "preset_B2",
@@ -1343,9 +1343,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						497,
-						58,
-						32,
+						488,
+						60,
+						40,
 						18
 					],
 					"varname": "preset_B3",
@@ -1402,9 +1402,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						533,
-						58,
-						32,
+						532,
+						60,
+						40,
 						18
 					],
 					"varname": "preset_B4",
@@ -1461,9 +1461,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						569,
-						58,
-						32,
+						576,
+						60,
+						40,
 						18
 					],
 					"varname": "preset_B5",
@@ -1520,9 +1520,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						605,
-						58,
-						32,
+						620,
+						60,
+						40,
 						18
 					],
 					"varname": "preset_B6",
@@ -1579,9 +1579,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						641,
-						58,
-						32,
+						664,
+						60,
+						40,
 						18
 					],
 					"varname": "preset_B7",
@@ -1638,9 +1638,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						677,
-						58,
-						32,
+						708,
+						60,
+						40,
 						18
 					],
 					"varname": "preset_B8",
@@ -1697,10 +1697,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						615,
-						115,
-						80,
-						20
+						616,
+						120,
+						70,
+						22
 					],
 					"varname": "save",
 					"saved_attribute_attributes": {

@@ -37,7 +37,7 @@
 		"boxanimatetime": 200,
 		"enablehscroll": 1,
 		"enablevscroll": 1,
-		"devicewidth": 700.0,
+		"devicewidth": 600.0,
 		"description": "",
 		"digest": "",
 		"tags": "",
@@ -182,10 +182,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						70,
-						10,
-						250,
-						20
+						8,
+						8,
+						200,
+						22
 					],
 					"varname": "track_chooser",
 					"saved_attribute_attributes": {
@@ -222,10 +222,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						330,
-						10,
+						216,
+						8,
 						70,
-						20
+						22
 					],
 					"varname": "load-cal",
 					"saved_attribute_attributes": {
@@ -259,10 +259,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						410,
-						10,
+						294,
+						8,
 						70,
-						20
+						22
 					],
 					"varname": "next-cal",
 					"saved_attribute_attributes": {
@@ -296,10 +296,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						40,
-						300,
-						25
+						8,
+						38,
+						280,
+						24
 					],
 					"varname": "stem_select",
 					"saved_attribute_attributes": {
@@ -335,10 +335,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						75,
+						8,
+						70,
 						400,
-						18
+						14
 					],
 					"text": "calibrated downbeat: \u2014 sec",
 					"fontsize": 10.0
@@ -358,10 +358,10 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						93,
+						8,
+						86,
 						400,
-						18
+						14
 					],
 					"text": "current marker: \u2014 sec",
 					"fontsize": 10.0
@@ -376,15 +376,15 @@
 					"patching_rect": [
 						20,
 						330,
-						600,
+						580,
 						18
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						155,
-						600,
-						18
+						8,
+						102,
+						580,
+						14
 					],
 					"text": "set state: \u2014 validated",
 					"fontsize": 10.0
@@ -408,9 +408,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
+						8,
 						120,
-						90,
+						70,
 						22
 					],
 					"varname": "audition",
@@ -445,9 +445,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						110,
+						86,
 						120,
-						90,
+						70,
 						22
 					],
 					"varname": "click",
@@ -482,9 +482,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						210,
+						164,
 						120,
-						90,
+						70,
 						22
 					],
 					"varname": "validated",
@@ -519,9 +519,9 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						310,
+						242,
 						120,
-						90,
+						70,
 						22
 					],
 					"varname": "revert",
@@ -552,13 +552,13 @@
 					],
 					"presentation": 1,
 					"presentation_rect": [
-						10,
-						180,
-						300,
-						22
+						8,
+						148,
+						200,
+						18
 					],
 					"text": "setforge-calibrate",
-					"fontsize": 14.0
+					"fontsize": 10.0
 				}
 			}
 		],
