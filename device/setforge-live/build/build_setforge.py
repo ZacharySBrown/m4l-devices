@@ -839,6 +839,285 @@ def build_calibrator():
 
 
 # ─────────────────────────────────────────────────────────────
+#  Arranger device — setforge-arranger.amxd
+# ─────────────────────────────────────────────────────────────
+
+def build_arranger():
+    """Build the arrangement-view loader device (audio effect).
+
+    Loads prechop_manifest.json into arrangement-view clips with N-bar
+    padded regions and re-anchor support. Exports arrangement snapshots
+    for the EP-133 song-mode pipeline.
+    """
+    p = P.empty_patcher(width=400, height=300, is_root=True)
+    p["patcher"]["project"]["name"] = "setforge-arranger"
+    p["patcher"]["openinpresentation"] = 1
+    p["patcher"]["devicewidth"] = 400.0
+
+    boxes = p["patcher"]["boxes"]
+    lines = p["patcher"]["lines"]
+
+    # ── Audio I/O (required for M4L audio effect) ──
+    boxes.append(P.plugin_in("plugin-in", rect=(20, 20, 80, 22)))
+    boxes.append(P.plugin_out("plugout", rect=(20, 600, 80, 22)))
+    lines.append(P.line("plugin-in", 0, "plugout", 0))
+    lines.append(P.line("plugin-in", 1, "plugout", 1))
+
+    # ── JS Controller ──
+    boxes.append(P.js_box(
+        "js-arranger", "arranger.js",
+        rect=(150, 60, 200, 22),
+        scripting_name="arranger",
+        numinlets=1,
+        numoutlets=2,
+        outlettype=["", ""],
+    ))
+
+    # ── live.thisdevice → bang (signals device is ready for LiveAPI) ──
+    boxes.append(P.newobj(
+        "thisdevice-arr", "live.thisdevice",
+        rect=(150, 100, 100, 22),
+        numinlets=1, numoutlets=3, outlettype=["", "", ""],
+    ))
+    lines.append(P.line("thisdevice-arr", 0, "js-arranger", 0))
+
+    # ── Loadbang → init ──
+    boxes.append(P.newobj(
+        "loadbang-arr", "loadbang",
+        rect=(300, 100, 60, 22),
+        numinlets=1, numoutlets=1, outlettype=["bang"],
+    ))
+    boxes.append(P.box(
+        "msg-init-arr", "message",
+        rect=(300, 130, 60, 22),
+        numinlets=2, numoutlets=1, outlettype=[""],
+        extras={"text": "init"},
+    ))
+    lines.append(P.line("loadbang-arr", 0, "msg-init-arr", 0))
+    lines.append(P.line("msg-init-arr", 0, "js-arranger", 0))
+
+    # ── File browser for manifest loading ──
+    boxes.append(P.newobj(
+        "opendialog-arr", "opendialog JSON",
+        rect=(20, 160, 120, 22),
+        numinlets=1, numoutlets=2, outlettype=["", "bang"],
+    ))
+    boxes.append(P.newobj(
+        "regexp-posix-arr", "regexp (.+):(/.*) @substitute %2",
+        rect=(20, 190, 240, 22),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+    ))
+    boxes.append(P.newobj(
+        "prepend-load-arr", "prepend load",
+        rect=(20, 220, 100, 22),
+        numinlets=1, numoutlets=1, outlettype=[""],
+    ))
+    lines.append(P.line("opendialog-arr", 0, "regexp-posix-arr", 0))
+    lines.append(P.line("regexp-posix-arr", 0, "prepend-load-arr", 0))
+    lines.append(P.line("prepend-load-arr", 0, "js-arranger", 0))
+
+    # ── Presentation UI ──
+
+    # Browse button (triggers file dialog)
+    boxes.append(P.box(
+        "btn-browse-arr", "live.text",
+        rect=(20, 130, 80, 22),
+        presentation=True,
+        presentation_rect=(10, 10, 80, 20),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+        extras={
+            "varname": "arr_browse",
+            "saved_attribute_attributes": {
+                "valueof": {
+                    "parameter_longname": "arr_browse",
+                    "parameter_shortname": "browse",
+                    "parameter_type": 1,
+                }
+            },
+            "text": "Browse...",
+            "texton": "Browse...",
+            "textoff": "Browse...",
+            "mode": 0,
+        },
+    ))
+    lines.append(P.line("btn-browse-arr", 0, "opendialog-arr", 0))
+
+    # Load button
+    boxes.append(P.box(
+        "btn-load-arr", "live.text",
+        rect=(110, 130, 60, 22),
+        presentation=True,
+        presentation_rect=(100, 10, 60, 20),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+        extras={
+            "varname": "arr_load",
+            "saved_attribute_attributes": {
+                "valueof": {
+                    "parameter_longname": "arr_load",
+                    "parameter_shortname": "load",
+                    "parameter_type": 1,
+                }
+            },
+            "text": "Load",
+            "texton": "Load",
+            "textoff": "Load",
+            "mode": 0,
+        },
+    ))
+    boxes.append(P.box(
+        "msg-load-arr", "message",
+        rect=(110, 155, 60, 22),
+        numinlets=2, numoutlets=1, outlettype=[""],
+        extras={"text": "load"},
+    ))
+    lines.append(P.line("btn-load-arr", 0, "msg-load-arr", 0))
+    lines.append(P.line("msg-load-arr", 0, "js-arranger", 0))
+
+    # Export Snapshot button
+    boxes.append(P.box(
+        "btn-export-arr", "live.text",
+        rect=(180, 130, 80, 22),
+        presentation=True,
+        presentation_rect=(170, 10, 80, 20),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+        extras={
+            "varname": "arr_export",
+            "saved_attribute_attributes": {
+                "valueof": {
+                    "parameter_longname": "arr_export",
+                    "parameter_shortname": "export",
+                    "parameter_type": 1,
+                }
+            },
+            "text": "Export",
+            "texton": "Export",
+            "textoff": "Export",
+            "mode": 0,
+        },
+    ))
+    boxes.append(P.box(
+        "msg-export-arr", "message",
+        rect=(180, 155, 80, 22),
+        numinlets=2, numoutlets=1, outlettype=[""],
+        extras={"text": "export"},
+    ))
+    lines.append(P.line("btn-export-arr", 0, "msg-export-arr", 0))
+    lines.append(P.line("msg-export-arr", 0, "js-arranger", 0))
+
+    # Re-anchor button
+    boxes.append(P.box(
+        "btn-reanchor-arr", "live.text",
+        rect=(270, 130, 70, 22),
+        presentation=True,
+        presentation_rect=(260, 10, 70, 20),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+        extras={
+            "varname": "arr_reanchor",
+            "saved_attribute_attributes": {
+                "valueof": {
+                    "parameter_longname": "arr_reanchor",
+                    "parameter_shortname": "reanchor",
+                    "parameter_type": 1,
+                }
+            },
+            "text": "Re-anchor",
+            "texton": "Re-anchor",
+            "textoff": "Re-anchor",
+            "mode": 0,
+        },
+    ))
+
+    # Shift beats input (live.text as number entry)
+    boxes.append(P.box(
+        "shift-input-arr", "live.text",
+        rect=(350, 130, 40, 22),
+        presentation=True,
+        presentation_rect=(335, 10, 55, 20),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+        extras={
+            "varname": "arr_shift",
+            "saved_attribute_attributes": {
+                "valueof": {
+                    "parameter_longname": "arr_shift",
+                    "parameter_shortname": "shift",
+                    "parameter_type": 1,
+                }
+            },
+            "text": "0",
+            "texton": "0",
+            "textoff": "0",
+            "mode": 0,
+        },
+    ))
+
+    # Re-anchor message: prepend "reanchor" + shift value → js
+    boxes.append(P.newobj(
+        "prepend-reanchor-arr", "prepend reanchor",
+        rect=(270, 160, 120, 22),
+        numinlets=1, numoutlets=1, outlettype=[""],
+    ))
+    lines.append(P.line("btn-reanchor-arr", 0, "prepend-reanchor-arr", 0))
+    lines.append(P.line("prepend-reanchor-arr", 0, "js-arranger", 0))
+
+    # Eject button
+    boxes.append(P.box(
+        "btn-eject-arr", "live.text",
+        rect=(20, 260, 60, 22),
+        presentation=True,
+        presentation_rect=(10, 95, 60, 20),
+        numinlets=1, numoutlets=2, outlettype=["", ""],
+        extras={
+            "varname": "arr_eject",
+            "saved_attribute_attributes": {
+                "valueof": {
+                    "parameter_longname": "arr_eject",
+                    "parameter_shortname": "eject",
+                    "parameter_type": 1,
+                }
+            },
+            "text": "Eject",
+            "texton": "Eject",
+            "textoff": "Eject",
+            "mode": 0,
+        },
+    ))
+    boxes.append(P.box(
+        "msg-eject-arr", "message",
+        rect=(20, 285, 60, 22),
+        numinlets=2, numoutlets=1, outlettype=[""],
+        extras={"text": "eject"},
+    ))
+    lines.append(P.line("btn-eject-arr", 0, "msg-eject-arr", 0))
+    lines.append(P.line("msg-eject-arr", 0, "js-arranger", 0))
+
+    # ── Status displays ──
+    status_labels = [
+        ("status-manifest", "manifest: (none)", (10, 35, 380, 16)),
+        ("status-bpm", "bpm: --", (10, 52, 380, 16)),
+        ("status-clips", "clips: 0", (10, 69, 380, 16)),
+    ]
+    y_patch = 320
+    for sid, text, prect in status_labels:
+        boxes.append(P.live_comment(
+            sid, rect=(20, y_patch, prect[2], 18),
+            text=text,
+            presentation_rect=prect,
+            fontsize=10.0,
+        ))
+        y_patch += 25
+
+    # Title
+    boxes.append(P.live_comment(
+        "title-arr", rect=(20, 400, 300, 22),
+        text="setforge-arranger",
+        presentation_rect=(200, 95, 190, 18),
+        fontsize=10.0,
+    ))
+
+    return p
+
+
+# ─────────────────────────────────────────────────────────────
 #  JS concatenation — surface abstraction + controller → loader.js
 # ─────────────────────────────────────────────────────────────
 
@@ -885,16 +1164,54 @@ def concat_loader_js():
     return out_path
 
 
+# ─────────────────────────────────────────────────────────────
+#  JS concatenation — arranger-controller → arranger.js
+# ─────────────────────────────────────────────────────────────
+
+ARRANGER_CONCAT_ORDER = [
+    "arranger-controller.js",
+]
+
+
+def concat_arranger_js():
+    """Concatenate src/arranger/ modules into a single device-root arranger.js."""
+    src_dir = SRC_DIR / "arranger"
+    parts = []
+    parts.append("// setforge-arranger.js — AUTO-GENERATED by build_setforge.py")
+    parts.append("// Do not edit directly. Edit src/arranger/*.js and rebuild.")
+    parts.append("//")
+    parts.append(f"// Concat order: {', '.join(ARRANGER_CONCAT_ORDER)}")
+    parts.append("")
+
+    for filename in ARRANGER_CONCAT_ORDER:
+        filepath = src_dir / filename
+        if not filepath.exists():
+            print(f"  ERROR: {filepath} not found")
+            return None
+        content = filepath.read_text(encoding="utf-8")
+        parts.append(content)
+        parts.append("")  # blank line between files
+
+    out_path = OUT_DIR / "arranger.js"
+    out_text = "\n".join(parts)
+    out_path.write_text(out_text, encoding="utf-8")
+
+    import hashlib
+    sha = hashlib.sha256(out_path.read_bytes()).hexdigest()
+    size = out_path.stat().st_size
+    print(f"  Concatenated {len(ARRANGER_CONCAT_ORDER)} files → arranger.js ({size} bytes, sha256={sha[:12]}...)")
+    return out_path
+
+
 def deploy_js_to_packages():
-    """Copy loader.js and calibrate.js into Max Package javascript/ dirs so the
-    Max runtime finds them via the standard package search path. Replaces the
-    old manual `cp loader.js ~/Documents/Max 8/Library/` step.
+    """Copy loader.js, calibrate.js, and arranger.js into Max Package javascript/
+    dirs so the Max runtime finds them via the standard package search path.
 
     Per stemforge memory feedback_js_source_of_truth.md: dual-location sync is
     a known footgun — let the build do it, never hand-copy.
     """
     import shutil
-    sources = [OUT_DIR / "loader.js", OUT_DIR / "calibrate.js"]
+    sources = [OUT_DIR / "loader.js", OUT_DIR / "calibrate.js", OUT_DIR / "arranger.js"]
     deployed = []
     for target_dir in MAX_PACKAGE_TARGETS:
         if not target_dir.parent.parent.exists():
@@ -1025,10 +1342,35 @@ def main():
     else:
         print("  ✘ Patcher verification failed — skipping pack")
 
+    # ── Build arranger ──
+    print("\n▸ Building setforge-arranger...")
+    arr_patcher = build_arranger()
+    print("  Verifying patcher...")
+    arr_ok = verify_patcher("setforge-arranger", arr_patcher)
+
+    if arr_ok:
+        maxpat_path = OUT_DIR / "setforge-arranger.maxpat"
+        sha, size = write_maxpat(maxpat_path, arr_patcher)
+        print(f"  Wrote {maxpat_path} ({size} bytes, sha256={sha[:12]}...)")
+
+        amxd_path = OUT_DIR / "setforge-arranger.amxd"
+        amxd_pack.pack_amxd(arr_patcher, str(amxd_path), device_class="audio")
+        print(f"  Packed {amxd_path}")
+
+        print("  Verifying .amxd...")
+        verify_amxd(amxd_path)
+    else:
+        print("  ✘ Patcher verification failed — skipping pack")
+
     # ── Concatenate loader.js from src/loader/ modules ──
     print("\n▸ Concatenating loader.js...")
     loader_js = concat_loader_js()
     js_ok = loader_js is not None
+
+    # ── Concatenate arranger.js from src/arranger/ modules ──
+    print("\n▸ Concatenating arranger.js...")
+    arranger_js = concat_arranger_js()
+    arr_js_ok = arranger_js is not None
 
     # Check calibrate.js (still maintained directly, not concat'd)
     print("\n▸ JS controllers...")
@@ -1051,7 +1393,7 @@ def main():
     deploy_js_to_packages()
 
     print("\n" + "=" * 60)
-    if loader_ok and grid_ok and cal_ok and js_ok:
+    if loader_ok and grid_ok and cal_ok and arr_ok and js_ok and arr_js_ok:
         print("  BUILD COMPLETE — all verifiers passed")
     else:
         print("  BUILD COMPLETE WITH WARNINGS — check verifier output")
