@@ -164,6 +164,24 @@
 			},
 			{
 				"box": {
+					"id": "udp-recv-arr",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 1,
+					"patching_rect": [
+						350,
+						60,
+						140,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "udpreceive 7423 0"
+				}
+			},
+			{
+				"box": {
 					"id": "opendialog-arr",
 					"maxclass": "newobj",
 					"numinlets": 1,
@@ -658,6 +676,18 @@
 				"patchline": {
 					"source": [
 						"msg-init-arr",
+						0
+					],
+					"destination": [
+						"js-arranger",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"udp-recv-arr",
 						0
 					],
 					"destination": [

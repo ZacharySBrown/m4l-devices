@@ -896,6 +896,14 @@ def build_arranger():
     lines.append(P.line("loadbang-arr", 0, "msg-init-arr", 0))
     lines.append(P.line("msg-init-arr", 0, "js-arranger", 0))
 
+    # ── UDP command receiver (for remote testing + automation) ──
+    boxes.append(P.newobj(
+        "udp-recv-arr", "udpreceive 7423 0",
+        rect=(350, 60, 140, 22),
+        numinlets=1, numoutlets=1, outlettype=[""],
+    ))
+    lines.append(P.line("udp-recv-arr", 0, "js-arranger", 0))
+
     # ── File browser for manifest loading ──
     boxes.append(P.newobj(
         "opendialog-arr", "opendialog JSON",
