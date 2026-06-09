@@ -43,6 +43,11 @@ There are **28 drift entries** total: 5 breaks-spec, 18 minor-divergence, 4 spec
 
 ## Dual-song-entry-failure red blink (DUAL_SONG_TOGGLE ReferenceError)
 
+> **✅ RESOLVED — commit `e6c1d87`.** Both call sites now pass `SIDE_BUTTONS_RIGHT[0]`
+> (note 89); `loader.js` regenerated; 4 regression tests added to
+> `tests/integration/loader-e2e.test.js` (full suite 194 passing). The description
+> below is the pre-fix state, kept for the record.
+
 **Spec source:** setforge-live-spec-multi-song-modes.md §5.5 / §6.8
 **Spec says:** The dual-song toggle side button blinks red briefly when entry fails (no
 deck staged / only partial staging).
@@ -53,12 +58,12 @@ deck staged / only partial staging).
 the failure branch crashes outright and the red blink never renders. This is the single
 most severe drift item: the dual-song no-deck / partial-deck path is broken, not merely
 cosmetically wrong.
-**Severity:** breaks-spec (most severe — runtime crash)
-**Recommendation:** Update code. Pass `SIDE_BUTTONS_RIGHT[0]` (note 89) instead of the
-undeclared identifier. Add a verifier for undeclared identifiers and a smoke test of the
-failure path. (See Open Question 1: it is unverified whether this branch was ever hit on
-hardware — if the button is only pressed after staging, it may have been masked. Fix
-regardless.)
+**Severity:** breaks-spec (most severe — runtime crash) — **now fixed (`e6c1d87`).**
+**Recommendation:** ~~Update code. Pass `SIDE_BUTTONS_RIGHT[0]` (note 89)~~ **Done.** Both
+call sites fixed and a 4-case regression test now exercises the failure path against the
+built monolith. A static verifier for undeclared identifiers (catching this class at build
+time, not just runtime) remains a worthwhile follow-up. (Open Question 1 — whether this
+branch was ever hit on hardware — is now moot for correctness; the path is fixed regardless.)
 
 ## REV / STUT / HALF / DBL / MUTE / KILL row-7 modifiers apply audio effects
 
@@ -392,9 +397,10 @@ as a behavior.
 
 These are unverified items from the catalog (§15) that need a human / hardware decision:
 
-1. **Was the `DUAL_SONG_TOGGLE` ReferenceError (`:2319` / `:2326`) ever hit on hardware?**
-   If the dual-song button is only ever pressed after staging, the failure branch may
-   never have executed, masking the bug. (Recommend fixing regardless.)
+1. ~~**Was the `DUAL_SONG_TOGGLE` ReferenceError (`:2319` / `:2326`) ever hit on hardware?**~~
+   **Moot — bug fixed in `e6c1d87`.** (Historical: if the dual-song button was only ever
+   pressed after staging, the failure branch may never have executed, masking the bug.
+   Still worth knowing for past-session triage, but no longer blocks correctness.)
 2. **Is the file-based command poll (`/tmp/setforge_cmd.txt`, deferred Task at load,
    `:3859–3865`) still intended in production, or fully superseded by the MIDI-CC remote
    map?** Inline comments say CCs replaced it, yet `startCmdPoll` is still scheduled.

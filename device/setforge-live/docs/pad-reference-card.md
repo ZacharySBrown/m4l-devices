@@ -146,10 +146,9 @@ row8 [ Y-VOX-1][ Y-VOX-2][ Y-VOX-3][ Y-VOX-4][ Y-VOX-5][ Y-VOX-6][ Y-VOX-7][ Y-V
 - Per-row **launch quantization**: drums = 1/16, bass = 1 bar, other = 1/4,
   vox = 1/2.
 
-> **Known bug:** if both decks are unresolved, the failure branch calls
-> `flashSideButtonRed(DUAL_SONG_TOGGLE)` against an undeclared identifier →
-> ReferenceError. The intended red blink never renders and the failure path
-> crashes. In practice, stage a deck before entering.
+> **Note:** if both decks are unresolved, entry is refused and the dual-song
+> toggle (note 89) blinks red. (This path previously crashed on an undeclared
+> identifier; fixed in `e6c1d87`.) Stage a deck before entering.
 
 ---
 

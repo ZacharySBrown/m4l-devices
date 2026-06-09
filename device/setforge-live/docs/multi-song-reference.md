@@ -421,9 +421,15 @@ grid 2 → `handleGrid2Press`.
 | Autowatch-reload set restoration | `doInit()` (state only); `loadLastSetPath()` reads `/tmp/setforge_last_set.txt`; 500ms Task re-runs `loadSet`; `saveLastSetPath` on every success | `:3848-3857`, `:1554-1566`, `:3827-3845` |
 | Large-file chunked read/write (64KB buffer) | Manifest read loops `readstring(16384)` until eof; `writeStringChunked` 16384-char slices + truncate; set read single `readstring(eof)` | `:1538-1546`, `:3017-3030` |
 
-### KNOWN BROKEN: `DUAL_SONG_TOGGLE` ReferenceError on dual-song failure path
+### FIXED (was: `DUAL_SONG_TOGGLE` ReferenceError on dual-song failure path)
 
-`enterDualSongMode` (`:2312-2339`) calls `flashSideButtonRed(DUAL_SONG_TOGGLE)` at both
+> **✅ Fixed in commit `e6c1d87`.** Both call sites now pass `SIDE_BUTTONS_RIGHT[0]`
+> (note 89), `loader.js` was regenerated, and `tests/integration/loader-e2e.test.js`
+> now contains a 4-case regression suite for this path (no throw, posts failure, red
+> flash on note 89, dual-song not entered). The description below documents the original
+> defect for the record.
+
+`enterDualSongMode` (`:2312-2339`) **previously** called `flashSideButtonRed(DUAL_SONG_TOGGLE)` at both
 `:2319` (no decks) and `:2326` (one deck unresolved). **`DUAL_SONG_TOGGLE` is never declared
 as a variable** — it exists only as the string `SIDE_FUNC_RIGHT[0]` (`:78`). At runtime this
 throws a **ReferenceError**, so:
@@ -435,10 +441,9 @@ throws a **ReferenceError**, so:
 
 The `flashSideButtonRed` helper itself (`:2301-2310`) is correct (queues `STATE_COLORS.error`,
 flushes, 500ms revert to dim white `[8,8,8]`); only its call-site argument is wrong.
-**Recommended fix:** pass `SIDE_BUTTONS_RIGHT[0]` (note 89). This is the most severe drift
-in the device — a runtime crash on a reachable code path (catalog Drift §1). Open question:
-whether it was ever hit on hardware (if dual-song is only entered after staging, the failure
-branch may never have executed — catalog §15.1).
+**Fix applied (`e6c1d87`):** both sites pass `SIDE_BUTTONS_RIGHT[0]` (note 89). This had been
+the most severe drift in the device — a runtime crash on a reachable code path (catalog Drift
+§1). It is now covered by regression tests against the built monolith.
 
 ### Other dead / legacy paths (not strictly edge cases)
 
@@ -491,7 +496,6 @@ handler; only the 4000ms-deferred `fixWarpMarkersOnTracks` warp pass is async (`
 ### Deployed multi-song behaviors with NO runnable automated coverage
 
 - dual-song entry/exit + `onDualSongChopPress` routing into -x/-y tracks (`:2597-2647`)
-- the broken `flashSideButtonRed(DUAL_SONG_TOGGLE)` failure path (`:2312-2339`)
 - staging gesture `onStageDeck` + `loadPresetToDeckX/Y` pre-load (`:2655-2686`)
 - per-row mode `togglePerRowMode` / `onPerRowReassign` / `getEffectivePreset` (`:2419-2516`)
 - the 6 inert row-7 modifier stubs (no audio path exists to test)
