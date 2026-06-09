@@ -2316,14 +2316,14 @@ function enterDualSongMode(latched) {
 
     if (deckX === null && deckY === null) {
         post("setforge-loader: dual-song entry failed — no decks\n");
-        flashSideButtonRed(DUAL_SONG_TOGGLE);
+        flashSideButtonRed(SIDE_BUTTONS_RIGHT[0]); // dual-song toggle = note 89
         return;
     }
 
     if (deckX === null || deckY === null) {
         var missing = (deckX === null) ? "deckX" : "deckY";
         post("setforge-loader: dual-song entry failed — " + missing + " unresolved\n");
-        flashSideButtonRed(DUAL_SONG_TOGGLE);
+        flashSideButtonRed(SIDE_BUTTONS_RIGHT[0]); // dual-song toggle = note 89
         return;
     }
 

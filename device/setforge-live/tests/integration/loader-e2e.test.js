@@ -503,3 +503,60 @@ describe('integration: loader.js end-to-end (simulated Max)', () => {
     });
   });
 });
+
+/**
+ * Regression: dual-song entry with no decks staged.
+ *
+ * enterDualSongMode() previously called flashSideButtonRed(DUAL_SONG_TOGGLE),
+ * but DUAL_SONG_TOGGLE was never declared (it only exists as a string in
+ * SIDE_FUNC_RIGHT[0]). Pressing the dual-song toggle (note 89) with nothing
+ * staged hit that branch and threw a ReferenceError, crashing the dispatch.
+ * Fixed by passing SIDE_BUTTONS_RIGHT[0] (note 89). These tests pin that.
+ */
+describe('regression: dual-song no-deck entry (DUAL_SONG_TOGGLE ReferenceError)', () => {
+  let env;
+
+  beforeEach(() => {
+    env = createMaxEnv();
+    loadLoaderJs(env);
+    env._sendBang(); // device ready
+    env._clearLog();
+    env._clearOutlets();
+  });
+
+  it('does not throw when the dual-song toggle (note 89) is pressed with nothing staged', () => {
+    // No set loaded, no staging, no active preset -> both decks resolve null
+    // -> enterDualSongMode hits the no-decks failure branch.
+    expect(() => env._sendNoteOn(1, 89, 127)).to.not.throw();
+  });
+
+  it('posts a dual-song entry failure instead of crashing', () => {
+    env._sendNoteOn(1, 89, 127);
+    expect(env._getLog()).to.include('dual-song entry failed');
+  });
+
+  it('flashes the dual-song toggle (note 89) red on failed entry', () => {
+    env._sendNoteOn(1, 89, 127);
+    // flashSideButtonRed -> queueRgbNote(1, 89, [127,0,0]) -> RGB SysEx on outlet 0.
+    // Assert some outlet-0 SysEx carries note 89 with the error-red triple.
+    const sysexes = env._getOutletCalls(0).map(function(o) { return o.args[0]; });
+    const hasRed89 = sysexes.some(function(msg) {
+      if (!Array.isArray(msg)) return false;
+      for (var i = 0; i + 3 < msg.length; i++) {
+        if (msg[i] === 89 && msg[i + 1] === 127 && msg[i + 2] === 0 && msg[i + 3] === 0) {
+          return true;
+        }
+      }
+      return false;
+    });
+    expect(hasRed89, 'expected a red (127,0,0) RGB SysEx on note 89').to.equal(true);
+  });
+
+  it('does not enter dual-song mode when no decks are available', () => {
+    env._sendNoteOn(1, 89, 127);
+    // dumpState exposes view state; dualSongActive must remain false.
+    env._clearLog();
+    env._sendMessage('debug', []);
+    expect(env._getLog()).to.not.include('dualSongActive: true');
+  });
+});
