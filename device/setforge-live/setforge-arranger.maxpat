@@ -88,7 +88,7 @@
 					"id": "js-arranger",
 					"maxclass": "newobj",
 					"numinlets": 1,
-					"numoutlets": 2,
+					"numoutlets": 3,
 					"patching_rect": [
 						150,
 						60,
@@ -97,13 +97,68 @@
 					],
 					"outlettype": [
 						"",
+						"",
 						""
 					],
-					"text": "js arranger.js @scripting_name arranger",
+					"text": "js arranger-main.js @scripting_name arranger",
 					"saved_object_attributes": {
-						"filename": "arranger.js",
+						"filename": "arranger-main.js",
 						"parameter_enable": 0
 					}
+				}
+			},
+			{
+				"box": {
+					"id": "shell-arr",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 1,
+					"patching_rect": [
+						350,
+						100,
+						80,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "shell"
+				}
+			},
+			{
+				"box": {
+					"id": "prepend-anchor-complete",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 1,
+					"patching_rect": [
+						350,
+						130,
+						180,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "prepend anchor_complete"
+				}
+			},
+			{
+				"box": {
+					"id": "prepend-reload",
+					"maxclass": "newobj",
+					"numinlets": 1,
+					"numoutlets": 1,
+					"patching_rect": [
+						350,
+						160,
+						250,
+						22
+					],
+					"outlettype": [
+						""
+					],
+					"text": "prepend loadArrangementFromManifest"
 				}
 			},
 			{
@@ -608,6 +663,66 @@
 					"destination": [
 						"plugout",
 						1
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"js-arranger",
+						1
+					],
+					"destination": [
+						"shell-arr",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"shell-arr",
+						0
+					],
+					"destination": [
+						"prepend-anchor-complete",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"prepend-anchor-complete",
+						0
+					],
+					"destination": [
+						"js-arranger",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"js-arranger",
+						2
+					],
+					"destination": [
+						"prepend-reload",
+						0
+					]
+				}
+			},
+			{
+				"patchline": {
+					"source": [
+						"prepend-reload",
+						0
+					],
+					"destination": [
+						"js-arranger",
+						0
 					]
 				}
 			},

@@ -56,9 +56,11 @@ for f in \
     "$DEVICE_DIR/setforge-calibrate.amxd" \
     "$DEVICE_DIR/setforge-arranger.amxd" \
     "$DEVICE_DIR/loader.js" \
-    "$DEVICE_DIR/arranger.js" \
+    "$DEVICE_DIR/arranger-main.js" \
+    "$DEVICE_DIR/sf_arrangement_loader.js" \
     "$MAX_PKG/javascript/loader.js" \
-    "$MAX_PKG/javascript/arranger.js"; do
+    "$MAX_PKG/javascript/arranger-main.js" \
+    "$MAX_PKG/javascript/sf_arrangement_loader.js"; do
     if [ -f "$f" ]; then
         echo "  OK  $f"
     else
