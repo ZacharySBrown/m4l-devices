@@ -338,8 +338,8 @@ function _arrCreateAndConfigureClip(trackIdx, absWavPath, startBeat, lengthBeats
                                     loopStartSec, loopEndSec, bpm) {
     // Creates an audio clip on trackIdx's arrangement view at startBeat,
     // sources from absWavPath, sets the playback span (start_marker /
-    // end_marker) and loop region to [loopStartSec, loopEndSec] in SECONDS.
-    // Warping is ON (Beats mode) so clips stretch to the project tempo.
+    // end_marker) and loop region to [loopStartSec, loopEndSec] in SECONDS
+    // (warping is OFF — markers are in seconds, not beats).
     //
     // Returns the clip's arrangement_clips index (>= 0) on success, -1 on fail.
     var trackPath = "live_set tracks " + trackIdx;
@@ -364,10 +364,11 @@ function _arrCreateAndConfigureClip(trackIdx, absWavPath, startBeat, lengthBeats
 
     // Warping OFF — clips are pre-rendered at manifest BPM, unwarped playback
     // at native rate stays in sync with the arrangement timeline.
-    // Enable warping so clips stretch to project tempo. Beats mode (4)
-    // preserves transients and works well for rhythmic material.
-    try { clip.set("warping", 1); } catch (_) {}
-    try { clip.set("warp_mode", 4); } catch (_) {}  // 4 = Beats
+    // Warping OFF: chunks are pre-rendered at manifest BPM and the project
+    // tempo is set to match. With warping off, start_marker/end_marker/
+    // loop_start/loop_end are in SECONDS (not beats). This avoids Live's
+    // auto-warp BPM guessing which gets wildly wrong on short (~15s) chunks.
+    try { clip.set("warping", 0); } catch (_) {}
 
     // Disable default arrangement fades — they cause discontinuities
     // at chunk boundaries.
@@ -575,7 +576,7 @@ function runArrangementLoad(manifestPath, shiftBeats) {
     _arrResolveManifestPaths(stems, manifestDir);
 
     // Set Live project tempo to manifest BPM — chunks are pre-rendered at
-    // this tempo. Warping is ON (Beats mode) so clips stretch to match.
+    // this tempo and warping is off, so mismatched tempo = drift.
     if (bpm > 0 && isFinite(bpm)) {
         try { new LiveAPI("live_set").set("tempo", bpm); } catch (_) {}
         _arrStatus("project tempo -> " + bpm + " BPM");
