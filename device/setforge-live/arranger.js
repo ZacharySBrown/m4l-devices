@@ -343,8 +343,8 @@ function _arrCreateAndConfigureClip(trackIdx, absWavPath, startBeat, lengthBeats
                                     loopStartSec, loopEndSec, bpm) {
     // Creates an audio clip on trackIdx's arrangement view at startBeat,
     // sources from absWavPath, sets the playback span (start_marker /
-    // end_marker) and loop region to [loopStartSec, loopEndSec] in SECONDS
-    // (warping is OFF — markers are in seconds, not beats).
+    // end_marker) and loop region to [loopStartSec, loopEndSec] in SECONDS.
+    // Warping is ON (Beats mode) so clips stretch to the project tempo.
     //
     // Returns the clip's arrangement_clips index (>= 0) on success, -1 on fail.
     var trackPath = "live_set tracks " + trackIdx;
@@ -369,9 +369,16 @@ function _arrCreateAndConfigureClip(trackIdx, absWavPath, startBeat, lengthBeats
 
     // Warping OFF — clips are pre-rendered at manifest BPM, unwarped playback
     // at native rate stays in sync with the arrangement timeline.
-    try { clip.set("warping", 0); } catch (_) {}
+    // Enable warping so clips stretch to project tempo. Beats mode (4)
+    // preserves transients and works well for rhythmic material.
+    try { clip.set("warping", 1); } catch (_) {}
+    try { clip.set("warp_mode", 4); } catch (_) {}  // 4 = Beats
 
-    // Loop / markers: all in SECONDS (since warping is off).
+    // Disable default arrangement fades — they cause discontinuities
+    // at chunk boundaries.
+    try { clip.set("fades_are_enabled", 0); } catch (_) {}
+
+    // Loop / markers: all in SECONDS.
     // Order matters in some Live versions — set looping=1 LAST.
     try { clip.set("start_marker", loopStartSec); } catch (e) {
         _arrStatus("set start_marker fail: " + e);
@@ -506,7 +513,9 @@ function _arrAdaptChunksToStems(chunks) {
             bars: (c.duration_bars != null) ? Number(c.duration_bars) : 4,
             total_sec: Number(c.duration_sec) || 0,
             start_bar: (c.bar_position != null && isFinite(Number(c.bar_position)))
-                ? Number(c.bar_position) : null
+                ? Number(c.bar_position) : null,
+            loop_start_sec: (c.loop_start_sec != null) ? Number(c.loop_start_sec) : undefined,
+            loop_end_sec: (c.loop_end_sec != null) ? Number(c.loop_end_sec) : undefined
         });
     }
     return adapted;
@@ -571,7 +580,7 @@ function runArrangementLoad(manifestPath, shiftBeats) {
     _arrResolveManifestPaths(stems, manifestDir);
 
     // Set Live project tempo to manifest BPM — chunks are pre-rendered at
-    // this tempo and warping is off, so mismatched tempo = drift.
+    // this tempo. Warping is ON (Beats mode) so clips stretch to match.
     if (bpm > 0 && isFinite(bpm)) {
         try { new LiveAPI("live_set").set("tempo", bpm); } catch (_) {}
         _arrStatus("project tempo -> " + bpm + " BPM");
