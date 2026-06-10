@@ -165,9 +165,11 @@ def unpack_amxd(path: str | Path) -> dict[str, Any]:
         # not fatal — log and continue
         pass
 
-    # Expect 'iiii' at offset 8
-    if raw[8:12] != AAAA_SENTINEL:
-        raise ValueError(f"missing iiii sentinel at offset 8: {raw[8:12]!r}")
+    # Expect device-class sentinel at offset 8 (aaaa/mmmm/iiii)
+    sentinel = raw[8:12]
+    valid_sentinels = set(DEVICE_CLASS_SENTINEL.values())
+    if sentinel not in valid_sentinels:
+        raise ValueError(f"invalid device-class sentinel at offset 8: {sentinel!r}")
 
     # Expect 'meta' at offset 12
     if raw[12:16] != META_TAG:

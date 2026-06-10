@@ -1761,7 +1761,22 @@ function resolveManifestPaths(mf, baseDir) {
     }
 }
 
+// Max file dialogs (the browse… button) hand back HFS-style paths like
+// "Macintosh HD:/Users/...". The boot-volume name contains a space, which
+// breaks LiveAPI.call("create_audio_clip", path): the call tokenizes its
+// argument on the space → "Invalid syntax" → 0 clips created. Normalize any
+// HFS path to POSIX so every entry point (browse, UDP load, autowatch reload)
+// is space-safe. Maps the boot volume only ("Vol:/rest" → "/rest"); non-boot
+// volumes would need "/Volumes/<Vol>/rest" — fine here since sets live on the
+// boot volume.
+function hfsToPosix(p) {
+    if (!p || p.charAt(0) === "/") return p;   // already POSIX (or empty)
+    var m = p.match(/^([^\/:]+):\/(.*)$/);      // "<Volume>:/rest"
+    return m ? "/" + m[2] : p;
+}
+
 function loadSet(path) {
+    path = hfsToPosix(path);
     post("setforge-loader: loading set from " + path + "\n");
 
     try {
@@ -3346,7 +3361,16 @@ function handleMessage(msg, args) {
         doInit();
     } else if (msg === "load") {
         if (args.length > 0) loadSet(args[0]);
-        else post("setforge-loader: load requires a path\n");
+        else {
+            // No path given (bare UI button press) — fall back to reload
+            // behavior: restore the last-loaded set from disk.
+            var lastPath = loadLastSetPath();
+            if (lastPath) {
+                loadSet(hfsToPosix(lastPath));
+            } else {
+                post("setforge-loader: load — no path given and no last set saved\n");
+            }
+        }
     } else if (msg === "reload") {
         // Re-READ the saved set from disk (not just re-populate from memory),
         // so reload restores exactly what was last saved. Falls back to an
