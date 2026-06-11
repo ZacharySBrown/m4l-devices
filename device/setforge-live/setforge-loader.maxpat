@@ -47,6 +47,268 @@
 		"boxes": [
 			{
 				"box": {
+					"id": "sf-bg",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						0,
+						0,
+						800.0,
+						182.0
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0,
+						0,
+						800.0,
+						182.0
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.0745,
+						0.0863,
+						0.1137,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 0.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-header",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						0,
+						0,
+						800.0,
+						30.0
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0,
+						0,
+						800.0,
+						30.0
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 0.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-stripe",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						0,
+						0,
+						6,
+						182.0
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0,
+						0,
+						6,
+						182.0
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 0.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-led",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						16,
+						11,
+						9,
+						9
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						16,
+						11,
+						9,
+						9
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.357,
+						0.851,
+						0.541,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-status",
+					"maxclass": "comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						688.0,
+						9,
+						104,
+						14
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						688.0,
+						9,
+						104,
+						14
+					],
+					"text": "CONNECTED",
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					],
+					"fontname": "Arial",
+					"fontface": 0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-brand",
+					"maxclass": "comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						32,
+						3,
+						90,
+						12
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						32,
+						3,
+						90,
+						12
+					],
+					"text": "SETFORGE",
+					"fontsize": 8.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					],
+					"fontname": "Arial",
+					"fontface": 0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-name",
+					"maxclass": "comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						32,
+						12,
+						280,
+						17
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						32,
+						12,
+						280,
+						17
+					],
+					"text": "LOADER",
+					"fontsize": 14.0,
+					"textcolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"fontname": "Arial",
+					"fontface": 1
+				}
+			},
+			{
+				"box": {
 					"id": "plugin-in",
 					"maxclass": "newobj",
 					"numinlets": 2,
@@ -254,7 +516,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						450,
-						8,
+						38.0,
 						70,
 						22
 					],
@@ -269,7 +531,31 @@
 					"text": "browse...",
 					"texton": "browse...",
 					"textoff": "browse...",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -324,7 +610,7 @@
 					"outlettype": [
 						""
 					],
-					"text": "load /Users/zak/zacharysbrown/m4l-devices/device/setforge-live/tests/fixtures/manifests/hiphop_v3.set.json"
+					"text": "load /sessions/focused-keen-hawking/mnt/m4l-devices/device/setforge-live/tests/fixtures/manifests/hiphop_v3.set.json"
 				}
 			},
 			{
@@ -383,7 +669,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						8,
+						38.0,
 						200,
 						22
 					],
@@ -423,7 +709,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						216,
-						8,
+						38.0,
 						70,
 						22
 					],
@@ -441,7 +727,31 @@
 					"text": "load",
 					"texton": "load",
 					"textoff": "load",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textcolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -463,7 +773,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						294,
-						8,
+						38.0,
 						70,
 						22
 					],
@@ -481,7 +791,31 @@
 					"text": "reload",
 					"texton": "reload",
 					"textoff": "reload",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -503,7 +837,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						372,
-						8,
+						38.0,
 						70,
 						22
 					],
@@ -521,7 +855,25 @@
 					"text": "eject",
 					"texton": "eject",
 					"textoff": "eject",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						1.0,
+						0.42,
+						0.42,
+						1.0
+					],
+					"bordercolor": [
+						1.0,
+						0.42,
+						0.42,
+						1.0
+					]
 				}
 			},
 			{
@@ -539,12 +891,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						38,
+						68.0,
 						380,
 						14
 					],
 					"text": "bank A: \u2014",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -562,12 +920,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						54,
+						84.0,
 						380,
 						14
 					],
 					"text": "bank B: \u2014",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -585,12 +949,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						70,
+						100.0,
 						380,
 						14
 					],
 					"text": "active preset: \u2014",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -608,12 +978,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						86,
+						116.0,
 						380,
 						14
 					],
 					"text": "active scene: \u2014",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -631,12 +1007,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						102,
+						132.0,
 						380,
 						14
 					],
 					"text": "tempo: \u2014 bpm",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -657,7 +1039,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						120,
+						150.0,
 						70,
 						22
 					],
@@ -694,7 +1076,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						694,
-						120,
+						150.0,
 						70,
 						22
 					],
@@ -709,7 +1091,25 @@
 					"text": "PANIC",
 					"texton": "PANIC",
 					"textoff": "PANIC",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						1.0,
+						0.42,
+						0.42,
+						1.0
+					],
+					"bordercolor": [
+						1.0,
+						0.42,
+						0.42,
+						1.0
+					]
 				}
 			},
 			{
@@ -727,12 +1127,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						300,
-						122,
+						152.0,
 						200,
 						14
 					],
 					"text": "fx target: all",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -754,7 +1160,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						400,
-						38,
+						68.0,
 						40,
 						18
 					],
@@ -773,7 +1179,31 @@
 					"texton": "A1",
 					"textoff": "A1",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -813,7 +1243,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						444,
-						38,
+						68.0,
 						40,
 						18
 					],
@@ -832,7 +1262,31 @@
 					"texton": "A2",
 					"textoff": "A2",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -872,7 +1326,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						488,
-						38,
+						68.0,
 						40,
 						18
 					],
@@ -891,7 +1345,31 @@
 					"texton": "A3",
 					"textoff": "A3",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -931,7 +1409,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						532,
-						38,
+						68.0,
 						40,
 						18
 					],
@@ -950,7 +1428,31 @@
 					"texton": "A4",
 					"textoff": "A4",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -990,7 +1492,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						576,
-						38,
+						68.0,
 						40,
 						18
 					],
@@ -1009,7 +1511,31 @@
 					"texton": "A5",
 					"textoff": "A5",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1049,7 +1575,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						620,
-						38,
+						68.0,
 						40,
 						18
 					],
@@ -1068,7 +1594,31 @@
 					"texton": "A6",
 					"textoff": "A6",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1108,7 +1658,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						664,
-						38,
+						68.0,
 						40,
 						18
 					],
@@ -1127,7 +1677,31 @@
 					"texton": "A7",
 					"textoff": "A7",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1167,7 +1741,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						708,
-						38,
+						68.0,
 						40,
 						18
 					],
@@ -1186,7 +1760,31 @@
 					"texton": "A8",
 					"textoff": "A8",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1226,7 +1824,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						400,
-						60,
+						90.0,
 						40,
 						18
 					],
@@ -1245,7 +1843,31 @@
 					"texton": "B1",
 					"textoff": "B1",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1285,7 +1907,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						444,
-						60,
+						90.0,
 						40,
 						18
 					],
@@ -1304,7 +1926,31 @@
 					"texton": "B2",
 					"textoff": "B2",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1344,7 +1990,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						488,
-						60,
+						90.0,
 						40,
 						18
 					],
@@ -1363,7 +2009,31 @@
 					"texton": "B3",
 					"textoff": "B3",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1403,7 +2073,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						532,
-						60,
+						90.0,
 						40,
 						18
 					],
@@ -1422,7 +2092,31 @@
 					"texton": "B4",
 					"textoff": "B4",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1462,7 +2156,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						576,
-						60,
+						90.0,
 						40,
 						18
 					],
@@ -1481,7 +2175,31 @@
 					"texton": "B5",
 					"textoff": "B5",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1521,7 +2239,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						620,
-						60,
+						90.0,
 						40,
 						18
 					],
@@ -1540,7 +2258,31 @@
 					"texton": "B6",
 					"textoff": "B6",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1580,7 +2322,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						664,
-						60,
+						90.0,
 						40,
 						18
 					],
@@ -1599,7 +2341,31 @@
 					"texton": "B7",
 					"textoff": "B7",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1639,7 +2405,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						708,
-						60,
+						90.0,
 						40,
 						18
 					],
@@ -1658,7 +2424,31 @@
 					"texton": "B8",
 					"textoff": "B8",
 					"mode": 0,
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -1698,7 +2488,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						616,
-						120,
+						150.0,
 						70,
 						22
 					],
@@ -1716,7 +2506,31 @@
 					"text": "SAVE",
 					"texton": "SAVE",
 					"textoff": "SAVE",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textcolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					],
+					"bgoncolor": [
+						0.961,
+						0.651,
+						0.137,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{

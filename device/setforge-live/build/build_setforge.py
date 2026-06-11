@@ -1304,6 +1304,97 @@ def write_maxpat(path, patcher_dict):
     return sha, size
 
 
+# ─────────────────────────────────────────────────────────────
+#  Unified device front-panel styling
+#  (matches docs/mockups/device-panels.html — companion palette)
+#  Appearance ONLY: shifts presentation rects + recolors existing
+#  objects + adds decorative panels. No functional object, scripting
+#  name, or connection is touched.
+# ─────────────────────────────────────────────────────────────
+_SF = {
+    "bg":      [0.0745, 0.0863, 0.1137, 1.0],   # #13161d panel
+    "line":    [0.145, 0.169, 0.220, 1.0],      # #252b38 border
+    "txt":     [0.914, 0.929, 0.965, 1.0],      # #e9edf6 text
+    "muted":   [0.545, 0.580, 0.655, 1.0],      # #8b94a7 muted
+    "darkbtn": [0.055, 0.067, 0.094, 1.0],      # #0e1118 button bg
+    "ink":     [0.043, 0.051, 0.071, 1.0],      # #0b0d12 text on accent
+    "green":   [0.357, 0.851, 0.541, 1.0],      # #5BD98A status LED
+    "red":     [1.0, 0.420, 0.420, 1.0],        # #FF6B6B danger
+}
+_SF_ACCENT = {
+    "A":      [0.961, 0.651, 0.137, 1.0],   # #F5A623 loader
+    "B":      [0.204, 0.784, 0.910, 1.0],   # #34C8E8 grid
+    "green":  [0.357, 0.851, 0.541, 1.0],   # #5BD98A calibrate
+    "purple": [0.710, 0.549, 1.0, 1.0],     # #B58CFF arranger
+}
+
+
+def _sf_panel(obj_id, rect, color, rounded=0.0):
+    return P.box(obj_id, "panel", rect=rect, presentation=True, presentation_rect=rect,
+                 numinlets=1, numoutlets=0, outlettype=[""],
+                 extras={"mode": 0, "bgfillcolor_type": "color",
+                         "bgfillcolor_color": color, "border": 0.0,
+                         "bordercolor": _SF["line"], "rounded": rounded})
+
+
+def _sf_text(obj_id, text, rect, color, fontsize=11.0, fontface=0):
+    return P.box(obj_id, "comment", rect=rect, presentation=True, presentation_rect=rect,
+                 numinlets=1, numoutlets=0, outlettype=[""],
+                 extras={"text": text, "fontsize": fontsize, "textcolor": color,
+                         "fontname": "Arial", "fontface": fontface})
+
+
+def style_unified_panel(p, accent_key, name, status="CONNECTED"):
+    """Apply the unified Setforge look to a built device patcher.
+
+    Accent stripe + ID header (LED · SETFORGE · device name) + recolored
+    controls. Appearance only — preserves every functional object, scripting
+    name, and connection (only presentation_rect.y and color attrs change,
+    plus prepended decorative panels).
+    """
+    accent = _SF_ACCENT[accent_key]
+    pat = p["patcher"]
+    boxes = pat["boxes"]
+    W = float(pat.get("devicewidth", 800.0))
+    HEADER = 30.0
+
+    pres = [b["box"] for b in boxes if b["box"].get("presentation") == 1]
+    for bx in pres:
+        pr = bx.get("presentation_rect")
+        if pr:
+            pr[1] = pr[1] + HEADER
+        mc = bx.get("maxclass")
+        vn = bx.get("varname", "")
+        if mc == "live.text":
+            if vn in ("load", "place", "export", "save", "snapshot"):
+                bx["bgcolor"] = accent; bx["textcolor"] = _SF["ink"]
+                bx["bgoncolor"] = accent; bx["textoncolor"] = _SF["ink"]
+            elif vn in ("eject", "panic"):
+                bx["bgcolor"] = _SF["darkbtn"]; bx["textcolor"] = _SF["red"]
+                bx["bordercolor"] = _SF["red"]
+            else:
+                bx["bgcolor"] = _SF["darkbtn"]; bx["textcolor"] = _SF["txt"]
+                bx["bgoncolor"] = accent; bx["textoncolor"] = _SF["ink"]
+        elif mc == "live.comment":
+            bx["textcolor"] = _SF["muted"]
+
+    maxy = max((bx["presentation_rect"][1] + bx["presentation_rect"][3]
+                for bx in pres if bx.get("presentation_rect")), default=HEADER + 120)
+    H = max(maxy + 10.0, HEADER + 60.0)
+
+    deco = [
+        _sf_panel("sf-bg", (0, 0, W, H), _SF["bg"]),
+        _sf_panel("sf-header", (0, 0, W, HEADER), _SF["darkbtn"]),
+        _sf_panel("sf-stripe", (0, 0, 6, H), accent),
+        _sf_panel("sf-led", (16, 11, 9, 9), _SF["green"], rounded=9.0),
+        _sf_text("sf-status", status, (W - 112, 9, 104, 14), _SF["muted"], 9.0),
+        _sf_text("sf-brand", "SETFORGE", (32, 3, 90, 12), _SF["muted"], 8.0),
+        _sf_text("sf-name", name, (32, 12, 280, 17), accent, 14.0, 1),
+    ]
+    boxes[0:0] = deco
+    return p
+
+
 def main():
     print("=" * 60)
     print("  setforge-live build")
@@ -1312,6 +1403,7 @@ def main():
     # ── Build loader ──
     print("\n▸ Building setforge-loader...")
     loader_patcher = build_loader()
+    style_unified_panel(loader_patcher, "A", "LOADER", "CONNECTED")
     print("  Verifying patcher...")
     loader_ok = verify_patcher("setforge-loader", loader_patcher)
 
@@ -1336,6 +1428,7 @@ def main():
     # Skip patcher verifiers — MIDI effect has no plugin~/plugout~ by design
     print("\n▸ Building setforge-grid (MIDI effect)...")
     grid_patcher = build_grid()
+    style_unified_panel(grid_patcher, "B", "GRID", "BRIDGED")
     grid_ok = True
 
     maxpat_path = OUT_DIR / "setforge-grid.maxpat"
@@ -1352,6 +1445,7 @@ def main():
     # ── Build calibrator ──
     print("\n▸ Building setforge-calibrate...")
     cal_patcher = build_calibrator()
+    style_unified_panel(cal_patcher, "green", "CALIBRATE", "READY")
     print("  Verifying patcher...")
     cal_ok = verify_patcher("setforge-calibrate", cal_patcher)
 
@@ -1372,6 +1466,7 @@ def main():
     # ── Build arranger ──
     print("\n▸ Building setforge-arranger...")
     arr_patcher = build_arranger()
+    style_unified_panel(arr_patcher, "purple", "ARRANGER", "READY")
     print("  Verifying patcher...")
     arr_ok = verify_patcher("setforge-arranger", arr_patcher)
 

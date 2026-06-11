@@ -47,6 +47,268 @@
 		"boxes": [
 			{
 				"box": {
+					"id": "sf-bg",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						0,
+						0,
+						300.0,
+						90.0
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0,
+						0,
+						300.0,
+						90.0
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.0745,
+						0.0863,
+						0.1137,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 0.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-header",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						0,
+						0,
+						300.0,
+						30.0
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0,
+						0,
+						300.0,
+						30.0
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 0.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-stripe",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						0,
+						0,
+						6,
+						90.0
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0,
+						0,
+						6,
+						90.0
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.204,
+						0.784,
+						0.91,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 0.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-led",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						16,
+						11,
+						9,
+						9
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						16,
+						11,
+						9,
+						9
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.357,
+						0.851,
+						0.541,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-status",
+					"maxclass": "comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						188.0,
+						9,
+						104,
+						14
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						188.0,
+						9,
+						104,
+						14
+					],
+					"text": "BRIDGED",
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					],
+					"fontname": "Arial",
+					"fontface": 0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-brand",
+					"maxclass": "comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						32,
+						3,
+						90,
+						12
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						32,
+						3,
+						90,
+						12
+					],
+					"text": "SETFORGE",
+					"fontsize": 8.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					],
+					"fontname": "Arial",
+					"fontface": 0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-name",
+					"maxclass": "comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						32,
+						12,
+						280,
+						17
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						32,
+						12,
+						280,
+						17
+					],
+					"text": "GRID",
+					"fontsize": 14.0,
+					"textcolor": [
+						0.204,
+						0.784,
+						0.91,
+						1.0
+					],
+					"fontname": "Arial",
+					"fontface": 1
+				}
+			},
+			{
+				"box": {
 					"id": "midiin",
 					"maxclass": "newobj",
 					"numinlets": 1,
@@ -160,12 +422,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						8,
+						38.0,
 						280,
 						16
 					],
 					"text": "setforge-grid",
-					"fontsize": 10.0
+					"fontsize": 10.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -183,12 +451,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						28,
+						58.0,
 						280,
 						14
 					],
 					"text": "MIDI bridge \u2192 Launchpad",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			}
 		],

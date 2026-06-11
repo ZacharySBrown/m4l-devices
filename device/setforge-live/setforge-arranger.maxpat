@@ -47,6 +47,268 @@
 		"boxes": [
 			{
 				"box": {
+					"id": "sf-bg",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						0,
+						0,
+						400.0,
+						202.0
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0,
+						0,
+						400.0,
+						202.0
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.0745,
+						0.0863,
+						0.1137,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 0.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-header",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						0,
+						0,
+						400.0,
+						30.0
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0,
+						0,
+						400.0,
+						30.0
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 0.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-stripe",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						0,
+						0,
+						6,
+						202.0
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						0,
+						0,
+						6,
+						202.0
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.71,
+						0.549,
+						1.0,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 0.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-led",
+					"maxclass": "panel",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						16,
+						11,
+						9,
+						9
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						16,
+						11,
+						9,
+						9
+					],
+					"mode": 0,
+					"bgfillcolor_type": "color",
+					"bgfillcolor_color": [
+						0.357,
+						0.851,
+						0.541,
+						1.0
+					],
+					"border": 0.0,
+					"bordercolor": [
+						0.145,
+						0.169,
+						0.22,
+						1.0
+					],
+					"rounded": 9.0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-status",
+					"maxclass": "comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						288.0,
+						9,
+						104,
+						14
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						288.0,
+						9,
+						104,
+						14
+					],
+					"text": "READY",
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					],
+					"fontname": "Arial",
+					"fontface": 0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-brand",
+					"maxclass": "comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						32,
+						3,
+						90,
+						12
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						32,
+						3,
+						90,
+						12
+					],
+					"text": "SETFORGE",
+					"fontsize": 8.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					],
+					"fontname": "Arial",
+					"fontface": 0
+				}
+			},
+			{
+				"box": {
+					"id": "sf-name",
+					"maxclass": "comment",
+					"numinlets": 1,
+					"numoutlets": 0,
+					"patching_rect": [
+						32,
+						12,
+						280,
+						17
+					],
+					"outlettype": [
+						""
+					],
+					"presentation": 1,
+					"presentation_rect": [
+						32,
+						12,
+						280,
+						17
+					],
+					"text": "ARRANGER",
+					"fontsize": 14.0,
+					"textcolor": [
+						0.71,
+						0.549,
+						1.0,
+						1.0
+					],
+					"fontname": "Arial",
+					"fontface": 1
+				}
+			},
+			{
+				"box": {
 					"id": "plugin-in",
 					"maxclass": "newobj",
 					"numinlets": 2,
@@ -310,7 +572,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						8,
+						38.0,
 						70,
 						22
 					],
@@ -325,7 +587,31 @@
 					"text": "Browse...",
 					"texton": "Browse...",
 					"textoff": "Browse...",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.71,
+						0.549,
+						1.0,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -347,7 +633,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						86,
-						8,
+						38.0,
 						70,
 						22
 					],
@@ -362,7 +648,31 @@
 					"text": "Load",
 					"texton": "Load",
 					"textoff": "Load",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.71,
+						0.549,
+						1.0,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -402,7 +712,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						164,
-						8,
+						38.0,
 						70,
 						22
 					],
@@ -417,7 +727,31 @@
 					"text": "Export",
 					"texton": "Export",
 					"textoff": "Export",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.71,
+						0.549,
+						1.0,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -457,7 +791,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						242,
-						8,
+						38.0,
 						70,
 						22
 					],
@@ -472,7 +806,31 @@
 					"text": "Re-anchor",
 					"texton": "Re-anchor",
 					"textoff": "Re-anchor",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.71,
+						0.549,
+						1.0,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -512,7 +870,7 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						96,
+						126.0,
 						70,
 						22
 					],
@@ -527,7 +885,31 @@
 					"text": "Eject",
 					"texton": "Eject",
 					"textoff": "Eject",
-					"mode": 0
+					"mode": 0,
+					"bgcolor": [
+						0.055,
+						0.067,
+						0.094,
+						1.0
+					],
+					"textcolor": [
+						0.914,
+						0.929,
+						0.965,
+						1.0
+					],
+					"bgoncolor": [
+						0.71,
+						0.549,
+						1.0,
+						1.0
+					],
+					"textoncolor": [
+						0.043,
+						0.051,
+						0.071,
+						1.0
+					]
 				}
 			},
 			{
@@ -563,12 +945,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						38,
+						68.0,
 						380,
 						14
 					],
 					"text": "manifest: (none)",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -586,12 +974,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						54,
+						84.0,
 						380,
 						14
 					],
 					"text": "bpm: --",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -609,12 +1003,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						70,
+						100.0,
 						380,
 						14
 					],
 					"text": "clips: 0",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			},
 			{
@@ -632,12 +1032,18 @@
 					"presentation": 1,
 					"presentation_rect": [
 						8,
-						148,
+						178.0,
 						200,
 						14
 					],
 					"text": "setforge-arranger",
-					"fontsize": 9.0
+					"fontsize": 9.0,
+					"textcolor": [
+						0.545,
+						0.58,
+						0.655,
+						1.0
+					]
 				}
 			}
 		],
