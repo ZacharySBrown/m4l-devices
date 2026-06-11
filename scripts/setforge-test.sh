@@ -46,6 +46,9 @@ step "JS · companion data layer (interpolation + store)" \
 step "JS · companion render components (surface/now-playing/legend)" \
   node --test companion/tests/render/components.test.mjs
 
+step "JS · companion Perform view UAT (window-replacement checklist)" \
+  node --test companion/tests/uat_perform.test.mjs
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "============================================================"

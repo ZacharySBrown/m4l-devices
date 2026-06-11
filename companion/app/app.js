@@ -161,6 +161,10 @@ function init() {
   _mount('perform');
 }
 
+// ── Register views ────────────────────────────────────────────────
+import { renderPerform } from './render/perform.js';
+registerView('perform', renderPerform);
+
 // Auto-init when DOM is ready
 if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') {
