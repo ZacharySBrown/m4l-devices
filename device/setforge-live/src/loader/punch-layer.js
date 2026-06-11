@@ -9,9 +9,12 @@
 // One effect at a time (last button wins); multiple pads allowed,
 // each with independent per-target amount.
 
-// ── Provisional button notes (Pro MK2 right side) ──
-// TODO: confirm on hardware — exact note numbers for Pro MK2 right side
+// ── Provisional button notes AND CCs (Pro MK2 right side) ──
+// PROVISIONAL: verify hardware 2026-06-11 PM — the round buttons may send
+// notes or CCs depending on programmer-mode config. Accept BOTH; after the
+// hardware check, delete the unused path.
 var PUNCH_BUTTON_NOTES = [89, 79, 69, 59];
+var PUNCH_BUTTON_CCS   = [89, 79, 69, 59];  // PROVISIONAL: same numbers as notes
 
 // Effect order matches the punch-fx device spec
 var PUNCH_EFFECTS = ["REPEAT", "STUTTER", "SLICER", "OCT"];
@@ -73,8 +76,63 @@ function isPunchButton(note) {
     return PUNCH_BUTTON_NOTES.indexOf(note) >= 0;
 }
 
+function isPunchCC(cc) {
+    return PUNCH_BUTTON_CCS.indexOf(cc) >= 0;
+}
+
 function punchButtonIndex(note) {
     return PUNCH_BUTTON_NOTES.indexOf(note);
+}
+
+function punchCCIndex(cc) {
+    return PUNCH_BUTTON_CCS.indexOf(cc);
+}
+
+// ── Punch LED feedback ──
+// Effect → accent color (7-bit RGB for MK2 SysEx)
+var PUNCH_EFFECT_COLORS = [
+    [127, 20, 20],   // REPEAT — red
+    [127, 80, 10],   // STUTTER — orange
+    [20, 80, 127],   // SLICER — blue
+    [80, 20, 127],   // OCT — purple
+];
+var PUNCH_PAD_TINT_DIM = 0.4;  // dim factor for engaged-pad tint
+
+// Injectable LED writer (set by controller after concat)
+var _punchLedWriter = null;
+
+function setPunchLedWriter(fn) {
+    _punchLedWriter = fn;
+}
+
+function punchLedButtonOn(effectIdx) {
+    if (typeof _punchLedWriter === "function" && effectIdx >= 0 && effectIdx < PUNCH_EFFECT_COLORS.length) {
+        _punchLedWriter("button", PUNCH_BUTTON_NOTES[effectIdx], PUNCH_EFFECT_COLORS[effectIdx]);
+    }
+}
+
+function punchLedButtonOff(effectIdx) {
+    if (typeof _punchLedWriter === "function" && effectIdx >= 0) {
+        _punchLedWriter("button", PUNCH_BUTTON_NOTES[effectIdx], [0, 0, 0]);
+    }
+}
+
+function punchLedPadOn(note, effectIdx) {
+    if (typeof _punchLedWriter === "function" && effectIdx >= 0 && effectIdx < PUNCH_EFFECT_COLORS.length) {
+        var c = PUNCH_EFFECT_COLORS[effectIdx];
+        var tint = [
+            Math.round(c[0] * PUNCH_PAD_TINT_DIM),
+            Math.round(c[1] * PUNCH_PAD_TINT_DIM),
+            Math.round(c[2] * PUNCH_PAD_TINT_DIM)
+        ];
+        _punchLedWriter("pad", note, tint);
+    }
+}
+
+function punchLedPadOff(note) {
+    if (typeof _punchLedWriter === "function") {
+        _punchLedWriter("pad_restore", note, null);
+    }
 }
 
 function punchButtonDown(note) {
@@ -84,6 +142,7 @@ function punchButtonDown(note) {
     punchState = PUNCH_FX_APPLY;
     punchActiveEffect = idx;
     punchActiveTargets = {};
+    punchLedButtonOn(idx);
     post("punch-layer: FX_APPLY → " + PUNCH_EFFECTS[idx] + "\n");
     return true;
 }
@@ -93,13 +152,15 @@ function punchButtonUp(note) {
     if (idx < 0) return false;
     if (punchState !== PUNCH_FX_APPLY) return false;
 
-    // Disengage all active targets
+    // Disengage all active targets + restore their pad LEDs
     for (var key in punchActiveTargets) {
         if (punchActiveTargets.hasOwnProperty(key)) {
             var t = punchActiveTargets[key];
             applyPunch(t.trackPath || key, PUNCH_EFFECTS[punchActiveEffect], false, 0);
+            if (t.padNote) punchLedPadOff(t.padNote);
         }
     }
+    punchLedButtonOff(punchActiveEffect);
     punchActiveTargets = {};
     punchActiveEffect = null;
     punchState = PUNCH_IDLE;
@@ -122,8 +183,11 @@ function punchPadDown(grid, row, col) {
         pressure = getPadPressure(grid, note);
     }
 
-    punchActiveTargets[key] = { stem: target.stem, deck: target.deck, trackPath: target.trackPath, amount: pressure };
+    var padNote = (typeof surface !== "undefined" && surface.rowColToNote)
+        ? surface.rowColToNote(row, col) : 0;
+    punchActiveTargets[key] = { stem: target.stem, deck: target.deck, trackPath: target.trackPath, amount: pressure, padNote: padNote };
     applyPunch(target.trackPath || key, PUNCH_EFFECTS[punchActiveEffect], true, pressure);
+    punchLedPadOn(padNote, punchActiveEffect);
     return true;
 }
 
@@ -135,6 +199,7 @@ function punchPadUp(grid, row, col) {
 
     var key = (target.trackPath || target.stem + "-" + target.deck);
     if (punchActiveTargets[key]) {
+        punchLedPadOff(punchActiveTargets[key].padNote);
         applyPunch(target.trackPath || key, PUNCH_EFFECTS[punchActiveEffect], false, 0);
         delete punchActiveTargets[key];
     }
@@ -179,19 +244,60 @@ function resetPunch() {
     punchActiveTargets = {};
 }
 
+// ── CC-based punch dispatch (dual note/CC robustness) ──
+
+function punchCCDown(cc, value) {
+    if (value === 0) return punchCCUp(cc);
+    var idx = punchCCIndex(cc);
+    if (idx < 0) return false;
+
+    punchState = PUNCH_FX_APPLY;
+    punchActiveEffect = idx;
+    punchActiveTargets = {};
+    punchLedButtonOn(idx);
+    post("punch-layer: FX_APPLY (via CC) → " + PUNCH_EFFECTS[idx] + "\n");
+    return true;
+}
+
+function punchCCUp(cc) {
+    var idx = punchCCIndex(cc);
+    if (idx < 0) return false;
+    if (punchState !== PUNCH_FX_APPLY) return false;
+
+    for (var key in punchActiveTargets) {
+        if (punchActiveTargets.hasOwnProperty(key)) {
+            var t = punchActiveTargets[key];
+            applyPunch(t.trackPath || key, PUNCH_EFFECTS[punchActiveEffect], false, 0);
+            if (t.padNote) punchLedPadOff(t.padNote);
+        }
+    }
+    punchLedButtonOff(punchActiveEffect);
+    punchActiveTargets = {};
+    punchActiveEffect = null;
+    punchState = PUNCH_IDLE;
+    post("punch-layer: → IDLE (via CC)\n");
+    return true;
+}
+
 // ── Module exports (guarded for test harness; no-op in Max SpiderMonkey) ──
 if (typeof module !== "undefined") {
     module.exports = {
         PUNCH_BUTTON_NOTES: PUNCH_BUTTON_NOTES,
+        PUNCH_BUTTON_CCS: PUNCH_BUTTON_CCS,
         PUNCH_EFFECTS: PUNCH_EFFECTS,
+        PUNCH_EFFECT_COLORS: PUNCH_EFFECT_COLORS,
         PUNCH_IDLE: PUNCH_IDLE,
         PUNCH_FX_APPLY: PUNCH_FX_APPLY,
         STEM_ROWS: STEM_ROWS,
         DECK_ROWS: DECK_ROWS,
         isPunchButton: isPunchButton,
+        isPunchCC: isPunchCC,
         punchButtonIndex: punchButtonIndex,
+        punchCCIndex: punchCCIndex,
         punchButtonDown: punchButtonDown,
         punchButtonUp: punchButtonUp,
+        punchCCDown: punchCCDown,
+        punchCCUp: punchCCUp,
         punchPadDown: punchPadDown,
         punchPadUp: punchPadUp,
         punchUpdatePressure: punchUpdatePressure,
@@ -200,6 +306,7 @@ if (typeof module !== "undefined") {
         resetPunch: resetPunch,
         resolveFxTarget: resolveFxTarget,
         setPunchSink: setPunchSink,
+        setPunchLedWriter: setPunchLedWriter,
         applyPunch: applyPunch,
     };
 }

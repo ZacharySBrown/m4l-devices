@@ -217,4 +217,97 @@ describe('punch-layer', () => {
       expect(() => punch.punchPadDown(1, 1, 1)).to.not.throw();
     });
   });
+
+  describe('CC-based punch dispatch (Part A)', () => {
+    it('isPunchCC recognizes CC numbers', () => {
+      expect(punch.isPunchCC(89)).to.be.true;
+      expect(punch.isPunchCC(59)).to.be.true;
+      expect(punch.isPunchCC(49)).to.be.false;
+    });
+
+    it('punchCCDown enters FX_APPLY identically to note', () => {
+      punch.punchCCDown(89, 127);
+      expect(punch.getPunchState().state).to.equal('fx_apply');
+      expect(punch.getPunchState().effect).to.equal('REPEAT');
+    });
+
+    it('punchCCUp exits FX_APPLY', () => {
+      punch.punchCCDown(79, 127);  // STUTTER via CC
+      punch.punchCCUp(79);
+      expect(punch.getPunchState().state).to.equal('idle');
+    });
+
+    it('CC value=0 triggers up (release)', () => {
+      punch.punchCCDown(69, 127);  // SLICER
+      expect(punch.isPunchFxActive()).to.be.true;
+      punch.punchCCDown(69, 0);  // value=0 → release
+      expect(punch.isPunchFxActive()).to.be.false;
+    });
+
+    it('CC dispatch works with pad engage/disengage', () => {
+      punch.punchCCDown(89, 127);
+      punch.punchPadDown(1, 1, 1);
+      expect(sinkCalls).to.have.length(1);
+      expect(sinkCalls[0].on).to.be.true;
+      punch.punchCCUp(89);
+      expect(sinkCalls.length).to.be.at.least(2);
+    });
+  });
+
+  describe('LED feedback (Part B)', () => {
+    let ledWrites;
+
+    beforeEach(() => {
+      ledWrites = [];
+      punch.setPunchLedWriter((type, note, rgb) => {
+        ledWrites.push({ type, note, rgb });
+      });
+    });
+
+    it('lights punch button on FX_APPLY entry', () => {
+      punch.punchButtonDown(89);  // REPEAT
+      const btnWrite = ledWrites.find(w => w.type === 'button' && w.note === 89);
+      expect(btnWrite).to.exist;
+      expect(btnWrite.rgb).to.deep.equal(punch.PUNCH_EFFECT_COLORS[0]);
+    });
+
+    it('restores punch button on exit', () => {
+      punch.punchButtonDown(89);
+      ledWrites = [];
+      punch.punchButtonUp(89);
+      const offWrite = ledWrites.find(w => w.type === 'button' && w.note === 89);
+      expect(offWrite).to.exist;
+      expect(offWrite.rgb).to.deep.equal([0, 0, 0]);
+    });
+
+    it('tints engaged pad with effect color', () => {
+      punch.punchButtonDown(89);  // REPEAT
+      ledWrites = [];
+      punch.punchPadDown(1, 1, 1);  // note 81
+      const padWrite = ledWrites.find(w => w.type === 'pad');
+      expect(padWrite).to.exist;
+      // Tint should be dimmed version of REPEAT color [127,20,20]
+      expect(padWrite.rgb[0]).to.be.lessThan(127);
+      expect(padWrite.rgb[0]).to.be.greaterThan(0);
+    });
+
+    it('restores pad on release', () => {
+      punch.punchButtonDown(89);
+      punch.punchPadDown(1, 1, 1);
+      ledWrites = [];
+      punch.punchPadUp(1, 1, 1);
+      const restoreWrite = ledWrites.find(w => w.type === 'pad_restore');
+      expect(restoreWrite).to.exist;
+    });
+
+    it('restores all pad LEDs on button release', () => {
+      punch.punchButtonDown(89);
+      punch.punchPadDown(1, 1, 1);
+      punch.punchPadDown(1, 2, 1);
+      ledWrites = [];
+      punch.punchButtonUp(89);
+      const restores = ledWrites.filter(w => w.type === 'pad_restore');
+      expect(restores).to.have.length(2);
+    });
+  });
 });
