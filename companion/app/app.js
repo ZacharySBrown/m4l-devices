@@ -104,13 +104,25 @@ function _frame() {
   if (_state) {
     const elapsed = performance.now() - _lastPollMs;
     const interpolated = interpolateProgress(_state, elapsed);
-    // Views can read interpolated state; we don't overwrite _state
-    // to avoid drift accumulation — snap on next poll.
-    for (const fn of _subscribers) {
-      try { fn(interpolated); } catch (e) { /* skip */ }
-    }
+    // Lightweight DOM-only playhead updates (no full re-render, preserves clicks/hover)
+    _updatePlayheads(interpolated);
   }
   _rafId = requestAnimationFrame(_frame);
+}
+
+function _updatePlayheads(state) {
+  if (!state || !state.now_playing) return;
+  const stems = document.querySelectorAll('.np .stem');
+  state.now_playing.forEach((np, i) => {
+    const stemEl = stems[i];
+    if (!stemEl) return;
+    const playhead = stemEl.querySelector('.play');
+    if (playhead) playhead.style.left = `${np.progress || 0}%`;
+    const barsEl = stemEl.querySelector('.bars-left-text');
+    const deck = state.decks?.[np.deck];
+    const stemData = deck?.stems?.[np.stem];
+    if (barsEl && stemData) barsEl.textContent = `${(stemData.bars_left ?? 0).toFixed(0)} bars`;
+  });
 }
 
 // ── Router ────────────────────────────────────────────────────────
@@ -153,6 +165,39 @@ function init() {
       if (tab && tab.dataset.view) _mount(tab.dataset.view);
     });
   }
+
+  // Delegated action handler: clicks on [data-action] → POST /action
+  document.addEventListener('click', async (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn) return;
+    const type = btn.dataset.action;
+    const payload = { type };
+    // Collect data-* attributes as action args
+    if (btn.dataset.id) payload.id = btn.dataset.id;
+    if (btn.dataset.deck) payload.deck = btn.dataset.deck;
+    if (btn.dataset.stem) payload.stem = btn.dataset.stem;
+    if (btn.dataset.chop !== undefined) payload.chop = parseInt(btn.dataset.chop, 10);
+    if (btn.dataset.set) payload.set_name = btn.dataset.set;
+    // tag_scene needs name + current clips (prompt or auto from now_playing)
+    if (type === 'tag_scene' && _state) {
+      const clips = (_state.now_playing || []).map(np => `${np.deck}·${np.stem.slice(0,2).toUpperCase()}${(np.progress > 0 ? '1' : '0')}`);
+      payload.name = `Scene ${Date.now().toString(36).slice(-4)}`;
+      payload.clips = clips;
+    }
+    try {
+      const resp = await fetch('/action', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const result = await resp.json();
+      if (!result.ok) console.warn('action failed:', result.error);
+      // Refresh state after action
+      _poll();
+    } catch (err) {
+      console.error('action error:', err);
+    }
+  });
 
   // Start polling
   _poll();
