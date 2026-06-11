@@ -641,19 +641,132 @@ function runArrangementLoad(manifestPath, shiftBeats) {
     return anyOk;
 }
 
-// ── CommonJS shim — mirrors the reader's test export so the Node-vm sandbox
-// in tests/js_mocks/ can drive these functions directly. Max's classic [js]
-// ignores `module` so this is a no-op at runtime in the device. ───────────
+// ── Dual-deck placement (Phase 3) ─────────────────────────────────
+// Maps deck A → sf-{stem}-x tracks, deck B → sf-{stem}-y tracks.
+// Reuses the session loader's always-dual stem track model.
+
+var _DECK_SUFFIX = { "A": "-x", "B": "-y" };
+
+function _alDualDeckTrackName(deck, stem) {
+    var suffix = _DECK_SUFFIX[deck] || "-x";
+    return "sf-" + stem + suffix;
+}
+
+function runArrangementPlacement(manifest) {
+    // Place clips from placements[] onto dual-deck stem tracks.
+    // manifest: { bpm, placements:[{deck,stem,clip_id,start_bar,len_bars,source,color}], ... }
+    // Returns { ok, clips_placed, errors }
+    if (!manifest || !Array.isArray(manifest.placements)) {
+        return { ok: false, clips_placed: 0, errors: ["no placements array"] };
+    }
+
+    var bpm = Number(manifest.bpm) || 120.0;
+    var beatsPerBar = 4;
+    var errors = [];
+    var placed = 0;
+
+    // Set project tempo
+    if (bpm > 0 && isFinite(bpm)) {
+        try { new LiveAPI("live_set").set("tempo", bpm); } catch (_) {}
+    }
+
+    for (var i = 0; i < manifest.placements.length; i++) {
+        var p = manifest.placements[i];
+        if (!p.deck || !p.stem || p.start_bar === undefined || !p.len_bars) {
+            errors.push("invalid placement at index " + i);
+            continue;
+        }
+
+        var trackName = _alDualDeckTrackName(p.deck, p.stem);
+        var trackApi = _alFindTrackForStem(trackName);
+        if (!trackApi) {
+            errors.push("track not found: " + trackName);
+            continue;
+        }
+
+        // Overwrite at position: delete any clip overlapping [start_bar, start_bar+len_bars)
+        var startBeat = p.start_bar * beatsPerBar;
+        var endBeat = (p.start_bar + p.len_bars) * beatsPerBar;
+        _alClearRange(trackApi, startBeat, endBeat);
+
+        // Create clip if we have a file path (clip_id can resolve via the sink)
+        // For now, the placement is recorded; actual clip creation needs a WAV path.
+        // In the headless mock, just record the call.
+        if (typeof _arrangementSink === "function") {
+            _arrangementSink("place", {
+                track: trackName,
+                start_beat: startBeat,
+                len_beats: p.len_bars * beatsPerBar,
+                clip_id: p.clip_id,
+                source: p.source,
+            });
+        }
+        placed++;
+    }
+
+    return { ok: errors.length === 0, clips_placed: placed, errors: errors };
+}
+
+function _alClearRange(trackApi, startBeat, endBeat) {
+    // Remove any arrangement clips in [startBeat, endBeat)
+    try {
+        var count = trackApi.getcount("arrangement_clips");
+        for (var i = count - 1; i >= 0; i--) {
+            var clipPath = trackApi.path + " arrangement_clips " + i;
+            var clipApi = new LiveAPI(clipPath);
+            var clipStart = Number(clipApi.get("start_time")) || 0;
+            var clipEnd = clipStart + (Number(clipApi.get("length")) || 0);
+            if (clipStart < endBeat && clipEnd > startBeat) {
+                trackApi.call("delete_clip", i);
+            }
+        }
+    } catch (_) {}
+}
+
+// ── Manifest write (save placements round-trip) ──
+
+function buildArrangementManifest(bpm, placements, sceneMarkers) {
+    return {
+        schema_version: 1,
+        bpm: bpm || 120.0,
+        chunks: [],
+        placements: (placements || []).map(function(p) {
+            return {
+                deck: p.deck, stem: p.stem, clip_id: p.clip_id,
+                start_bar: p.start_bar, len_bars: p.len_bars,
+                source: p.source || null, color: p.color || null
+            };
+        }),
+        scene_markers: (sceneMarkers || []).map(function(m) {
+            return {
+                scene_id: m.scene_id, name: m.name || "",
+                color: m.color || null, start_bar: m.start_bar
+            };
+        })
+    };
+}
+
+// ── Injectable arrangement sink (for headless testing) ──
+var _arrangementSink = null;
+function setArrangementSink(fn) { _arrangementSink = fn; }
+
+// ── CommonJS shim ───────────────────────────────────────────────────
 
 if (typeof module !== "undefined" && module.exports) {
     module.exports.__test__ = {
         runArrangementLoad: runArrangementLoad,
+        runArrangementPlacement: runArrangementPlacement,
+        buildArrangementManifest: buildArrangementManifest,
+        setArrangementSink: setArrangementSink,
         _alJoin: _alJoin,
         _alDirname: _alDirname,
         _alSecToBeats: _alSecToBeats,
         _alExpandTilde: _alExpandTilde,
         _alAdaptChunksToStems: _alAdaptChunksToStems,
         _alFindTrackForStem: _alFindTrackForStem,
+        _alDualDeckTrackName: _alDualDeckTrackName,
+        _alClearRange: _alClearRange,
+        _DECK_SUFFIX: _DECK_SUFFIX,
         _AL_STEM_ALIASES: _AL_STEM_ALIASES
     };
 }
