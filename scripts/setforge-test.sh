@@ -43,6 +43,9 @@ step "JS · surface e2e (Phase-1 gesture chain)" \
 step "JS · companion data layer (interpolation + store)" \
   node --test companion/tests/render/datalayer.test.mjs
 
+step "JS · companion render components (surface/now-playing/legend)" \
+  node --test companion/tests/render/components.test.mjs
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "============================================================"
