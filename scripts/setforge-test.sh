@@ -55,13 +55,16 @@ step "JS · companion Curate view UAT (clip select/swap/scenes)" \
 step "JS · companion guards + render" \
   node --test companion/tests/render/class_coverage.test.mjs companion/tests/render/init_render.test.mjs companion/tests/render/polish.test.mjs companion/tests/render/arrangement.test.mjs
 
-step "PY · companion e2e (server + state + peaks + actions)" \
+step "PY · companion e2e (server + state + peaks + actions + arrangement)" \
   python3 -m pytest companion/tests/ -q
+
+step "JS · arranger e2e (dual-deck placement)" \
+  bash -c 'cd device/setforge-live && npx --no-install mocha tests/integration/arranger-e2e.test.js'
 
 echo
 if [ "$fail" -eq 0 ]; then
   echo "============================================================"
-  echo "  ALL GREEN ✓   (L0 + L1 + spec-drift + JS e2e + surface e2e + companion)"
+  echo "  ALL GREEN ✓   (L0 + L1 + spec-drift + JS e2e + surface + companion + arrangement)"
   echo "============================================================"
 else
   echo "============================================================"
