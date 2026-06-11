@@ -80,3 +80,23 @@ def test_calib_override_validates():
     ok, name, errors = validate_file(EX / "sample.calib_override.json")
     assert name == "calib_override"
     assert ok, errors
+
+
+# ── State (companion) schema ───────────────────────────────────────
+
+COMPANION = Path(__file__).resolve().parent.parent / "companion"
+
+
+def test_state_v2_validates():
+    ok, name, errors = validate_file(COMPANION / "sample_state.json")
+    assert name == "state"
+    assert ok, errors
+
+
+def test_malformed_state_fails():
+    ok, name, errors = validate_file(EX / "bad.state.json")
+    assert name == "state"
+    assert not ok
+    joined = " | ".join(errors)
+    # Should fail on missing bpm in set, missing B in decks, missing bankB in presets, etc.
+    assert "bpm" in joined.lower() or "B" in joined or "bankB" in joined

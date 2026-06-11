@@ -26,6 +26,7 @@ SCHEMAS = {
     "manifest": SCHEMA_DIR / "manifest.schema.json",
     "arrangement": SCHEMA_DIR / "arrangement.schema.json",
     "calib_override": SCHEMA_DIR / "calib_override.schema.json",
+    "state": SCHEMA_DIR.parent / "companion" / "state.schema.json",
 }
 
 
@@ -39,6 +40,8 @@ def detect_schema(data) -> str | None:
         return "arrangement"
     if "method" in data and "downbeat_sec" in data:
         return "calib_override"
+    if "decks" in data and "presets" in data and "now_playing" in data:
+        return "state"
     if "tracks" in data or sv.startswith("2."):
         return "manifest"
     return None

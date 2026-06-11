@@ -1,17 +1,34 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "setforge/companion-state.schema.json",
-  "title": "Setforge companion app state (read endpoint)",
+  "title": "Setforge companion app state v2 (read endpoint)",
   "type": "object",
   "required": ["set", "decks", "presets", "now_playing", "recommendations", "scenes"],
   "additionalProperties": true,
   "properties": {
-    "set": { "type": "object", "required": ["name", "bpm"], "properties": { "name": { "type": "string" }, "bpm": { "type": "number" }, "bar": { "type": "string" } } },
+    "set": {
+      "type": "object", "required": ["name", "bpm"],
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "bpm": { "type": "number" },
+        "bar": { "type": "string" },
+        "playhead_sec": { "type": "number" },
+        "is_playing": { "type": "boolean" },
+        "loop": {
+          "type": ["object", "null"],
+          "properties": {
+            "start_bar": { "type": "number" },
+            "len_bars": { "type": "number" }
+          }
+        }
+      }
+    },
     "decks": { "type": "object", "required": ["A", "B"], "properties": { "A": { "$ref": "#/$defs/deck" }, "B": { "$ref": "#/$defs/deck" } } },
     "presets": { "type": "object", "required": ["bankA", "bankB"], "properties": { "bankA": { "$ref": "#/$defs/bank" }, "bankB": { "$ref": "#/$defs/bank" } } },
-    "now_playing": { "type": "array", "items": { "type": "object", "required": ["deck", "stem", "source"], "properties": { "deck": { "type": "string" }, "stem": { "type": "string" }, "source": { "type": "string" }, "progress": { "type": "number" } } } },
-    "recommendations": { "type": "array", "items": { "type": "object", "required": ["song", "score", "type"], "properties": { "song": { "type": "string" }, "artist": { "type": "string" }, "bpm": { "type": "number" }, "key": { "type": "string" }, "score": { "type": "number" }, "type": { "enum": ["congruent", "spicy"] }, "action": { "type": "string" } } } },
-    "scenes": { "type": "array", "items": { "type": "object", "required": ["name", "clips"], "properties": { "name": { "type": "string" }, "color": { "type": ["string", "null"] }, "clips": { "type": "array", "items": { "type": "string" } } } } }
+    "now_playing": { "type": "array", "items": { "type": "object", "required": ["deck", "stem", "source"], "additionalProperties": true, "properties": { "deck": { "type": "string" }, "stem": { "type": "string" }, "source": { "type": "string" }, "progress": { "type": "number" }, "peaks_ref": { "type": ["string", "null"] } } } },
+    "recommendations": { "type": "array", "items": { "type": "object", "required": ["song", "score", "type"], "additionalProperties": true, "properties": { "song": { "type": "string" }, "artist": { "type": "string" }, "bpm": { "type": "number" }, "key": { "type": "string" }, "score": { "type": "number" }, "type": { "enum": ["congruent", "spicy"] }, "action": { "type": "string" } } } },
+    "scenes": { "type": "array", "items": { "type": "object", "required": ["name", "clips"], "additionalProperties": true, "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "color": { "type": ["string", "null"] }, "clips": { "type": "array", "items": { "type": "string" } } } } }
   },
   "$defs": {
     "deck": { "type": "object", "required": ["stems"], "properties": { "stems": { "type": "object", "additionalProperties": { "$ref": "#/$defs/stemstate" } } } },
@@ -19,7 +36,8 @@
       "type": "object", "required": ["source"], "additionalProperties": true,
       "properties": {
         "source": { "type": ["string", "null"] }, "song": { "type": ["string", "null"] }, "artist": { "type": ["string", "null"] }, "key": { "type": ["string", "null"] },
-        "loaded_chops": { "type": "integer" }, "live_chop": { "type": ["integer", "null"] }, "progress": { "type": "number" }, "bars_left": { "type": "number" }
+        "loaded_chops": { "type": "integer" }, "live_chop": { "type": ["integer", "null"] }, "progress": { "type": "number" }, "bars_left": { "type": "number" },
+        "clip_id": { "type": ["string", "null"] }, "peaks_ref": { "type": ["string", "null"] }
       }
     },
     "bank": {

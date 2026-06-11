@@ -1,17 +1,24 @@
 {
-  "set": { "name": "Friday Warehouse — Set 1", "bpm": 121.0, "bar": "17.3.1" },
+  "set": {
+    "name": "Friday Warehouse — Set 1",
+    "bpm": 121.0,
+    "bar": "17.3.1",
+    "playhead_sec": 68.4,
+    "is_playing": true,
+    "loop": { "start_bar": 17, "len_bars": 8 }
+  },
   "decks": {
     "A": { "stems": {
-      "drums": { "source": "A1", "song": "Around the World", "artist": "Daft Punk", "key": "8A", "loaded_chops": 8, "live_chop": 2, "progress": 62, "bars_left": 2 },
-      "bass":  { "source": "A4", "song": "Music Sounds Better", "artist": "Stardust", "key": "9A", "loaded_chops": 6, "live_chop": 0, "progress": 62, "bars_left": 2 },
-      "other": { "source": "A1", "song": "Around the World", "artist": "Daft Punk", "key": "8A", "loaded_chops": 8, "live_chop": null, "progress": 0, "bars_left": 0 },
-      "vox":   { "source": "A4", "song": "Music Sounds Better", "artist": "Stardust", "key": "9A", "loaded_chops": 4, "live_chop": null, "progress": 0, "bars_left": 0 }
+      "drums": { "source": "A1", "song": "Around the World", "artist": "Daft Punk", "key": "8A", "loaded_chops": 8, "live_chop": 2, "progress": 62, "bars_left": 2, "clip_id": "sf:A1:drums:2", "peaks_ref": "/peaks?clip=sf:A1:drums:2" },
+      "bass":  { "source": "A4", "song": "Music Sounds Better", "artist": "Stardust", "key": "9A", "loaded_chops": 6, "live_chop": 0, "progress": 62, "bars_left": 2, "clip_id": "sf:A4:bass:0", "peaks_ref": "/peaks?clip=sf:A4:bass:0" },
+      "other": { "source": "A1", "song": "Around the World", "artist": "Daft Punk", "key": "8A", "loaded_chops": 8, "live_chop": null, "progress": 0, "bars_left": 0, "clip_id": null, "peaks_ref": null },
+      "vox":   { "source": "A4", "song": "Music Sounds Better", "artist": "Stardust", "key": "9A", "loaded_chops": 4, "live_chop": null, "progress": 0, "bars_left": 0, "clip_id": null, "peaks_ref": null }
     }},
     "B": { "stems": {
-      "drums": { "source": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "loaded_chops": 8, "live_chop": null, "progress": 0, "bars_left": 0 },
-      "bass":  { "source": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "loaded_chops": 8, "live_chop": null, "progress": 0, "bars_left": 0 },
-      "other": { "source": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "loaded_chops": 7, "live_chop": 2, "progress": 30, "bars_left": 6 },
-      "vox":   { "source": "B1", "song": "Kids", "artist": "MGMT", "key": "8A", "loaded_chops": 5, "live_chop": 0, "progress": 30, "bars_left": 6 }
+      "drums": { "source": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "loaded_chops": 8, "live_chop": null, "progress": 0, "bars_left": 0, "clip_id": null, "peaks_ref": null },
+      "bass":  { "source": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "loaded_chops": 8, "live_chop": null, "progress": 0, "bars_left": 0, "clip_id": null, "peaks_ref": null },
+      "other": { "source": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "loaded_chops": 7, "live_chop": 2, "progress": 30, "bars_left": 6, "clip_id": "sf:B3:other:2", "peaks_ref": "/peaks?clip=sf:B3:other:2" },
+      "vox":   { "source": "B1", "song": "Kids", "artist": "MGMT", "key": "8A", "loaded_chops": 5, "live_chop": 0, "progress": 30, "bars_left": 6, "clip_id": "sf:B1:vox:0", "peaks_ref": "/peaks?clip=sf:B1:vox:0" }
     }}
   },
   "presets": {
@@ -37,10 +44,10 @@
     ]
   },
   "now_playing": [
-    { "deck": "A", "stem": "drums", "source": "A1", "progress": 62 },
-    { "deck": "A", "stem": "bass", "source": "A4", "progress": 62 },
-    { "deck": "B", "stem": "other", "source": "B3", "progress": 30 },
-    { "deck": "B", "stem": "vox", "source": "B1", "progress": 30 }
+    { "deck": "A", "stem": "drums", "source": "A1", "progress": 62, "peaks_ref": "/peaks?clip=sf:A1:drums:2" },
+    { "deck": "A", "stem": "bass", "source": "A4", "progress": 62, "peaks_ref": "/peaks?clip=sf:A4:bass:0" },
+    { "deck": "B", "stem": "other", "source": "B3", "progress": 30, "peaks_ref": "/peaks?clip=sf:B3:other:2" },
+    { "deck": "B", "stem": "vox", "source": "B1", "progress": 30, "peaks_ref": "/peaks?clip=sf:B1:vox:0" }
   ],
   "recommendations": [
     { "song": "D.A.N.C.E.", "artist": "Justice", "bpm": 120, "key": "8A", "score": 96, "type": "congruent", "action": "swap onto Deck A" },
@@ -48,8 +55,8 @@
     { "song": "Music Sounds Better", "artist": "Stardust", "bpm": 123, "key": "9A", "score": 88, "type": "congruent", "action": "cue to Deck B" }
   ],
   "scenes": [
-    { "name": "🔥 Hook Slam", "color": "#F5A623", "clips": ["A·DR1", "B·VX3", "A·OT2"] },
-    { "name": "🌊 Float", "color": "#34C8E8", "clips": ["B·BS1", "A·VX1", "B·OT2"] },
-    { "name": "⚡ Twin Drums", "color": "#B58CFF", "clips": ["A·DR1", "B·DR3"] }
+    { "id": "scene-hook-slam", "name": "Hook Slam", "color": "#F5A623", "clips": ["A·DR1", "B·VX3", "A·OT2"] },
+    { "id": "scene-float", "name": "Float", "color": "#34C8E8", "clips": ["B·BS1", "A·VX1", "B·OT2"] },
+    { "id": "scene-twin-drums", "name": "Twin Drums", "color": "#B58CFF", "clips": ["A·DR1", "B·DR3"] }
   ]
 }

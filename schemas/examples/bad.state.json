@@ -1,0 +1,8 @@
+{
+  "set": { "name": "test" },
+  "decks": { "A": { "stems": {} } },
+  "presets": { "bankA": [] },
+  "now_playing": [{ "deck": "A" }],
+  "recommendations": [],
+  "scenes": []
+}
