@@ -76,6 +76,7 @@ async function _poll() {
     }
     _updateTransport();
     _notify();
+    _renderCurrent(_state);   // re-render active view with fresh state (fixes blank initial load)
   } catch (e) {
     if (!_reconnecting) {
       _reconnecting = true;
@@ -121,17 +122,20 @@ export function registerView(name, renderFn) {
   _views[name] = renderFn;
 }
 
-function _mount(viewName) {
-  _currentView = viewName;
+function _renderCurrent(state) {
   const el = document.getElementById('view');
   if (!el) return;
-  const renderFn = _views[viewName];
+  const renderFn = _views[_currentView];
   if (renderFn) {
-    el.innerHTML = '';
-    renderFn(el, _state);
+    renderFn(el, state);   // render fns set innerHTML themselves
   } else {
-    el.innerHTML = `<div class="card"><p class="h">${viewName} view</p><p style="color:var(--muted)">Coming soon</p></div>`;
+    el.innerHTML = `<div class="card"><p class="h">${_currentView} view</p><p style="color:var(--muted)">Coming soon</p></div>`;
   }
+}
+
+function _mount(viewName) {
+  _currentView = viewName;
+  _renderCurrent(_state);
   // Update tab active state
   document.querySelectorAll('.tab').forEach(t => {
     t.classList.toggle('active', t.dataset.view === viewName);

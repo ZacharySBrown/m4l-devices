@@ -52,3 +52,93 @@ header h1{font-size:18px;font-weight:800;letter-spacing:.5px;margin:0}
 .reconnecting.show{display:block}
 
 #view{min-height:60vh}
+
+/* ══════════════════════════════════════════════════════════════
+   COMPONENT LAYOUT (Phase-2 fix — was missing; views had collapsed)
+   ══════════════════════════════════════════════════════════════ */
+
+/* ---- Perform: 3-column grid + bottom strip ---- */
+.grid{display:grid;grid-template-columns:320px auto 1fr;gap:14px;align-items:start}
+.col-center{display:flex;justify-content:center}
+.strip{display:flex;gap:14px;margin-top:14px;align-items:stretch}
+.strip > .card{flex:1}
+.queue.card{flex:0 0 220px}
+@media (max-width:1100px){ .grid{grid-template-columns:1fr} .col-center{justify-content:flex-start} }
+
+/* ---- Surface mirror: 8×8 pad grid + side buttons ---- */
+.surface-mirror{display:inline-block}
+.toprow,.botrow{display:flex;gap:5px;margin-left:47px}
+.toprow{margin-bottom:5px}
+.botrow{margin-top:5px}
+.midrow{display:flex;gap:5px}
+.leftcol{display:flex;flex-direction:column;gap:5px}
+.padcore{display:grid;grid-template-columns:repeat(8,var(--cell));grid-auto-rows:var(--cell);gap:5px}
+.cell{background:rgba(255,255,255,.035);border:1px solid var(--line);border-radius:6px;transition:all .12s}
+.cell.on{background:color-mix(in srgb, var(--c) 20%, transparent);border-color:color-mix(in srgb, var(--c) 55%, var(--line))}
+.cell.live{background:var(--c);border-color:var(--c);box-shadow:0 0 10px var(--c)}
+.sb{display:flex;align-items:center;justify-content:center;height:var(--cell);border:1px solid var(--line);
+  border-radius:7px;font-size:10px;font-weight:800;color:var(--muted);background:rgba(255,255,255,.03)}
+.toprow .sb,.botrow .sb{width:var(--cell)}
+.leftcol .sb{width:42px}
+.sb.on{background:rgba(255,255,255,.08);color:var(--txt);border-color:rgba(255,255,255,.18)}
+
+/* ---- Now playing: waveform + progress ---- */
+.np{display:flex;flex-direction:column;gap:12px}
+.np .stem .top{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:5px}
+.np .stem .top b{color:var(--c);font-size:11px;min-width:44px}
+.pin{font-size:10px;border:1px solid var(--line);border-radius:5px;padding:1px 6px;color:var(--muted)}
+.wave{position:relative;height:38px;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:7px;overflow:hidden}
+.bars{display:flex;align-items:center;height:100%;gap:1px;padding:0 5px}
+.bars i{flex:1;display:block;border-radius:1px;min-height:2px;opacity:.85}
+.play{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 6px #fff}
+
+/* ---- Preset legend ---- */
+.legend-banks{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.legend-bank{display:flex;flex-direction:column;gap:4px}
+.pre{display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 6px;border-radius:8px;border:1px solid transparent}
+.pre.src{border-color:var(--line);background:rgba(255,255,255,.03)}
+.pre.empty{opacity:.38}
+.pre .sw{width:11px;height:11px;border-radius:3px;flex:0 0 auto}
+.pre .id{font-weight:800;min-width:24px;color:var(--muted)}
+.pre .nm{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.pre .nm b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pre .stems{margin-left:auto;font-size:9px;padding:2px 6px;border-radius:5px;color:#0b0d12;font-weight:800;white-space:nowrap}
+
+/* ---- Mix-Next recommendations ---- */
+.recs{display:flex;gap:10px;flex-wrap:wrap}
+.rec{flex:1;min-width:150px;border:1px solid var(--line);border-left:3px solid var(--c);border-radius:10px;padding:10px;background:rgba(255,255,255,.02)}
+.rec .tag{font-size:9px;text-transform:uppercase;letter-spacing:1px;color:var(--c);font-weight:800}
+.rec h4{margin:4px 0;font-size:13px}
+.rec .m{display:flex;gap:8px;font-size:10px;color:var(--muted);margin-bottom:7px}
+.sc{display:flex;align-items:center;gap:7px}
+.sc .bar{flex:1;height:5px;background:rgba(255,255,255,.08);border-radius:3px;overflow:hidden}
+.sc .bar i{display:block;height:100%;background:var(--c)}
+.sc .pct{font-size:10px;color:var(--muted)}
+
+/* ---- Curate view ---- */
+.curate-layout{display:flex;flex-direction:column;gap:14px}
+.decks-row{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:start}
+.swap-control{display:flex;align-items:center;justify-content:center;padding-top:30px}
+.swap-btn{background:var(--panel2);border:1px solid var(--line);color:var(--txt);border-radius:999px;
+  padding:10px 16px;font-weight:800;font-size:13px;cursor:pointer}
+.swap-btn:hover{border-color:var(--txt)}
+.stem-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;flex-wrap:wrap}
+.stem-label{color:var(--c);font-weight:800;font-size:11px;min-width:42px}
+.stem-song{font-size:11px;color:var(--muted)}
+.clip-cells{display:flex;gap:4px;flex-wrap:wrap;width:100%}
+.clip-cell{width:27px;height:27px;display:flex;align-items:center;justify-content:center;font-size:10px;
+  border:1px solid var(--line);border-radius:6px;cursor:pointer;color:var(--muted);transition:all .12s}
+.clip-cell:hover{border-color:var(--c);color:var(--txt)}
+.clip-cell.live{background:var(--c);border-color:var(--c);color:#0b0d12;font-weight:800}
+.curate-bottom{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+.scene-list{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.scene-card{border:1px solid var(--line);border-left:3px solid var(--c);border-radius:10px;padding:8px 10px}
+.scene-top{display:flex;align-items:center;gap:8px}
+.scene-top .sw{width:11px;height:11px;border-radius:3px}
+.scene-top b{font-size:12px}
+.scene-btn{font-size:10px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);background:none;color:var(--muted);cursor:pointer}
+.scene-btn.recall{margin-left:auto;border-color:var(--ok);color:var(--ok)}
+.scene-btn.untag{border-color:var(--warn);color:var(--warn)}
+.scene-btn.tag{border-color:var(--A);color:var(--A)}
+.clip-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:7px}
+.clip-chip{font-size:9px;padding:2px 7px;border-radius:5px;background:rgba(255,255,255,.06);color:var(--muted)}
