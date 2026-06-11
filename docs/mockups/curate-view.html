@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Setforge — Curate view (mockup)</title>
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#13161d; --panel2:#191d26; --line:#252b38;
+    --txt:#e9edf6; --muted:#8b94a7; --A:#F5A623; --B:#34C8E8; --ok:#5BD98A; --warn:#FFB454;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 30% -10%, #141926 0%, var(--bg) 60%);
+       color:var(--txt);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       padding:18px;min-height:100vh;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1320px;margin:0 auto}
+  header{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+  .set{font-weight:800;font-size:20px}.set small{display:block;color:var(--muted);font-weight:500;font-size:12px;letter-spacing:.4px}
+  .search{margin-left:auto;display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);
+          border-radius:999px;padding:9px 15px;color:var(--muted);font-size:13px;width:300px}
+  .search input{background:none;border:none;color:var(--txt);outline:none;flex:1;font-size:13px}
+  .grid{display:grid;grid-template-columns:260px 1fr 300px;gap:16px}
+  .card{background:linear-gradient(180deg,var(--panel) 0%, #10131a 100%);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+  .h{font-size:11px;letter-spacing:1.6px;color:var(--muted);font-weight:700;text-transform:uppercase;margin:0 0 12px}
+  /* library */
+  .lib{display:flex;flex-direction:column;gap:8px}
+  .libitem{display:flex;align-items:center;gap:10px;padding:9px;border-radius:10px;border:1px solid transparent;cursor:pointer}
+  .libitem:hover{background:var(--panel2);border-color:var(--line)}
+  .libitem.sel{background:rgba(52,200,232,.08);border-color:rgba(52,200,232,.35)}
+  .libitem .t{flex:1;min-width:0}
+  .libitem .t b{display:block;font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .libitem .t span{font-size:11px;color:var(--muted)}
+  .mini{font-size:11px;font-weight:800;font-variant-numeric:tabular-nums}
+  /* pair */
+  .song{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+  .songhead{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .songhead .dot{width:12px;height:12px;border-radius:50%}
+  .songhead b{font-size:15px}.songhead em{font-style:normal;color:var(--muted);font-size:12px}
+  .songhead .tags{margin-left:auto;display:flex;gap:7px;color:var(--muted);font-size:11.5px}
+  .stems{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .st{background:#0c0f15;border:1px solid var(--line);border-radius:9px;padding:8px}
+  .st span{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.5px}
+  .mw{height:30px;display:flex;align-items:center;gap:1.5px;margin-top:6px}
+  .mw i{flex:1;border-radius:1px;opacity:.6}
+  /* compatibility */
+  .compat{text-align:center;padding:14px;margin:4px 0 12px;border:1px dashed var(--line);border-radius:12px;
+          background:radial-gradient(400px 120px at 50% 0%, rgba(91,217,138,.08), transparent)}
+  .big{font-size:40px;font-weight:800;color:var(--ok);line-height:1;font-variant-numeric:tabular-nums}
+  .big small{font-size:13px;color:var(--muted);font-weight:600}
+  .dims{display:flex;justify-content:center;gap:18px;margin-top:12px;flex-wrap:wrap}
+  .dim{font-size:11.5px;color:var(--muted)} .dim b{display:block;color:var(--txt);font-size:13px;font-weight:700}
+  .ww{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px;text-align:left}
+  .ww div{font-size:12px;line-height:1.5}
+  .ww .good b{color:var(--ok)} .ww .watch b{color:var(--warn)}
+  /* right */
+  .sug{background:var(--panel2);border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:10px;font-size:12.5px;line-height:1.45}
+  .sug b{color:var(--txt)} .sug em{color:var(--muted);font-style:normal}
+  .commit{background:linear-gradient(180deg,#15212a,#101820);border:1px solid #244;border-radius:12px;padding:14px;margin-top:6px}
+  .btn{display:block;width:100%;border-radius:10px;padding:11px;font-weight:800;font-size:13px;cursor:pointer;border:none;margin-top:9px}
+  .btn.primary{background:var(--ok);color:#06210f}
+  .btn.ghost{background:#0e1118;color:var(--txt);border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="set">Setlist — “Warehouse Fri”<small>SETFORGE · CURATE</small></div>
+    <div class="search">🔎<input value="around the world" /></div>
+  </header>
+
+  <div class="grid">
+    <!-- library -->
+    <section class="card">
+      <p class="h">Library · taste DB</p>
+      <div class="lib" id="lib"></div>
+    </section>
+
+    <!-- pair audition -->
+    <section class="card">
+      <p class="h">Pair audition</p>
+      <div class="song">
+        <div class="songhead"><span class="dot" style="background:var(--A)"></span><b>Around the World</b><em>Daft Punk</em>
+          <span class="tags"><span>121 BPM</span><span>8A</span><span>house</span></span></div>
+        <div class="stems" id="stemsA"></div>
+      </div>
+
+      <div class="compat">
+        <div class="big">92<small>% match</small></div>
+        <div class="dims">
+          <div class="dim"><b>−1 BPM</b>tempo</div>
+          <div class="dim"><b>8A = 8A</b>key (Camelot)</div>
+          <div class="dim"><b>0.91</b>groove</div>
+          <div class="dim"><b>congruent</b>vibe</div>
+        </div>
+        <div class="ww">
+          <div class="good"><b>✓ Works</b> — tempo locks, perfect key, both steady four-on-the-floor; vocals sit in different registers.</div>
+          <div class="watch"><b>! Watch</b> — both ‘other’ stems are busy/bright; thin one out or solo for clarity.</div>
+        </div>
+      </div>
+
+      <div class="song">
+        <div class="songhead"><span class="dot" style="background:var(--B)"></span><b>Kids</b><em>MGMT</em>
+          <span class="tags"><span>120 BPM</span><span>8A</span><span>indie</span></span></div>
+        <div class="stems" id="stemsB"></div>
+      </div>
+    </section>
+
+    <!-- suggestions + commit -->
+    <section class="card">
+      <p class="h">✦ Suggestions</p>
+      <div class="sug">Swap <b>Kids · drums</b> → <b>Justice — Genesis</b> for more low-end punch. <em>+4% groove</em></div>
+      <div class="sug">Try <b>Kids · vox</b> over <b>everything in Deck A</b> — incongruent but strong. <em>spicy</em></div>
+      <div class="sug">Stronger congruent pair: <b>Stardust — Music Sounds Better</b> <em>(94%)</em></div>
+
+      <div class="commit">
+        <p class="h" style="margin-bottom:6px">Commit this pair</p>
+        <div style="font-size:12px;color:var(--muted)">Lands Around the World → Bank A, Kids → Bank B.</div>
+        <button class="btn primary">✓ Commit pair → Setlist · slot 3</button>
+        <button class="btn ghost">Load to Banks A / B now</button>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const A="#F5A623",B="#34C8E8";
+function bars(color){let h='';for(let i=0;i<26;i++){const v=8+Math.round(18*Math.abs(Math.sin(i*0.7)*Math.cos(i*0.4)));
+  h+=`<i style="height:${v}px;background:${color}"></i>`;}return h;}
+['DRUMS','BASS','OTHER','VOX'].forEach(n=>{document.getElementById('stemsA').insertAdjacentHTML('beforeend',
+  `<div class="st"><span>${n}</span><div class="mw">${bars(A)}</div></div>`);});
+['DRUMS','BASS','OTHER','VOX'].forEach(n=>{document.getElementById('stemsB').insertAdjacentHTML('beforeend',
+  `<div class="st"><span>${n}</span><div class="mw">${bars(B)}</div></div>`);});
+const lib=[
+ {s:'Around the World',a:'Daft Punk',m:'121·8A',sc:'seed',sel:true,col:'var(--muted)'},
+ {s:'Kids',a:'MGMT',m:'120·8A',sc:'92%',sel:true,col:'var(--ok)'},
+ {s:'Music Sounds Better',a:'Stardust',m:'123·9A',sc:'94%',col:'var(--ok)'},
+ {s:'D.A.N.C.E.',a:'Justice',m:'120·8A',sc:'90%',col:'var(--ok)'},
+ {s:'Let It Happen',a:'Tame Impala',m:'120·11A',sc:'81%',col:'var(--warn)'},
+ {s:'One More Time',a:'Daft Punk',m:'123·4A',sc:'74%',col:'var(--warn)'},
+];
+const el=document.getElementById('lib');
+lib.forEach(x=>{el.insertAdjacentHTML('beforeend',
+ `<div class="libitem ${x.sel?'sel':''}"><div class="t"><b>${x.s}</b><span>${x.a} · ${x.m}</span></div>
+  <span class="mini" style="color:${x.col}">${x.sc}</span></div>`);});
+</script>
+</body>
+</html>

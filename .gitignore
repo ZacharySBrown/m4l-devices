@@ -2,3 +2,9 @@
 __pycache__/
 *.pyc
 *.pyo
+.claude/worktrees/
+.claude/settings.local.json
+dump
+companion/state/
+companion/peaks/
+node_modules/

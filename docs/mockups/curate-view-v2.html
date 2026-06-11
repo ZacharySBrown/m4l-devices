@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Setforge — Curate view v2 (neon)</title>
+<style>
+  :root{ --bg0:#0b0d12; --bg1:#141926; --panel:#13161d; --panel2:#191d26;
+    --line:#252b38; --txt:#e9edf6; --muted:#8b94a7; --A:#F5A623; --B:#34C8E8; --P:#B58CFF; --ok:#5BD98A; --warn:#FFB454; --radius:16px;}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;color:var(--txt);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding:18px;position:relative;overflow-x:hidden;
+    background:radial-gradient(900px 520px at 50% 120%, rgba(52,200,232,.10), transparent 60%),radial-gradient(820px 520px at 18% -10%, rgba(245,166,35,.08), transparent 55%),linear-gradient(180deg,var(--bg1),var(--bg0) 72%)}
+  body:after{content:"";position:fixed;left:0;right:0;bottom:0;height:34vh;pointer-events:none;opacity:.10;
+    background-image:linear-gradient(rgba(52,200,232,.7) 1px,transparent 1px),linear-gradient(90deg,rgba(52,200,232,.6) 1px,transparent 1px);
+    background-size:46px 46px;transform:perspective(360px) rotateX(63deg);transform-origin:bottom;mask-image:linear-gradient(transparent,#000)}
+  .wrap{max-width:1320px;margin:0 auto;position:relative;z-index:1}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+  .set{font-weight:800;font-size:21px;text-shadow:0 0 18px rgba(154,108,255,.5)}.set small{display:block;color:var(--muted);font-weight:600;font-size:11px;letter-spacing:3px}
+  .search{margin-left:auto;display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 14px;color:var(--muted);font-size:13px;width:240px}
+  .search input{background:none;border:none;color:var(--txt);outline:none;flex:1;font-size:13px}
+  .swap{background:var(--panel);border:1px solid var(--P);color:#d9ccff;border-radius:999px;padding:9px 14px;font-weight:800;font-size:12px;cursor:pointer;box-shadow:0 0 16px rgba(154,108,255,.25)}
+  .grid{display:grid;grid-template-columns:1fr 330px;gap:16px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;backdrop-filter:blur(7px);box-shadow:0 10px 30px rgba(0,0,0,.35)}
+  .h{font-size:10.5px;letter-spacing:2.4px;color:var(--muted);font-weight:800;text-transform:uppercase;margin:0 0 12px}
+  /* deck */
+  .deck{background:var(--panel2);border:1px solid var(--line);border-radius:13px;padding:13px;margin-bottom:12px}
+  .dh{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+  .dh .dot{width:13px;height:13px;border-radius:50%}.dh b{font-size:16px}.dh em{font-style:normal;color:var(--muted);font-size:12px}
+  .dh .tags{margin-left:auto;color:var(--muted);font-size:11.5px;display:flex;gap:9px}
+  .strow{display:grid;grid-template-columns:54px 1fr;align-items:center;gap:10px;margin-bottom:7px}
+  .stlabel{font-size:10px;font-weight:800;letter-spacing:.5px;color:var(--muted)}
+  .clips{display:flex;gap:5px}
+  .clip{flex:1;aspect-ratio:1.3;max-width:34px;border-radius:6px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+        display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);cursor:pointer;position:relative}
+  .clip:hover{border-color:rgba(255,255,255,.25)}
+  .clip.sel{font-weight:800;border-color:currentColor;box-shadow:0 0 13px -1px currentColor;background:rgba(255,255,255,.07)}
+  .clip.selA{color:var(--A)} .clip.selB{color:var(--B)}
+  .clip.sel:after{content:"▶";position:absolute;top:-7px;right:-3px;font-size:8px}
+  /* compat */
+  .compat{text-align:center;padding:12px;border:1px dashed var(--line);border-radius:12px;background:radial-gradient(360px 100px at 50% 0%, rgba(91,242,192,.10), transparent)}
+  .big{font-size:34px;font-weight:800;color:var(--ok);line-height:1;text-shadow:0 0 18px rgba(91,242,192,.5)}
+  .big small{font-size:12px;color:var(--muted);font-weight:600}
+  .dims{display:flex;justify-content:center;gap:16px;margin-top:9px}.dim{font-size:11px;color:var(--muted)}.dim b{display:block;color:var(--txt);font-size:12.5px;font-weight:700}
+  /* right: scenes */
+  .combo{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:12px}
+  .combo .row{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+  .pill{font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px;border:1px solid currentColor}
+  .pA{color:var(--A)} .pB{color:var(--B)}
+  .btn{display:block;width:100%;border-radius:10px;padding:11px;font-weight:800;font-size:12.5px;cursor:pointer;border:none}
+  .btn.tag{background:var(--P);color:#0a0712;box-shadow:0 0 18px rgba(154,108,255,.35)}
+  .btn.primary{background:var(--ok);color:#06210f;margin-top:8px}
+  .btn.ghost{background:#120b21;color:var(--txt);border:1px solid var(--line);margin-top:8px}
+  .scene{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--c);border-radius:11px;padding:11px;margin-bottom:9px}
+  .scene .t{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:800;margin-bottom:7px}
+  .scene .t .play{margin-left:auto;font-size:11px;color:var(--c);border:1px solid var(--c);border-radius:7px;padding:3px 8px;cursor:pointer}
+  .scene .clipsmini{display:flex;flex-wrap:wrap;gap:5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="set">Setlist — “Warehouse Fri”<small>SETFORGE · CURATE</small></div>
+    <div class="search">🔎<input value="around the world"/></div>
+    <button class="swap">⇄ Swap A↔B</button>
+  </header>
+
+  <div class="grid">
+    <!-- decks with clip selection -->
+    <section class="card">
+      <p class="h">Pair audition · pick a clip per stem</p>
+
+      <div class="deck" id="deckA"></div>
+
+      <div class="compat">
+        <div class="big">92<small>% combo match</small></div>
+        <div class="dims"><div class="dim"><b>−1 BPM</b>tempo</div><div class="dim"><b>8A=8A</b>key</div><div class="dim"><b>0.91</b>groove</div><div class="dim"><b>congruent</b>vibe</div></div>
+      </div>
+
+      <div style="height:12px"></div>
+      <div class="deck" id="deckB"></div>
+    </section>
+
+    <!-- scenes + commit -->
+    <section class="card">
+      <p class="h">★ Vetted pairings · scenes</p>
+      <div class="combo">
+        <div style="font-size:11px;color:var(--muted);font-weight:700">CURRENT COMBO</div>
+        <div class="row">
+          <span class="pill pA">A·DR1</span><span class="pill pA">A·BS4</span><span class="pill pA">A·OT2</span><span class="pill pA">A·VX1</span>
+          <span class="pill pB">B·DR3</span><span class="pill pB">B·BS1</span><span class="pill pB">B·OT2</span><span class="pill pB">B·VX3</span>
+        </div>
+        <button class="btn tag">★ Tag this combo as a scene</button>
+      </div>
+
+      <div id="scenes"></div>
+
+      <button class="btn primary">✓ Commit pair → Setlist · slot 3</button>
+      <button class="btn ghost">Load to Banks A / B now</button>
+      <p style="font-size:10.5px;color:var(--muted);margin-top:10px;line-height:1.5">Scenes follow their clips across bank swaps, and also render in <b>Arrangement view</b> so you can see what's vetted. One-button recall comes later — for now, trigger by hand from here.</p>
+    </section>
+  </div>
+</div>
+
+<script>
+const A="#F5A623",B="#34C8E8";
+function deck(el,deck,song,artist,key,sel){const C=deck==='A'?A:B;
+ let html=`<div class="dh"><span class="dot" style="background:${C};box-shadow:0 0 12px ${C}"></span><b>${song}</b><em>${artist}</em><span class="tags"><span>${key}</span></span></div>`;
+ ['DRUMS','BASS','OTHER','VOX'].forEach((st,si)=>{let chips='';
+   for(let c=1;c<=8;c++){const on=sel[si]===c;chips+=`<div class="clip ${on?'sel sel'+deck:''}" ${on?`style="color:${C}"`:''}>${c}</div>`;}
+   html+=`<div class="strow"><div class="stlabel">${deck}·${st.slice(0,2)}</div><div class="clips">${chips}</div></div>`;});
+ el.innerHTML=html;}
+deck(document.getElementById('deckA'),'A','Around the World','Daft Punk','121 · 8A',[1,4,2,1]);
+deck(document.getElementById('deckB'),'B','Kids','MGMT','120 · 8A',[3,1,2,3]);
+
+const scenes=[
+ {n:'🔥 Hook Slam',c:'#F5A623',clips:[['A·DR1',A],['B·VX3',B],['A·OT2',A]]},
+ {n:'🌊 Float',c:'#34C8E8',clips:[['B·BS1',B],['A·VX1',A],['B·OT2',B]]},
+ {n:'⚡ Twin Drums',c:'#B58CFF',clips:[['A·DR1',A],['B·DR3',B]]},
+];
+const sc=document.getElementById('scenes');
+scenes.forEach(s=>{let chips=s.clips.map(([t,col])=>`<span class="pill" style="color:${col}">${t}</span>`).join('');
+ sc.insertAdjacentHTML('beforeend',`<div class="scene" style="--c:${s.c}"><div class="t">${s.n}<span class="play">▶ recall</span></div><div class="clipsmini">${chips}</div></div>`);});
+</script>
+</body>
+</html>

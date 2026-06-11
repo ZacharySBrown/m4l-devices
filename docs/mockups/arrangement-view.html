@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Setforge — Arrangement view (mockup)</title>
+<style>
+  :root{
+    --bg0:#0b0d12;--bg1:#141926;--panel:#13161d;--panel2:#191d26;--line:#252b38;--txt:#e9edf6;--muted:#8b94a7;
+    --A:#F5A623;--B:#34C8E8;--pur:#B58CFF;--grn:#5BD98A;--radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;color:var(--txt);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding:18px;
+    background:radial-gradient(900px 500px at 80% -10%, rgba(181,140,255,.06), transparent 55%),linear-gradient(180deg,var(--bg1),var(--bg0) 72%)}
+  .wrap{max-width:1340px;margin:0 auto}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:14px}
+  .set{font-weight:800;font-size:20px}.set small{display:block;color:var(--muted);font-weight:600;font-size:11px;letter-spacing:2.5px}
+  .ctrls{margin-left:auto;display:flex;gap:8px}
+  .btn{font-size:11.5px;font-weight:700;padding:8px 13px;border-radius:9px;background:#0e1118;border:1px solid var(--line);color:var(--txt);cursor:pointer}
+  .btn.primary{background:var(--pur);border-color:var(--pur);color:#0b0d12;font-weight:800;box-shadow:0 0 16px -4px var(--pur)}
+  .meta{display:flex;gap:14px;align-items:center;color:var(--muted);font-size:12px;margin-right:6px}
+  .meta b{color:var(--txt)}
+  .legend{display:flex;gap:16px;margin:0 0 12px;align-items:center;font-size:11.5px;color:var(--muted)}
+  .legend .sw{width:13px;height:13px;border-radius:3px;display:inline-block;margin-right:6px;vertical-align:-2px}
+  /* timeline */
+  .tl{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .grid{display:grid;grid-template-columns:112px 1fr}
+  .corner{border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .ruler{position:relative;height:30px;border-bottom:1px solid var(--line);background:var(--panel2)}
+  .ruler .bar{position:absolute;top:0;bottom:0;border-left:1px solid var(--line);font-size:9px;color:var(--muted);padding:3px 0 0 4px}
+  .ruler .loc{position:absolute;top:0;bottom:0;border-left:2px solid var(--c);}
+  .ruler .loc span{position:absolute;top:4px;left:5px;font-size:10px;font-weight:800;color:var(--c);white-space:nowrap;text-shadow:0 0 10px color-mix(in srgb,var(--c) 45%,transparent)}
+  /* scenes lane */
+  .scLabel{display:flex;align-items:center;justify-content:flex-end;padding-right:10px;font-size:9px;font-weight:800;letter-spacing:.5px;color:var(--grn);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .scLane{position:relative;height:30px;border-bottom:1px solid var(--line);background:rgba(91,217,138,.04)}
+  .scene{position:absolute;top:4px;height:22px;transform:translateX(-50%);display:flex;align-items:center;gap:4px;
+         background:rgba(0,0,0,.4);border:1px solid var(--c);border-radius:6px;padding:0 7px;font-size:10px;font-weight:700;color:var(--c);
+         box-shadow:0 0 12px -3px var(--c);white-space:nowrap}
+  .scene:before{content:"◆";font-size:8px}
+  /* tracks */
+  .tname{display:flex;align-items:center;gap:7px;padding:0 10px;height:38px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);font-size:11px;font-weight:800}
+  .tname .d{width:9px;height:9px;border-radius:2px;background:var(--c)}
+  .lane{position:relative;height:38px;border-bottom:1px solid var(--line)}
+  .lane:nth-child(odd){background:rgba(255,255,255,.012)}
+  .clip{position:absolute;top:5px;height:28px;border-radius:5px;background:color-mix(in srgb,var(--c) 22%, #0c0f15);
+        border:1px solid color-mix(in srgb,var(--c) 55%, transparent);box-shadow:inset 0 0 0 1px rgba(255,255,255,.03);
+        font-size:9px;color:#e9edf6;padding:3px 6px;overflow:hidden;white-space:nowrap}
+  .clip.loop:after{content:"↻";position:absolute;right:5px;top:4px;font-size:10px;color:var(--c);opacity:.8}
+  .clip .wv{position:absolute;left:4px;right:4px;bottom:3px;height:8px;display:flex;align-items:flex-end;gap:1px;opacity:.5}
+  .clip .wv i{flex:1;background:var(--c);border-radius:1px}
+  .playhead{position:absolute;top:0;bottom:0;width:2px;background:#fff;box-shadow:0 0 10px #fff;z-index:5}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="set">Arranged set — “Late Night Flow”<small>SETFORGE · ARRANGE</small></div>
+    <div class="meta"><span>96 bars</span><span><b>120</b> BPM</span></div>
+    <div class="ctrls">
+      <button class="btn primary">＋ LOAD 2 TRACKS @ playhead</button>
+      <button class="btn">⚓ ANCHOR</button>
+      <button class="btn">EXPORT</button>
+    </div>
+  </header>
+
+  <div class="legend">
+    <span><span class="sw" style="background:var(--A)"></span>Around the World · Daft Punk</span>
+    <span><span class="sw" style="background:var(--B)"></span>Kids · MGMT</span>
+    <span style="margin-left:auto;color:var(--grn)">◆ vetted scene (carried from Curate)</span>
+  </div>
+
+  <div class="tl">
+    <div class="grid">
+      <div class="corner"></div>
+      <div class="ruler" id="ruler"></div>
+
+      <div class="scLabel">SCENES</div>
+      <div class="scLane" id="scLane"></div>
+
+      <div id="tracks" style="display:contents"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const BARS=96, A="#F5A623", B="#34C8E8";
+const pct=b=>(b/BARS*100)+'%';
+// ruler
+const ruler=document.getElementById('ruler');
+for(let b=0;b<BARS;b+=8){ruler.insertAdjacentHTML('beforeend',`<div class="bar" style="left:${pct(b)}">${b+1}</div>`);}
+// song locators
+[['Around the World',1,A],['Kids',49,B]].forEach(([n,b,c])=>ruler.insertAdjacentHTML('beforeend',`<div class="loc" style="left:${pct(b-1)};--c:${c}"><span>▸ ${n}</span></div>`));
+// scenes lane
+const scLane=document.getElementById('scLane');
+const scenes=[['🔥 Hook Slam',33,A],['🌊 Float',64,B],['⚡ Twin Drums',80,B]];
+scenes.forEach(([n,b,c])=>scLane.insertAdjacentHTML('beforeend',`<div class="scene" style="left:${pct(b-1)};--c:${c}">${n}</div>`));
+// tracks + clips: [name, color, [ [startBar,lenBars,label,loop?], ... ] ]
+const tracks=[
+ ['A·DR',A,[[1,48,'AtW drums',1]]],
+ ['A·BS',A,[[1,48,'AtW bass',0]]],
+ ['A·OT',A,[[1,32,'AtW synth',0],[33,16,'filter sweep',1]]],
+ ['A·VX',A,[[9,16,'AtW vox',0],[33,8,'vox tail',0]]],
+ ['B·DR',B,[[49,48,'Kids drums',1]]],
+ ['B·BS',B,[[49,48,'Kids bass',0]]],
+ ['B·OT',B,[[49,32,'Kids synth',0],[81,16,'outro pad',1]]],
+ ['B·VX',B,[[33,16,'Kids vox (over A)',0],[49,48,'Kids vox',0]]],
+];
+const host=document.getElementById('tracks');
+tracks.forEach(([nm,c,clips])=>{
+  let lane=`<div class="tname"><span class="d" style="--c:${c}"></span>${nm}</div><div class="lane" style="--c:${c}">`;
+  clips.forEach(([s,l,lab,loop])=>{let wv='';for(let i=0;i<10;i++){const h=2+Math.round(6*Math.abs(Math.sin(i*1.3)));wv+=`<i style="height:${h}px"></i>`;}
+    lane+=`<div class="clip ${loop?'loop':''}" style="left:${pct(s-1)};width:calc(${pct(l)} - 3px)">${lab}<div class="wv">${wv}</div></div>`;});
+  lane+=`</div>`;host.insertAdjacentHTML('beforeend',lane);});
+// playhead overlay across tracks (visual)
+const lanes=document.querySelectorAll('.lane');
+let phx=44; // bars
+function ph(){document.querySelectorAll('.playhead').forEach(p=>p.remove());
+  lanes.forEach(L=>{const d=document.createElement('div');d.className='playhead';d.style.left=pct(phx);L.appendChild(d);});}
+ph();
+setInterval(()=>{phx=(phx+0.15)%BARS;document.querySelectorAll('.playhead').forEach(p=>p.style.left=pct(phx));},120);
+</script>
+</body>
+</html>

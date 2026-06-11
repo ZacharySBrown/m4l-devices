@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Setforge — Pro MK2 surface spec</title>
+<style>
+  :root{--bg0:#0b0d12;--bg1:#141926;--panel:#13161d;--panel2:#191d26;--line:#252b38;--txt:#e9edf6;--muted:#8b94a7;
+    --A:#F5A623;--B:#34C8E8;--pur:#B58CFF;--grn:#5BD98A;--red:#FF6B6B;}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;color:var(--txt);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding:20px;
+    background:radial-gradient(900px 520px at 80% -10%, rgba(181,140,255,.06), transparent 55%),linear-gradient(180deg,var(--bg1),var(--bg0) 72%)}
+  .wrap{max-width:1280px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 2px}.sub{color:var(--muted);font-size:12.5px;margin-bottom:18px}
+  .row{display:grid;grid-template-columns:540px 1fr;gap:18px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+  .h{font-size:10.5px;letter-spacing:2px;color:var(--muted);font-weight:800;text-transform:uppercase;margin:0 0 12px}
+  /* surface */
+  .surface{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .trow,.brow{display:flex;gap:6px}
+  .mid{display:flex;gap:8px;align-items:stretch}
+  .col{display:flex;flex-direction:column;gap:6px}
+  .sb{width:50px;height:38px;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      background:rgba(255,255,255,.04);border:1px solid var(--line);line-height:1.1}
+  .sb b{font-size:9.5px;font-weight:800}.sb i{font-size:8px;color:var(--muted);font-style:normal}
+  .sb.preA{border-color:rgba(245,166,35,.5)}.sb.preA b{color:#ffd9a8}
+  .sb.preB{border-color:rgba(52,200,232,.5)}.sb.preB b{color:#bdeeff}
+  .sb.stem{border-color:rgba(181,140,255,.5)}.sb.stem b{color:#d9ccff}
+  .sb.mod{border-color:rgba(91,217,138,.4)}.sb.mod b{color:#a9eecb}
+  .sb.punch{border-color:rgba(255,107,107,.6);background:rgba(255,107,107,.09)}.sb.punch b{color:#ffb0b0}
+  .sb.free{opacity:.38;border-style:dashed}.sb.free b{color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(8,40px);grid-template-rows:repeat(8,38px);gap:6px}
+  .cell{border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9.5px;color:var(--muted);
+        background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
+  .cell.dA{background:rgba(245,166,35,.10);border-color:rgba(245,166,35,.22);color:#e9c79a}
+  .cell.dB{background:rgba(52,200,232,.09);border-color:rgba(52,200,232,.20);color:#a9dcea}
+  .axis{font-size:9px;color:var(--muted);text-align:center;letter-spacing:1px;margin-top:8px}
+  .legendbar{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-top:10px;justify-content:center}
+  .lz{display:flex;align-items:center;gap:6px}.lz .sw{width:11px;height:11px;border-radius:3px}
+  /* right column panels */
+  .stack{display:flex;flex-direction:column;gap:14px}
+  table{width:100%;border-collapse:collapse;font-size:11.5px}
+  td,th{text-align:left;padding:5px 7px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-size:9.5px;letter-spacing:.6px;text-transform:uppercase}
+  code{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:#cfe;background:#0c0f15;padding:1px 5px;border-radius:4px}
+  .pal{display:flex;flex-wrap:wrap;gap:7px}
+  .pal div{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)}
+  .pal .sw{width:15px;height:15px;border-radius:4px}
+  .gesture{font-size:12px;line-height:1.6;color:var(--muted)}
+  .gesture b{color:var(--txt)}
+  .step{display:flex;gap:8px;align-items:flex-start;margin:6px 0}
+  .step .n{flex:0 0 18px;height:18px;border-radius:50%;background:var(--pur);color:#0b0d12;font-weight:800;font-size:10px;display:flex;align-items:center;justify-content:center}
+  .todo{font-size:11px;line-height:1.5;color:#e9c79a}.todo li{margin:4px 0}
+  .todo b{color:var(--A)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Launchpad Pro MK2 — surface spec</h1>
+  <div class="sub">From <code>docs/specs/pro-mk2-surface.md</code> · note/CC numbers + SysEx pulled from the working <code>launchpad-surface-mk2.js</code>. Top/Bottom = presets (CC) · Left = stem-assign · Right = punch-FX + utility · grid = 8 stems × 8 chops.</div>
+
+  <div class="row">
+    <!-- SURFACE -->
+    <div class="card">
+      <p class="h" style="text-align:center">Surface — buttons · function · MIDI</p>
+      <div class="surface">
+        <div class="trow" id="trow"></div>
+        <div class="mid">
+          <div class="col" id="lcol"></div>
+          <div class="grid" id="grid"></div>
+          <div class="col" id="rcol"></div>
+        </div>
+        <div class="brow" id="brow"></div>
+      </div>
+      <div class="axis">▲ TOP = BANK A (CC 91–98) · ▼ BOTTOM = BANK B (CC 1–8) · ◀ LEFT = STEM-ASSIGN</div>
+      <div class="axis" style="margin-top:4px;color:#e9b0b0">▶ RIGHT = <b>punch-FX</b> (red, grouped top): Beat Repeat · Stutter · Mute Slicer · Octave Down — then PANIC · scene ◀▶ · 1 free slot (19)</div>
+      <div class="legendbar">
+        <span class="lz"><span class="sw" style="background:rgba(245,166,35,.4)"></span>Deck A rows (chops 81–58)</span>
+        <span class="lz"><span class="sw" style="background:rgba(52,200,232,.35)"></span>Deck B / extended (48–11)</span>
+        <span class="lz">cells = grid note · <code>note=(9-row)*10+col</code></span>
+      </div>
+    </div>
+
+    <!-- PANELS -->
+    <div class="stack">
+      <div class="card">
+        <p class="h">Stem-assign gesture</p>
+        <div class="gesture">
+          <div class="step"><span class="n">1</span><div><b>Hold</b> a left stem-assign button → enters <b>ASSIGNING</b> (button pulses white, grid row dims).</div></div>
+          <div class="step"><span class="n">2</span><div><b>Tap a preset</b> (top = Bank A / bottom = Bank B) → that row sources that stem from the preset (all its chops).</div></div>
+          <div class="step"><span class="n">3</span><div>Row + left button re-color to the <b>source preset's color</b> → back to IDLE.</div></div>
+          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Release without a preset = cancel · re-press same = reset row to default. Max 1 stem per type per bank.</div>
+        </div>
+      </div>
+
+      <div class="card" style="border-color:rgba(255,107,107,.35)">
+        <p class="h" style="color:#ffb0b0">Punch-FX gesture (hold → press pad)</p>
+        <div class="gesture">
+          <div class="step"><span class="n" style="background:var(--red)">1</span><div><b>Hold</b> a punch button (REPEAT / STUTTER / SLICER / OCT−) → grid enters <b>FX-APPLY</b> mode (chop-trigger overridden).</div></div>
+          <div class="step"><span class="n" style="background:var(--red)">2</span><div><b>Press a pad</b> → the effect hits that pad's <b>clip/stem</b>; the pad's <b>pressure</b> (poly-aftertouch) sets the 0–1 amount. Multiple pads = multiple stems, independent pressure.</div></div>
+          <div class="step"><span class="n" style="background:var(--red)">3</span><div>Release pad = effect off for that stem · release button = back to chop-triggering.</div></div>
+          <div style="font-size:10.5px;color:var(--muted);margin-top:6px">Pressure comes from the <b>grid pad</b>, not the round button. Needs poly-AT (<code>0xA0</code>) handling + per-stem punch-fx routing.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <p class="h">Per-source LED palette (shared with companion app)</p>
+        <div class="pal" id="pal"></div>
+        <div style="font-size:10px;color:var(--muted);margin-top:8px">7-bit RGB for MK2: <code>r7 = round(r8*127/255)</code>. Grid row + its left button + its preset button all wear the source color.</div>
+      </div>
+
+      <div class="card">
+        <p class="h">SysEx reference (Pro MK2)</p>
+        <table>
+          <tr><th>function</th><th>bytes</th></tr>
+          <tr><td>Programmer enter</td><td><code>F0 00 20 29 02 10 2C 03 F7</code></td></tr>
+          <tr><td>Programmer leave</td><td><code>…2C 00 F7</code></td></tr>
+          <tr><td>RGB batch</td><td><code>…0B &lt;note r g b&gt;… F7</code> (≤70)</td></tr>
+          <tr><td>Pulse</td><td><code>…28 &lt;note&gt; &lt;pal&gt; F7</code></td></tr>
+          <tr><td>Flash</td><td><code>…23 &lt;note&gt; &lt;cA&gt; &lt;cB&gt; F7</code></td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <p class="h">Provisional profile — verify PM (not blockers)</p>
+        <ul class="todo" style="margin:0;padding-left:18px">
+          <li><b>Assume:</b> original Launchpad Pro <b>all-notes</b> layout (matches the working surface code). Building against this now.</li>
+          <li><b>1.</b> Top/bottom presets = <b>notes 91–98 / 1–8</b> (not CC). ← top thing to confirm PM.</li>
+          <li><b>2.</b> Pad pressure = <b>poly AT 0xA0</b> (set Pressure Mode = Polyphonic in Setup). Channel-AT handled too.</li>
+          <li><b>3.</b> Punch buttons = notes 89/79/69/59 — cc accepts <b>note OR CC</b> as belt-and-suspenders.</li>
+          <li style="color:var(--muted)">All gated values isolated in named tables → verifying = a one-file diff.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const trow=document.getElementById('trow'),brow=document.getElementById('brow'),lcol=document.getElementById('lcol'),rcol=document.getElementById('rcol'),grid=document.getElementById('grid');
+const topCC=[91,92,93,94,95,96,97,98], botCC=[1,2,3,4,5,6,7,8];
+const leftN=[80,70,60,50,40,30,20,10], leftL=['DR','BA','OT','VX','DRx','BAx','OTx','VXx'];
+const rightN=[89,79,69,59,49,39,29,19], rightL=['REPEAT','STUTTER','SLICER','OCT−','PANIC','SCN ◀','SCN ▶','—'], punchIdx=[0,1,2,3], freeIdx=[7];
+topCC.forEach((cc,i)=>trow.insertAdjacentHTML('beforeend',`<div class="sb preA"><b>A${i+1}</b><i>CC${cc}</i></div>`));
+botCC.forEach((cc,i)=>brow.insertAdjacentHTML('beforeend',`<div class="sb preB"><b>B${i+1}</b><i>CC${cc}</i></div>`));
+leftN.forEach((n,i)=>lcol.insertAdjacentHTML('beforeend',`<div class="sb stem"><b>${leftL[i]}</b><i>${n}</i></div>`));
+rightN.forEach((n,i)=>rcol.insertAdjacentHTML('beforeend',`<div class="sb ${punchIdx.includes(i)?'punch':(freeIdx.includes(i)?'free':'mod')}"><b>${rightL[i]}</b><i>${n}</i></div>`));
+// grid: row i (0 top..7), note=(8-i)*10+col
+for(let i=0;i<8;i++){const deck=i<4?'dA':'dB';for(let c=1;c<=8;c++){const note=(8-i)*10+c;grid.insertAdjacentHTML('beforeend',`<div class="cell ${deck}">${note}</div>`);}}
+const pal=[['#F5A623','amber'],['#FF7A3D','orange'],['#E85B5B','red'],['#B058CF','purple'],['#8C7BFF','indigo'],['#34C8E8','cyan'],['#3DCC91','green'],['#8BC34A','lime']];
+const pe=document.getElementById('pal');
+pal.forEach(([c,n],i)=>pe.insertAdjacentHTML('beforeend',`<div><span class="sw" style="background:${c}"></span>${i}·${n}</div>`));
+</script>
+</body>
+</html>

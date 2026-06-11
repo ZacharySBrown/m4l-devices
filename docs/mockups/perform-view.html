@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Setforge — Perform view (mockup)</title>
+<style>
+  :root{
+    --bg:#0b0d12; --panel:#13161d; --panel2:#191d26; --line:#252b38;
+    --txt:#e9edf6; --muted:#8b94a7;
+    --A:#F5A623; --B:#34C8E8;
+    --rec1:#B58CFF; --rec2:#5BD98A; --rec3:#FF7AB6;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:radial-gradient(1200px 700px at 70% -10%, #141926 0%, var(--bg) 60%);
+       color:var(--txt);font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+       -webkit-font-smoothing:antialiased;padding:18px;min-height:100vh}
+  .wrap{max-width:1320px;margin:0 auto}
+  /* header */
+  header{display:flex;align-items:center;gap:18px;margin-bottom:16px}
+  .set{font-weight:800;font-size:20px;letter-spacing:.2px}
+  .set small{display:block;color:var(--muted);font-weight:500;font-size:12px;letter-spacing:.4px}
+  .clock{margin-left:auto;display:flex;align-items:center;gap:18px}
+  .bpm{font-variant-numeric:tabular-nums;font-weight:800;font-size:22px}
+  .bpm span{color:var(--muted);font-size:12px;font-weight:600;margin-left:4px}
+  .deckchip{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);
+            padding:8px 13px;border-radius:999px;font-size:13px}
+  .dot{width:11px;height:11px;border-radius:50%}
+  .a{background:var(--A)} .b{background:var(--B)}
+  .deckchip b{font-weight:700} .deckchip em{color:var(--muted);font-style:normal;font-size:11.5px}
+  /* layout */
+  .grid{display:grid;grid-template-columns:300px 1fr 330px;gap:16px}
+  .card{background:linear-gradient(180deg,var(--panel) 0%, #10131a 100%);border:1px solid var(--line);
+        border-radius:var(--radius);padding:14px}
+  .h{font-size:11px;letter-spacing:1.6px;color:var(--muted);font-weight:700;text-transform:uppercase;margin:0 0 12px}
+  /* launchpad mirror */
+  .pad{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+  .cell{aspect-ratio:1;border-radius:5px;background:#0e1118;border:1px solid #1c2230;position:relative}
+  .cell.A{background:rgba(245,166,35,.16);border-color:rgba(245,166,35,.35)}
+  .cell.B{background:rgba(52,200,232,.15);border-color:rgba(52,200,232,.32)}
+  .cell.live{box-shadow:0 0 0 1px currentColor, 0 0 14px 1px currentColor}
+  .cell.liveA{color:var(--A);background:var(--A)}
+  .cell.liveB{color:var(--B);background:var(--B)}
+  .rowtag{display:grid;grid-template-rows:repeat(8,1fr);gap:5px;margin-right:6px}
+  .rowtag span{display:flex;align-items:center;justify-content:flex-end;font-size:9px;color:var(--muted);font-weight:600}
+  .padwrap{display:grid;grid-template-columns:34px 1fr;align-items:stretch}
+  .legend{margin-top:14px;display:flex;flex-direction:column;gap:8px}
+  .legrow{display:flex;align-items:center;gap:9px;font-size:12px}
+  .sw{width:13px;height:13px;border-radius:4px}
+  .legrow em{color:var(--muted);font-style:normal;margin-left:auto;font-size:11px}
+  /* now playing */
+  .np{display:flex;flex-direction:column;gap:11px}
+  .stem{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px 13px;
+        display:grid;grid-template-columns:118px 1fr 64px;gap:13px;align-items:center}
+  .stem .who{display:flex;flex-direction:column;gap:3px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:11px;font-weight:700;width:max-content}
+  .badge .dot{width:8px;height:8px}
+  .src{font-size:12px;color:var(--muted)}
+  .src b{color:var(--txt);font-weight:600}
+  .wave{height:46px;width:100%;position:relative;overflow:hidden;border-radius:6px;background:#0c0f15}
+  .bars{position:absolute;inset:0;display:flex;align-items:center;gap:2px;padding:0 2px}
+  .bars i{flex:1;border-radius:1px;opacity:.35}
+  .play{position:absolute;top:0;bottom:0;left:0;border-right:2px solid #fff;mix-blend-mode:screen;
+        background:linear-gradient(90deg, rgba(255,255,255,.06), rgba(255,255,255,.16))}
+  .meta{text-align:right;font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums}
+  .meta b{display:block;color:var(--txt);font-size:13px;font-weight:700}
+  .sync{display:inline-block;margin-top:3px;font-size:9.5px;color:#5BD98A;font-weight:700}
+  /* mix next */
+  .rec{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:11px;
+       position:relative;overflow:hidden}
+  .rec:before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+  .rec h4{margin:0 0 3px;font-size:14px;font-weight:700}
+  .rec .meta2{display:flex;gap:10px;color:var(--muted);font-size:11.5px;margin-bottom:9px}
+  .score{display:flex;align-items:center;gap:9px}
+  .scorebar{flex:1;height:7px;border-radius:99px;background:#0c0f15;overflow:hidden}
+  .scorebar i{display:block;height:100%;border-radius:99px;background:var(--c)}
+  .pct{font-size:13px;font-weight:800;color:var(--c);font-variant-numeric:tabular-nums}
+  .tag{font-size:10px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:99px;
+       border:1px solid var(--c);color:var(--c);text-transform:uppercase}
+  .teeup{margin-top:10px;width:100%;border:1px solid var(--line);background:#0e1118;color:var(--txt);
+         border-radius:9px;padding:8px;font-weight:700;font-size:12px;cursor:pointer}
+  /* footer queue */
+  .queue{margin-top:16px;display:flex;align-items:center;gap:14px;background:var(--panel);border:1px solid var(--line);
+         border-radius:var(--radius);padding:12px 16px}
+  .queue .h{margin:0}
+  .qitem{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted)}
+  .qitem b{color:var(--txt)}
+  .cued{margin-left:auto;font-size:11px;color:#5BD98A;font-weight:700;border:1px solid #244;padding:5px 10px;border-radius:99px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="set">Friday Warehouse — Set 1<small>SETFORGE · PERFORM</small></div>
+    <div class="clock">
+      <div class="bpm">121.0<span>BPM</span></div>
+      <div class="bpm" style="font-size:18px">17.3.1<span>BAR</span></div>
+      <div class="deckchip"><span class="dot a"></span><b>Around the World</b><em>Daft Punk · 8A</em></div>
+      <div class="deckchip"><span class="dot b"></span><b>Kids</b><em>MGMT · 8A</em></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <!-- LEFT: launchpad mirror -->
+    <section class="card">
+      <p class="h">Surface · what's loaded where</p>
+      <div class="padwrap">
+        <div class="rowtag">
+          <span>A·DR</span><span>A·BS</span><span>A·OT</span><span>A·VX</span>
+          <span>B·DR</span><span>B·BS</span><span>B·OT</span><span>B·VX</span>
+        </div>
+        <div class="pad" id="pad"></div>
+      </div>
+      <div class="legend" id="legend"></div>
+    </section>
+
+    <!-- CENTER: now playing -->
+    <section class="card">
+      <p class="h">▶ Now playing</p>
+      <div class="np" id="np"></div>
+    </section>
+
+    <!-- RIGHT: mix next -->
+    <section class="card">
+      <p class="h">✦ Mix next · taste DB</p>
+      <div id="recs"></div>
+    </section>
+  </div>
+
+  <div class="queue">
+    <p class="h">Queue</p>
+    <div class="qitem">After the break ▸ <b>Peak Time</b> — 6 songs staged</div>
+    <span class="cued">CUED · tap to arm</span>
+  </div>
+</div>
+
+<script>
+const A="#F5A623", B="#34C8E8";
+// launchpad mirror: 8 rows x 8 chops; mark loaded (deck tint) + a few live
+const loaded = [ // per row: which cols are loaded, and which is live
+ {deck:'A',cols:[0,1,2,3,4,5,6,7],live:2},
+ {deck:'A',cols:[0,1,2,3,4,5],live:0},
+ {deck:'A',cols:[0,1,2,3,4,5,6,7],live:null},
+ {deck:'A',cols:[0,1,2,3],live:null},
+ {deck:'B',cols:[0,1,2,3,4,5,6,7],live:null},
+ {deck:'B',cols:[0,1,2,3,4,5,6,7],live:null},
+ {deck:'B',cols:[0,1,2,3,4,5,6],live:2},
+ {deck:'B',cols:[0,1,2,3,4],live:0},
+];
+const pad=document.getElementById('pad');
+loaded.forEach(r=>{for(let c=0;c<8;c++){const d=document.createElement('div');d.className='cell';
+  if(r.cols.includes(c))d.classList.add(r.deck);
+  if(r.live===c)d.classList.add('live', r.deck==='A'?'liveA':'liveB');
+  pad.appendChild(d);}});
+const legend=document.getElementById('legend');
+[['Around the World','Daft Punk',A],['Kids','MGMT',B]].forEach(([s,a,c])=>{
+  legend.insertAdjacentHTML('beforeend',
+   `<div class="legrow"><span class="sw" style="background:${c}"></span><span>${s}</span><em>${a}</em></div>`);});
+
+// now playing
+const stems=[
+ {who:'A · DRUMS',deck:A,src:'A1 · main loop',rem:'2 bars',pct:62},
+ {who:'A · BASS', deck:A,src:'A4 · verse',    rem:'2 bars',pct:62},
+ {who:'B · OTHER',deck:B,src:'B3 · synth hook',rem:'6 bars',pct:30},
+ {who:'B · VOX',  deck:B,src:'B1 · chorus',   rem:'6 bars',pct:30},
+];
+const np=document.getElementById('np');
+stems.forEach(s=>{
+  let bars='';for(let i=0;i<46;i++){const h=18+Math.round(28*Math.abs(Math.sin(i*0.8)*Math.cos(i*0.37)));
+    bars+=`<i style="height:${h}px;background:${s.deck}"></i>`;}
+  np.insertAdjacentHTML('beforeend',`
+   <div class="stem">
+     <div class="who">
+       <span class="badge" style="color:${s.deck}"><span class="dot" style="background:${s.deck}"></span>${s.who}</span>
+       <span class="src">from <b>${s.src}</b></span>
+       <span class="sync">◇ downbeat-locked</span>
+     </div>
+     <div class="wave"><div class="bars">${bars}</div><div class="play" style="width:${s.pct}%"></div></div>
+     <div class="meta"><b>${s.rem}</b>left in loop<br>${s.pct}%</div>
+   </div>`);
+});
+
+// mix next
+const recs=[
+ {s:'D.A.N.C.E.',a:'Justice',bpm:'120 · 8A',pct:96,tag:'Congruent',c:'#5BD98A',note:'tempo + key lock; swap onto Deck A'},
+ {s:'Let It Happen — VOX',a:'Tame Impala',bpm:'120 · 11A',pct:81,tag:'Spicy',c:'#FF7AB6',note:'incongruent key, killer over A drums'},
+ {s:'Music Sounds Better',a:'Stardust',bpm:'123 · 9A',pct:88,tag:'Congruent',c:'#B58CFF',note:'energy lift; cue to Deck B'},
+];
+const wrap=document.getElementById('recs');
+recs.forEach(r=>{wrap.insertAdjacentHTML('beforeend',`
+  <div class="rec" style="--c:${r.c}">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:2px">
+      <h4>${r.s}</h4><span class="tag" style="margin-left:auto">${r.tag}</span>
+    </div>
+    <div class="meta2"><span>${r.a}</span><span>${r.bpm}</span></div>
+    <div class="score"><div class="scorebar"><i style="width:${r.pct}%"></i></div><span class="pct">${r.pct}%</span></div>
+    <div class="src" style="margin-top:7px;font-size:11.5px">${r.note}</div>
+    <button class="teeup">＋ Tee up</button>
+  </div>`);});
+
+// gentle live animation of playheads
+setInterval(()=>{document.querySelectorAll('.play').forEach(p=>{
+  let w=parseFloat(p.style.width); w=(w+0.25)%100; p.style.width=w+'%';});},120);
+</script>
+</body>
+</html>

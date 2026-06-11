@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Setforge — Unified device panels (mockup)</title>
+<style>
+  :root{
+    --bg0:#0b0d12; --bg1:#141926; --panel:#13161d; --panel2:#191d26; --line:#252b38;
+    --txt:#e9edf6; --muted:#8b94a7; --A:#F5A623; --B:#34C8E8; --grn:#5BD98A; --pur:#B58CFF; --red:#FF6B6B;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;color:var(--txt);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding:22px;
+    background:radial-gradient(900px 500px at 80% -10%, rgba(245,166,35,.06), transparent 55%),linear-gradient(180deg,var(--bg1),var(--bg0) 70%)}
+  .wrap{max-width:940px;margin:0 auto}
+  h1{font-size:19px;font-weight:800;margin:0 0 3px}
+  .sub{color:var(--muted);font-size:12.5px;margin-bottom:18px}
+  /* design tokens band */
+  .tokens{display:flex;gap:22px;flex-wrap:wrap;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px 16px;margin-bottom:20px;align-items:center}
+  .tok{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--muted)}
+  .sw{width:14px;height:14px;border-radius:4px}
+  .tokbtn{font-size:10px;font-weight:800;padding:4px 9px;border-radius:7px}
+  /* device */
+  .device{display:grid;grid-template-columns:6px 150px 1fr;background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-bottom:14px;min-height:128px}
+  .stripe{background:var(--c)}
+  .id{padding:14px 14px;border-right:1px solid var(--line);background:linear-gradient(180deg,rgba(255,255,255,.02),transparent)}
+  .id .led{display:flex;align-items:center;gap:7px;font-size:10px;color:var(--muted);font-weight:700;margin-bottom:9px}
+  .led .d{width:8px;height:8px;border-radius:50%;background:var(--grn);box-shadow:0 0 9px var(--grn)}
+  .id .nm{font-size:9px;letter-spacing:2px;color:var(--muted);font-weight:800}
+  .id .nm b{display:block;font-size:18px;letter-spacing:.5px;color:var(--c);text-shadow:0 0 14px color-mix(in srgb,var(--c) 45%, transparent);margin-top:2px}
+  .body{padding:13px 16px;display:flex;flex-direction:column;gap:11px;justify-content:center}
+  .row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .btn{font-size:11px;font-weight:700;padding:7px 13px;border-radius:8px;background:#0e1118;border:1px solid var(--line);color:var(--txt);cursor:pointer}
+  .btn.primary{background:var(--c);border-color:var(--c);color:#0b0d12;font-weight:800;box-shadow:0 0 16px -3px var(--c)}
+  .btn.danger{background:transparent;border-color:var(--red);color:var(--red);font-weight:800}
+  .field{flex:1;min-width:160px;background:#0c0f15;border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-size:12px;color:var(--muted)}
+  .field b{color:var(--txt);font-weight:600}
+  .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg span{padding:6px 11px;font-size:11px;font-weight:700;color:var(--muted);border-right:1px solid var(--line)}
+  .seg span:last-child{border-right:none}
+  .seg span.on{background:var(--c);color:#0b0d12}
+  .nudge{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted)}
+  .nudge button{width:26px;height:26px;border-radius:7px;background:#0e1118;border:1px solid var(--line);color:var(--txt);cursor:pointer;font-weight:800}
+  .ro{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;color:var(--muted);background:#0c0f15;border:1px solid var(--line);border-radius:8px;padding:8px 11px;line-height:1.6}
+  .ro b{color:var(--txt)} .ro .a{color:var(--A)} .ro .b{color:var(--B)} .ro .ok{color:var(--grn)}
+  .pill{font-size:10px;font-weight:800;padding:2px 7px;border-radius:6px}
+  .state{display:flex;gap:5px}
+  .sdot{width:13px;height:13px;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Setforge — unified device panels</h1>
+  <div class="sub">One design language across all four Max-for-Live devices, sharing the companion-app palette. Each device = same layout (accent stripe · ID block · body), a per-device accent for identity.</div>
+
+  <div class="tokens">
+    <div class="tok"><span class="sw" style="background:var(--A)"></span>Deck A / Loader</div>
+    <div class="tok"><span class="sw" style="background:var(--B)"></span>Deck B / Grid</div>
+    <div class="tok"><span class="sw" style="background:var(--grn)"></span>Calibrate</div>
+    <div class="tok"><span class="sw" style="background:var(--pur)"></span>Arranger</div>
+    <div class="tok" style="margin-left:auto"><span class="tokbtn" style="background:var(--A);color:#0b0d12">PRIMARY</span></div>
+    <div class="tok"><span class="tokbtn" style="background:#0e1118;border:1px solid var(--line);color:var(--txt)">DEFAULT</span></div>
+    <div class="tok"><span class="tokbtn" style="background:transparent;border:1px solid var(--red);color:var(--red)">DANGER</span></div>
+  </div>
+
+  <!-- LOADER -->
+  <div class="device" style="--c:var(--A)">
+    <div class="stripe"></div>
+    <div class="id"><div class="led"><span class="d"></span>CONNECTED</div><div class="nm">SETFORGE<b>LOADER</b></div></div>
+    <div class="body">
+      <div class="row">
+        <button class="btn primary">BROWSE…</button><button class="btn">LOAD</button><button class="btn">RELOAD</button><button class="btn">EJECT</button>
+        <button class="btn danger" style="margin-left:auto">◼ PANIC</button>
+      </div>
+      <div class="ro">SET <b>Friday Warehouse — Set 1</b> · 121.0 BPM · 16 presets<br>
+        DECK <span class="a">A</span> 2 songs &nbsp;·&nbsp; DECK <span class="b">B</span> 2 songs &nbsp;·&nbsp; surface <span class="ok">Launchpad Pro ✓</span></div>
+    </div>
+  </div>
+
+  <!-- GRID -->
+  <div class="device" style="--c:var(--B)">
+    <div class="stripe"></div>
+    <div class="id"><div class="led"><span class="d"></span>BRIDGED</div><div class="nm">SETFORGE<b>GRID</b></div></div>
+    <div class="body">
+      <div class="row"><span class="field">MIDI bridge → <b>Launchpad Pro (Standalone Port)</b></span></div>
+      <div class="ro">MIDI From <span class="ok">✓</span> &nbsp; Monitor <b>In</b> <span class="ok">✓</span> &nbsp; forwarding pad notes ↔ LED SysEx<br>
+        <span style="color:var(--muted)">programmer mode active · owns the surface</span></div>
+    </div>
+  </div>
+
+  <!-- CALIBRATE -->
+  <div class="device" style="--c:var(--grn)">
+    <div class="stripe"></div>
+    <div class="id"><div class="led"><span class="d"></span>READY</div><div class="nm">SETFORGE<b>CALIBRATE</b></div></div>
+    <div class="body">
+      <div class="row">
+        <span class="field" style="flex:0 0 200px"><b>Track 3 / 16</b> · hiphop_danceable</span>
+        <div class="seg"><span>DR</span><span class="on">BS</span><span>OT</span><span>VX</span></div>
+        <div class="nudge"><button>◀</button><span>marker <b style="color:var(--txt)">+0.012s</b></span><button>▶</button></div>
+        <button class="btn primary">✓ VALIDATED</button><button class="btn">NEXT ▸</button>
+      </div>
+      <div class="ro state-row" style="display:flex;align-items:center;gap:10px">
+        <span style="color:var(--muted)">set state</span>
+        <span class="state">
+          <span class="sdot" style="background:var(--grn)"></span><span class="sdot" style="background:var(--grn)"></span><span class="sdot" style="background:var(--grn)"></span>
+          <span class="sdot" style="background:#FFC24D"></span><span class="sdot" style="background:#FFC24D"></span>
+          <span class="sdot" style="background:var(--red)"></span><span class="sdot" style="background:#2a3140"></span><span class="sdot" style="background:#2a3140"></span>
+        </span>
+        <span style="color:var(--muted);font-size:10px">3 validated · 2 pending · 1 failed</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ARRANGER -->
+  <div class="device" style="--c:var(--pur)">
+    <div class="stripe"></div>
+    <div class="id"><div class="led"><span class="d"></span>LOADED</div><div class="nm">SETFORGE<b>ARRANGER</b></div></div>
+    <div class="body">
+      <div class="row">
+        <button class="btn primary">LOAD MANIFEST…</button><button class="btn">⚓ ANCHOR</button><button class="btn">EXPORT SNAPSHOT</button>
+        <span class="field" style="margin-left:auto;flex:0 0 220px">…/hiphop_danceable_v2/</span>
+      </div>
+      <div class="ro">ARRANGEMENT <b>hiphop_danceable</b> · 57 bars · tempo 85.0<br>
+        <span style="color:var(--muted)">2 tracks @ bar 1 · warping off · 4 vetted scenes on timeline</span></div>
+    </div>
+  </div>
+
+  <div class="sub" style="margin-top:6px">Shared tokens: slate panels (#13161d) on near-black · per-device accent stripe + glow · same button hierarchy (primary / default / danger) · monospace status readouts · consistent ID block. Matches the companion app so the whole system reads as one product.</div>
+</div>
+</body>
+</html>

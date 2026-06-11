@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Setforge — Perform view v2</title>
+<style>
+  :root{
+    --bg0:#0b0d12; --bg1:#141926; --panel:#13161d; --panel2:#191d26; --line:#252b38;
+    --txt:#e9edf6; --muted:#8b94a7; --A:#F5A623; --B:#34C8E8; --ok:#5BD98A; --radius:16px; --cell:38px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;color:var(--txt);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased;padding:18px;position:relative;overflow-x:hidden;
+    background:radial-gradient(900px 520px at 50% 120%, rgba(52,200,232,.10), transparent 60%),radial-gradient(820px 520px at 82% -12%, rgba(245,166,35,.08), transparent 55%),linear-gradient(180deg, var(--bg1) 0%, var(--bg0) 72%);}
+  body:after{content:"";position:fixed;left:0;right:0;bottom:0;height:34vh;pointer-events:none;opacity:.10;
+    background-image:linear-gradient(rgba(52,200,232,.7) 1px,transparent 1px),linear-gradient(90deg,rgba(52,200,232,.6) 1px,transparent 1px);
+    background-size:46px 46px;transform:perspective(360px) rotateX(63deg);transform-origin:bottom;mask-image:linear-gradient(transparent,#000)}
+  .wrap{max-width:1360px;margin:0 auto;position:relative;z-index:1}
+  header{display:flex;align-items:center;gap:16px;margin-bottom:16px}
+  .set{font-weight:800;font-size:21px;text-shadow:0 0 16px rgba(245,166,35,.35)}.set small{display:block;color:var(--muted);font-weight:600;font-size:11px;letter-spacing:3px}
+  .clock{margin-left:auto;display:flex;align-items:center;gap:14px}
+  .bpm{font-variant-numeric:tabular-nums;font-weight:800;font-size:22px;text-shadow:0 0 14px rgba(52,200,232,.45)}.bpm span{color:var(--muted);font-size:11px;font-weight:700;margin-left:4px}
+  .chip{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);padding:7px 13px;border-radius:999px;font-size:13px}
+  .dot{width:11px;height:11px;border-radius:50%}.chip b{font-weight:700}.chip em{color:var(--muted);font-style:normal;font-size:11px}
+  .grid{display:grid;grid-template-columns:300px 1fr 308px;gap:16px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.04), 0 10px 30px rgba(0,0,0,.35)}
+  .h{font-size:10.5px;letter-spacing:2.4px;color:var(--muted);font-weight:800;text-transform:uppercase;margin:0 0 12px}
+  .np{display:flex;flex-direction:column;gap:9px}
+  .stem{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--c);border-radius:11px;padding:9px 11px}
+  .stem .top{display:flex;align-items:center;gap:8px;font-size:11px;margin-bottom:6px}
+  .stem .top b{font-weight:800}.stem .top .pin{margin-left:auto;font-size:9.5px;font-weight:800;color:#0b0d12;background:var(--c);border-radius:5px;padding:2px 6px}
+  .wave{height:30px;position:relative;border-radius:6px;overflow:hidden;background:rgba(0,0,0,.35)}
+  .bars{position:absolute;inset:0;display:flex;align-items:center;gap:1.5px;padding:0 2px}.bars i{flex:1;border-radius:1px;opacity:.55}
+  .play{position:absolute;top:0;bottom:0;left:0;border-right:2px solid #fff;box-shadow:0 0 10px rgba(255,255,255,.6)}
+  .stem .src{font-size:10.5px;color:var(--muted);margin-top:5px}.stem .src b{color:var(--txt);font-weight:600}
+  /* SURFACE */
+  .surface{display:flex;flex-direction:column;align-items:center;gap:11px;padding:18px;border-radius:18px;
+    background:radial-gradient(460px 320px at 50% 45%, rgba(52,200,232,.07), transparent);box-shadow:inset 0 0 70px rgba(52,200,232,.07), 0 0 0 1px var(--line)}
+  .toprow,.botrow{display:flex;justify-content:space-between;width:346px}
+  .midrow{display:flex;align-items:center;gap:9px}
+  .scol{display:flex;flex-direction:column;justify-content:space-between;height:346px}
+  .gut{display:flex;flex-direction:column;justify-content:space-between;height:346px;margin:0 1px}
+  .gchip{height:30px;min-width:30px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:var(--c);border:1px solid var(--c);background:rgba(255,255,255,.03);box-shadow:0 0 8px -2px var(--c)}
+  .sb{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#aeb6c6;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+  .sb.A{border-color:rgba(245,166,35,.5);color:#ffe0b0}.sb.B{border-color:rgba(52,200,232,.5);color:#bdeeff}
+  .sb.stem{border-color:var(--c);color:#fff}
+  .sb.on{box-shadow:0 0 13px currentColor;background:rgba(255,255,255,.08)}
+  .padcore{display:grid;grid-template-columns:repeat(8,var(--cell));grid-template-rows:repeat(8,var(--cell));gap:6px}
+  .cell{border-radius:7px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.06)}
+  .cell.on{background:color-mix(in srgb, var(--c) 18%, transparent);border-color:color-mix(in srgb, var(--c) 38%, transparent)}
+  .cell.live{background:var(--c);box-shadow:0 0 16px 2px var(--c), inset 0 0 8px rgba(255,255,255,.5)}
+  .surfcap{text-align:center;color:var(--muted);font-size:10.5px;letter-spacing:2px;margin-top:10px}
+  /* preset map / legend */
+  .bankh{font-size:11px;font-weight:800;letter-spacing:1.5px;margin:2px 0 8px;display:flex;align-items:center;gap:8px}
+  .pl{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+  .pre{display:grid;grid-template-columns:12px 22px 1fr auto;align-items:center;gap:8px;padding:7px 9px;border-radius:9px;background:var(--panel2);border:1px solid transparent}
+  .pre.empty{opacity:.38}.pre .sw{width:11px;height:11px;border-radius:3px;background:var(--c)}
+  .pre .id{font-weight:800;font-size:11px;color:var(--muted);text-align:center}
+  .pre .nm{min-width:0}.pre .nm b{display:block;font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pre .nm span{font-size:10.5px;color:var(--muted)}
+  .pre .key{font-size:10px;color:var(--muted)}
+  .pre.src{border-color:var(--c);box-shadow:0 0 13px -3px var(--c);background:rgba(255,255,255,.05)}
+  .pre .stems{font-size:8.5px;font-weight:800;color:#0b0d12;background:var(--c);border-radius:5px;padding:2px 6px;white-space:nowrap}
+  .strip{margin-top:16px;display:grid;grid-template-columns:1fr 250px;gap:16px}
+  .recs{display:flex;gap:12px}
+  .rec{flex:1;background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:11px;position:relative;overflow:hidden}
+  .rec:before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--c);box-shadow:0 0 12px var(--c)}
+  .rec h4{margin:0 0 2px;font-size:13.5px}.rec .m{color:var(--muted);font-size:11px;margin-bottom:8px;display:flex;gap:9px}
+  .rec .sc{display:flex;align-items:center;gap:8px}.rec .bar{flex:1;height:6px;border-radius:99px;background:rgba(0,0,0,.4);overflow:hidden}.rec .bar i{display:block;height:100%;background:var(--c);box-shadow:0 0 8px var(--c)}
+  .rec .pct{font-weight:800;color:var(--c);font-size:12px}.tag{position:absolute;top:10px;right:10px;font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--c)}
+  .queue{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:13px}.queue b{color:var(--txt)}
+  .cued{margin-top:8px;font-size:10.5px;color:var(--ok);font-weight:800;border:1px solid rgba(91,217,138,.3);padding:5px 9px;border-radius:99px;display:inline-block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="set">Friday Warehouse — Set 1<small>SETFORGE · PERFORM</small></div>
+    <div class="clock">
+      <div class="bpm">121.0<span>BPM</span></div>
+      <div class="bpm" style="font-size:18px">17.3.1<span>BAR</span></div>
+      <div class="chip"><span class="dot" style="background:var(--A)"></span><b>Deck A</b><em>2 songs · 8A</em></div>
+      <div class="chip"><span class="dot" style="background:var(--B)"></span><b>Deck B</b><em>2 songs · 8A</em></div>
+    </div>
+  </header>
+
+  <div class="grid">
+    <section class="card"><p class="h">▶ Now playing</p><div class="np" id="np"></div></section>
+
+    <section class="card">
+      <p class="h" style="text-align:center">◈ Surface · color = source preset</p>
+      <div class="surface">
+        <div class="toprow" id="top"></div>
+        <div class="midrow">
+          <div class="scol" id="left"></div>
+          <div class="gut" id="gut"></div>
+          <div class="padcore" id="pad"></div>
+          <div class="scol" id="right"></div>
+        </div>
+        <div class="botrow" id="bottom"></div>
+      </div>
+      <div class="surfcap">stem-assign ◀ shows which preset feeds each row · A presets ▲ · B presets ▼ · modifiers ▶</div>
+    </section>
+
+    <section class="card">
+      <p class="h">Loaded presets · legend</p>
+      <div class="bankh" style="color:var(--A)"><span class="dot" style="background:var(--A)"></span>BANK A</div>
+      <div class="pl" id="bankA"></div>
+      <div class="bankh" style="color:var(--B)"><span class="dot" style="background:var(--B)"></span>BANK B</div>
+      <div class="pl" id="bankB"></div>
+    </section>
+  </div>
+
+  <div class="strip">
+    <div><p class="h">✦ Mix next · taste DB</p><div class="recs" id="recs"></div></div>
+    <div class="queue"><p class="h">Queue</p><div style="font-size:12.5px;color:var(--muted)">After the break ▸ <b>Peak Time</b> · 6 songs staged</div><span class="cued">CUED · tap to arm</span></div>
+  </div>
+</div>
+
+<script>
+// per-source-preset colors (the legend)
+const COL={A1:'#F5A623',A4:'#FF7A3D',B1:'#34C8E8',B3:'#8C7BFF'};
+// each of the 8 stem rows: stem, its source preset, loaded chop count, live chop (or null)
+const ROWS=[
+ {st:'DR',src:'A1',n:8,live:2},{st:'BS',src:'A4',n:6,live:0},{st:'OT',src:'A1',n:8,live:null},{st:'VX',src:'A4',n:4,live:null},
+ {st:'DR',src:'B3',n:8,live:null},{st:'BS',src:'B3',n:8,live:null},{st:'OT',src:'B3',n:7,live:2},{st:'VX',src:'B1',n:5,live:0}];
+const tRow=document.getElementById('top'),bRow=document.getElementById('bottom'),lCol=document.getElementById('left'),rCol=document.getElementById('right'),gut=document.getElementById('gut'),pad=document.getElementById('pad');
+const onA=['A1','A4'],onB=['B1','B3'];
+for(let i=0;i<8;i++){const id='A'+(i+1),on=onA.includes(id);tRow.insertAdjacentHTML('beforeend',`<div class="sb A ${on?'on':''}" ${on?`style="--c:${COL[id]};border-color:${COL[id]};color:${COL[id]}"`:''}>${id}</div>`);}
+for(let i=0;i<8;i++){const id='B'+(i+1),on=onB.includes(id);bRow.insertAdjacentHTML('beforeend',`<div class="sb B ${on?'on':''}" ${on?`style="--c:${COL[id]};border-color:${COL[id]};color:${COL[id]}"`:''}>${id}</div>`);}
+// left = stem-assign buttons colored by source; gutter = source-id chip
+ROWS.forEach(r=>{const c=COL[r.src];
+  lCol.insertAdjacentHTML('beforeend',`<div class="sb stem" style="--c:${c}">${r.st}</div>`);
+  gut.insertAdjacentHTML('beforeend',`<div class="gchip" style="--c:${c}">${r.src}</div>`);});
+['HLD','MUT','SOL','REV','STU','HLF','DBL','KIL'].forEach(m=>rCol.insertAdjacentHTML('beforeend',`<div class="sb">${m}</div>`));
+// grid: each row tinted by its source color
+ROWS.forEach(r=>{const c=COL[r.src];for(let col=0;col<8;col++){const d=document.createElement('div');d.className='cell';d.style.setProperty('--c',c);if(col<r.n)d.classList.add('on');if(r.live===col)d.classList.add('live');pad.appendChild(d);}});
+// now playing = the 4 live rows
+const live=ROWS.map((r,i)=>({...r,deck:i<4?'A':'B'})).filter(r=>r.live!==null);
+const labelMap={DR:'DRUMS',BS:'BASS',OT:'OTHER',VX:'VOX'};
+const np=document.getElementById('np');
+live.forEach(r=>{const c=COL[r.src];let b='';for(let i=0;i<34;i++){const h=8+Math.round(18*Math.abs(Math.sin(i*0.8)*Math.cos(i*0.37)));b+=`<i style="height:${h}px;background:${c}"></i>`;}
+  np.insertAdjacentHTML('beforeend',`<div class="stem" style="--c:${c}"><div class="top"><span class="dot" style="background:${c};box-shadow:0 0 9px ${c}"></span><b style="color:${c}">${r.deck} · ${labelMap[r.st]}</b><span class="pin">${r.src}</span></div><div class="wave"><div class="bars">${b}</div><div class="play" style="width:${r.live===0?30:62}%"></div></div><div class="src">from <b>${r.src}</b> · ◇ downbeat-locked</div></div>`);});
+// preset map (legend): which stems each preset sources
+const srcMap={};ROWS.forEach((r,i)=>{(srcMap[r.src]=srcMap[r.src]||[]).push(r.st);});
+const bankA=[{id:'A1',s:'Around the World',a:'Daft Punk',k:'8A'},{id:'A2',s:'D.A.N.C.E.',a:'Justice',k:'8A'},{id:'A3',s:'Genesis',a:'Justice',k:'5A'},{id:'A4',s:'Music Sounds Better',a:'Stardust',k:'9A'},{id:'A5',s:'Da Funk',a:'Daft Punk',k:'6A'},{id:'A6',empty:1},{id:'A7',empty:1},{id:'A8',empty:1}];
+const bankB=[{id:'B1',s:'Kids',a:'MGMT',k:'8A'},{id:'B2',s:'Electric Feel',a:'MGMT',k:'11A'},{id:'B3',s:'Let It Happen',a:'Tame Impala',k:'11A'},{id:'B4',s:'Time to Pretend',a:'MGMT',k:'7A'},{id:'B5',empty:1},{id:'B6',empty:1},{id:'B7',empty:1},{id:'B8',empty:1}];
+function render(list,el){list.forEach(p=>{if(p.empty){el.insertAdjacentHTML('beforeend',`<div class="pre empty"><span class="sw" style="background:#333"></span><div class="id">${p.id}</div><div class="nm"><b>— empty —</b></div><div></div></div>`);return;}
+  const src=srcMap[p.id],c=COL[p.id]||'#3a4150';const right=src?`<span class="stems" style="background:${c}">▶ ${src.join('·')}</span>`:`<span class="key">${p.k}</span>`;
+  el.insertAdjacentHTML('beforeend',`<div class="pre ${src?'src':''}" style="--c:${c}"><span class="sw"></span><div class="id" ${src?`style="color:${c}"`:''}>${p.id}</div><div class="nm"><b style="color:var(--txt)">${p.s}</b><span>${p.a} · ${p.k}</span></div>${right}</div>`);});}
+render(bankA,document.getElementById('bankA'));render(bankB,document.getElementById('bankB'));
+const recs=[{s:'D.A.N.C.E.',a:'Justice',m:'120·8A',pct:96,t:'Congruent',c:'#5BD98A'},{s:'Let It Happen · VOX',a:'Tame Impala',m:'120·11A',pct:81,t:'Spicy',c:'#FF7AB6'},{s:'Music Sounds Better',a:'Stardust',m:'123·9A',pct:88,t:'Congruent',c:'#B58CFF'}];
+const rc=document.getElementById('recs');
+recs.forEach(r=>rc.insertAdjacentHTML('beforeend',`<div class="rec" style="--c:${r.c}"><span class="tag">${r.t}</span><h4>${r.s}</h4><div class="m"><span>${r.a}</span><span>${r.m}</span></div><div class="sc"><div class="bar"><i style="width:${r.pct}%"></i></div><span class="pct">${r.pct}%</span></div></div>`));
+setInterval(()=>{document.querySelectorAll('.play').forEach(p=>{let w=parseFloat(p.style.width);w=(w+0.22)%100;p.style.width=w+'%';});},120);
+</script>
+</body>
+</html>

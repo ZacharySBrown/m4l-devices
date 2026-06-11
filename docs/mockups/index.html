@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Setforge — Mockups (latest)</title>
+<style>
+  :root{--bg0:#0b0d12;--bg1:#141926;--panel:#13161d;--line:#252b38;--txt:#e9edf6;--muted:#8b94a7;--A:#F5A623;--B:#34C8E8;--pur:#B58CFF;--grn:#5BD98A;}
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;color:var(--txt);font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg0);display:flex;flex-direction:column}
+  .bar{display:flex;align-items:center;gap:12px;padding:11px 18px;background:linear-gradient(180deg,var(--bg1),var(--panel));border-bottom:1px solid var(--line);flex:0 0 auto}
+  .brand{font-weight:800;font-size:15px;letter-spacing:.3px}.brand small{color:var(--muted);font-weight:600;font-size:11px;letter-spacing:2px;margin-left:6px}
+  .tabs{display:flex;gap:8px;margin-left:14px}
+  .tab{display:flex;align-items:center;gap:7px;padding:8px 15px;border-radius:9px;background:#0e1118;border:1px solid var(--line);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer}
+  .tab .dot{width:9px;height:9px;border-radius:50%}
+  .tab.on{color:var(--txt);background:#191d26;border-color:var(--c);box-shadow:0 0 14px -4px var(--c)}
+  .ext{margin-left:auto;display:flex;gap:10px;align-items:center}
+  .ext a{color:var(--muted);font-size:12px;text-decoration:none;border:1px solid var(--line);border-radius:8px;padding:7px 11px}
+  .ext a:hover{color:var(--txt)}
+  .stage{flex:1 1 auto;position:relative;background:var(--bg0)}
+  iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--bg0)}
+  .hint{position:absolute;bottom:12px;left:0;right:0;text-align:center;color:var(--muted);font-size:11px;pointer-events:none}
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="brand">Setforge <small>MOCKUPS · LATEST</small></div>
+    <div class="tabs" id="tabs">
+      <div class="tab on" data-src="perform-view-v2.html" style="--c:var(--A)"><span class="dot" style="background:var(--A)"></span>Perform</div>
+      <div class="tab" data-src="curate-view-v2.html" style="--c:var(--B)"><span class="dot" style="background:var(--B)"></span>Curate</div>
+      <div class="tab" data-src="arrangement-view.html" style="--c:var(--grn)"><span class="dot" style="background:var(--grn)"></span>Arrange</div>
+      <div class="tab" data-src="device-panels.html" style="--c:var(--pur)"><span class="dot" style="background:var(--pur)"></span>Device panels</div>
+      <div class="tab" data-src="pro-mk2-surface-spec.html" style="--c:var(--A)"><span class="dot" style="background:var(--A)"></span>Surface spec</div>
+    </div>
+    <div class="ext">
+      <a href="perform-view-v2.html" target="_blank">Perform ↗</a>
+      <a href="curate-view-v2.html" target="_blank">Curate ↗</a>
+      <a href="arrangement-view.html" target="_blank">Arrange ↗</a>
+      <a href="device-panels.html" target="_blank">Devices ↗</a>
+      <a href="pro-mk2-surface-spec.html" target="_blank">Surface ↗</a>
+    </div>
+  </div>
+  <div class="stage">
+    <iframe id="frame" src="perform-view-v2.html" title="mockup"></iframe>
+    <div class="hint">If a panel looks blank, the browser may block local iframes — use the “↗” links to open each in its own tab.</div>
+  </div>
+<script>
+  const tabs=document.querySelectorAll('.tab'),frame=document.getElementById('frame');
+  tabs.forEach(t=>t.addEventListener('click',()=>{tabs.forEach(x=>x.classList.remove('on'));t.classList.add('on');frame.src=t.dataset.src;}));
+</script>
+</body>
+</html>
