@@ -352,13 +352,45 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(payload)
 
+    CONTENT_TYPES = {
+        ".html": "text/html", ".css": "text/css", ".js": "application/javascript",
+        ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png",
+    }
+    APP_DIR = HERE / "app"
+
     def do_GET(self):  # noqa: N802
-        if self.path.rstrip("/") in ("", "/", "/state"):
+        path = self.path.split("?")[0]
+        if path == "/state" or path == "/state/":
             self._send(200, get_state())
-        elif self.path.startswith("/peaks"):
+        elif path.startswith("/peaks"):
             self._handle_peaks()
+        elif path == "/" or path == "":
+            self._serve_file("index.html")
+        elif path.startswith("/") and not path.startswith("/action"):
+            self._serve_file(path.lstrip("/"))
         else:
             self._send(404, {"error": "not found", "try": "/state"})
+
+    def _serve_file(self, rel_path: str):
+        """Serve a static file from app/."""
+        fp = (self.APP_DIR / rel_path).resolve()
+        # Security: ensure it's within APP_DIR
+        try:
+            fp.relative_to(self.APP_DIR.resolve())
+        except ValueError:
+            self._send(403, {"error": "forbidden"})
+            return
+        if not fp.is_file():
+            self._send(404, {"error": f"not found: {rel_path}"})
+            return
+        ct = self.CONTENT_TYPES.get(fp.suffix, "application/octet-stream")
+        data = fp.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", ct)
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.end_headers()
+        self.wfile.write(data)
 
     def _handle_peaks(self):
         """GET /peaks?clip=<clip_id> → waveform peaks JSON."""

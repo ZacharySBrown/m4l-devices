@@ -40,6 +40,9 @@ step "JS · monolith e2e (loader-e2e)" \
 step "JS · surface e2e (Phase-1 gesture chain)" \
   bash -c 'cd device/setforge-live && npx --no-install mocha tests/integration/surface-e2e.test.js'
 
+step "JS · companion data layer (interpolation + store)" \
+  node --test companion/tests/render/datalayer.test.mjs
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "============================================================"

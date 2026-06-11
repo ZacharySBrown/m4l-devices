@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Setforge</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>SETFORGE</h1>
+      <div class="tabs" id="tabs">
+        <button class="tab active" data-view="perform">Perform</button>
+        <button class="tab" data-view="curate">Curate</button>
+      </div>
+      <div class="chip" id="transport">
+        <span class="dot" style="background:var(--ok)"></span>
+        <b id="bpm">—</b> BPM
+        <span id="bar">—</span>
+      </div>
+    </header>
+    <main id="view"></main>
+  </div>
+  <div class="reconnecting" id="reconnect">Reconnecting...</div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
