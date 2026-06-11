@@ -384,7 +384,25 @@ class Handler(BaseHTTPRequestHandler):
             return
         self._send(200, data)
 
-    # read-only: no do_POST/PUT/DELETE
+    def do_POST(self):  # noqa: N802
+        if self.path.rstrip("/") == "/action":
+            self._handle_action()
+        else:
+            self._send(404, {"error": "not found", "try": "POST /action"})
+
+    def _handle_action(self):
+        from actions import dispatch_action
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            raw = self.rfile.read(length)
+            body = json.loads(raw.decode("utf-8"))
+        except (json.JSONDecodeError, ValueError):
+            self._send(400, {"ok": False, "error": "invalid JSON body"})
+            return
+        result = dispatch_action(body)
+        code = 200 if result.get("ok") else 400
+        self._send(code, result)
+
     def log_message(self, *args):  # quiet
         pass
 
