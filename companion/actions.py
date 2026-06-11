@@ -158,6 +158,56 @@ def handle_select_clip(data: dict) -> dict:
     })
 
 
+# ── Arrangement action handlers (Phase 3) ─────────────────────────
+
+ARRANGEMENTS_DIR = STATE_DIR / "arrangements"
+
+
+def _arrangements_path(name: str) -> Path:
+    safe = name.replace("/", "_").replace("..", "_")
+    return ARRANGEMENTS_DIR / f"{safe}.arrangement.json"
+
+
+def handle_place_pair(data: dict) -> dict:
+    bar = data.get("timeline_bar")
+    if bar is None:
+        return {"ok": False, "error": "place_pair requires timeline_bar"}
+    return COMMAND_SINK("udp", {"msg": f"place_pair {bar}"})
+
+
+def handle_save_arrangement(data: dict) -> dict:
+    name = data.get("name")
+    if not name:
+        return {"ok": False, "error": "save_arrangement requires name"}
+    ARRANGEMENTS_DIR.mkdir(parents=True, exist_ok=True)
+    # Read current arrangement state from sample or live
+    arr_data = {"name": name, "saved_at": uuid.uuid4().hex[:8]}
+    _arrangements_path(name).write_text(
+        json.dumps(arr_data, indent=2), encoding="utf-8"
+    )
+    return {"ok": True, "path": str(_arrangements_path(name))}
+
+
+def handle_load_arrangement(data: dict) -> dict:
+    name = data.get("name")
+    if not name:
+        return {"ok": False, "error": "load_arrangement requires name"}
+    p = _arrangements_path(name)
+    if not p.exists():
+        return {"ok": False, "error": f"arrangement not found: {name}"}
+    return COMMAND_SINK("udp", {"msg": f"load_arrangement {p}"})
+
+
+def handle_seek_bar(data: dict) -> dict:
+    bar = data.get("bar")
+    if bar is None:
+        return {"ok": False, "error": "seek_bar requires bar"}
+    return COMMAND_SINK("osc", {
+        "address": "/live/song/set/current_song_time",
+        "osc_args": [float(bar) * 4 * 60 / 120],  # approximate beat→sec
+    })
+
+
 # ── Dispatcher ─────────────────────────────────────────────────────
 
 ACTION_HANDLERS = {
@@ -167,6 +217,10 @@ ACTION_HANDLERS = {
     "swap_ab": handle_swap_ab,
     "queue_set": handle_queue_set,
     "select_clip": handle_select_clip,
+    "place_pair": handle_place_pair,
+    "save_arrangement": handle_save_arrangement,
+    "load_arrangement": handle_load_arrangement,
+    "seek_bar": handle_seek_bar,
 }
 
 

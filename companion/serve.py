@@ -334,6 +334,12 @@ def _resolve_clip_wav(clip_id: str) -> str | None:
     return None
 
 
+def _get_arrangement_slice() -> dict:
+    """Return the arrangement slice from live state or sample fallback."""
+    state = get_state()
+    return state.get("arrangement", {})
+
+
 def get_state() -> dict:
     """Return the companion state. Live data when available, sample fallback."""
     live = _build_live_state()
@@ -362,6 +368,8 @@ class Handler(BaseHTTPRequestHandler):
         path = self.path.split("?")[0]
         if path == "/state" or path == "/state/":
             self._send(200, get_state())
+        elif path == "/arrangement" or path == "/arrangement/":
+            self._send(200, _get_arrangement_slice())
         elif path.startswith("/peaks"):
             self._handle_peaks()
         elif path == "/" or path == "":
