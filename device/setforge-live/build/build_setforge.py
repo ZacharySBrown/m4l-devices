@@ -1145,6 +1145,7 @@ LOADER_CONCAT_ORDER = [
     "launchpad-surface-mk3.js",
     "launchpad-surface.js",
     "punch-layer.js",
+    "stem-assign.js",
     "loader-controller.js",
 ]
 
