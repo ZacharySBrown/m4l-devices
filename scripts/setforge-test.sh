@@ -52,10 +52,13 @@ step "JS · companion Perform view UAT (window-replacement checklist)" \
 step "JS · companion Curate view UAT (clip select/swap/scenes)" \
   node --test companion/tests/uat_curate.test.mjs
 
+step "PY · companion e2e (server + state + peaks + actions)" \
+  python3 -m pytest companion/tests/ -q
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "============================================================"
-  echo "  ALL GREEN ✓   (L0 + L1 + spec-drift + JS e2e + surface e2e)"
+  echo "  ALL GREEN ✓   (L0 + L1 + spec-drift + JS e2e + surface e2e + companion)"
   echo "============================================================"
 else
   echo "============================================================"
