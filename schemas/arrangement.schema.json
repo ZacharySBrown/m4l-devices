@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "setforge/arrangement.schema.json",
+  "title": "Setforge arrangement_manifest.json (schema_version 1)",
+  "type": "object",
+  "required": ["schema_version", "bpm", "chunks"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "bpm": { "type": "number", "exclusiveMinimum": 0 },
+    "first_downbeat_sec": { "type": "number" },
+    "forge_slug": { "type": "string" },
+    "manifest_hash": { "type": "string" },
+    "source_audio": { "type": "string" },
+    "chunks": { "type": "array", "items": { "$ref": "#/$defs/chunk" } }
+  },
+  "$defs": {
+    "chunk": {
+      "type": "object",
+      "required": ["audio_path", "bar_position", "stem"],
+      "additionalProperties": true,
+      "properties": {
+        "audio_path": { "type": "string" },
+        "bar_position": { "type": "integer", "minimum": 0 },
+        "chunk_id": { "type": "string" },
+        "duration_bars": { "type": ["integer", "number"] },
+        "duration_sec": { "type": "number" },
+        "source_position_sec": { "type": "number" },
+        "stem": { "type": "string" }
+      }
+    }
+  }
+}

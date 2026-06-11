@@ -24,6 +24,8 @@ SCHEMA_DIR = Path(__file__).resolve().parent
 SCHEMAS = {
     "set": SCHEMA_DIR / "set.schema.json",
     "manifest": SCHEMA_DIR / "manifest.schema.json",
+    "arrangement": SCHEMA_DIR / "arrangement.schema.json",
+    "calib_override": SCHEMA_DIR / "calib_override.schema.json",
 }
 
 
@@ -33,6 +35,10 @@ def detect_schema(data) -> str | None:
     sv = str(data.get("schema_version", ""))
     if "preset_bank_A" in data or sv == "1.0":
         return "set"
+    if "chunks" in data or "forge_slug" in data:
+        return "arrangement"
+    if "method" in data and "downbeat_sec" in data:
+        return "calib_override"
     if "tracks" in data or sv.startswith("2."):
         return "manifest"
     return None

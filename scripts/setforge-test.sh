@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Setforge CI test runner — the green suite that gates commits.
+#   L0  drift-guard      shipped loader.js == fresh concat of src/loader/*
+#   L1  contract schemas  set.json + manifest validate; schema unit tests
+#   JS  monolith e2e      loader-e2e against the built loader.js (mocha)
+#
+# The Live-in-the-loop UAT (IAC + AbletonOSC) is NOT run here — it needs Ableton
+# running on the host. Run that separately:
+#   python3 device/setforge-live/tests/uat/uat_perform_smoke.py
+#
+# Usage:  bash scripts/setforge-test.sh
+# Exit 0 = all green, 1 = any failure.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+fail=0
+step() {
+  local name="$1"; shift
+  echo; echo "▸ $name"
+  if "$@"; then echo "  ✓ pass"; else echo "  ✗ FAIL"; fail=1; fi
+}
+
+step "L0 · drift-guard (monolith == src)" \
+  env PYTHONPATH=tools python3 -m forge_device.check_drift
+
+step "L1 · contract validation (set + manifest)" \
+  python3 schemas/validate.py \
+    schemas/examples/hiphop_danceable.set.json \
+    schemas/examples/hiphop_danceable.manifest.json
+
+step "L1 · schema unit tests" \
+  python3 -m pytest schemas/ -q
+
+step "JS · monolith e2e (loader-e2e)" \
+  bash -c 'cd device/setforge-live && npx --no-install mocha tests/integration/loader-e2e.test.js'
+
+echo
+if [ "$fail" -eq 0 ]; then
+  echo "============================================================"
+  echo "  ALL GREEN ✓   (L0 + L1 + JS e2e)"
+  echo "============================================================"
+else
+  echo "============================================================"
+  echo "  FAILURES ✗   — see above"
+  echo "============================================================"
+fi
+echo "note: headless UAT (Live-in-the-loop) runs on the host — tests/uat/uat_perform_smoke.py"
+exit "$fail"

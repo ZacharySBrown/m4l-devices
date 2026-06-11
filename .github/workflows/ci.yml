@@ -1,0 +1,35 @@
+name: setforge-test
+
+on:
+  push:
+    branches: [main, feat/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python deps
+        run: pip install jsonschema pytest
+
+      - name: Install Node deps (setforge-live e2e)
+        working-directory: device/setforge-live
+        run: npm ci
+
+      - name: Run setforge-test suite (L0 + L1 + JS e2e)
+        run: make test
+
+      # NOTE: The headless UAT (tests/uat/uat_perform_*.py) requires Ableton Live
+      # running on the host with AbletonOSC + IAC MIDI. It is NOT run in CI —
+      # run manually on a developer machine with Live open.

@@ -6,7 +6,7 @@
   "required": ["schema_version", "tracks"],
   "additionalProperties": true,
   "properties": {
-    "schema_version": { "const": "2.1" },
+    "schema_version": { "type": "string", "pattern": "^2\\.[0-9]+$" },
     "name": { "type": "string" },
     "tracks": { "type": "array", "items": { "$ref": "#/$defs/track" } }
   },
@@ -41,7 +41,7 @@
     },
     "stem": {
       "type": "object",
-      "required": ["path", "chops"],
+      "required": ["path"],
       "additionalProperties": true,
       "properties": {
         "path": { "type": "string" },

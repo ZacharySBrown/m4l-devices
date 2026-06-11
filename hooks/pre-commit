@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Setforge pre-commit hook — runs the green test suite.
+# Skip with: git commit --no-verify
+#
+# Install: bash hooks/install.sh
+set -uo pipefail
+exec bash scripts/setforge-test.sh

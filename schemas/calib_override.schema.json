@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "setforge/calib_override.schema.json",
+  "title": "Setforge .calib_override.json",
+  "description": "provisional — authored from FEATURE_INVENTORY spec (CAL-05); validate against real data when available",
+  "type": "object",
+  "required": ["track_id", "downbeat_sec", "validated_at", "method"],
+  "additionalProperties": true,
+  "properties": {
+    "track_id": { "type": ["string", "integer"] },
+    "downbeat_sec": { "type": "number" },
+    "validated_at": { "type": "string", "description": "ISO 8601 timestamp" },
+    "method": { "type": "string", "description": "e.g. warp_marker_drag" },
+    "delta_from_auto_sec": { "type": "number" }
+  }
+}

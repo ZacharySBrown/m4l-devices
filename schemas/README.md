@@ -2,24 +2,29 @@
 
 JSON Schemas (draft 2020-12) + a validator for the cross-repo data contracts. Catches malformed artifacts early (hardens the edges).
 
-## Validated against real data ✅
-- **`set.schema.json`** — `set.json` (schema_version `1.0`): name, global_tempo, 8-slot preset banks (null-allowed), setlist.
-- **`manifest.schema.json`** — `manifest.json` (schema_version `2.1`): tracks[] → bar_grid + stems{drums,bass,other,vox} → chops[] (require `chop_path`/`loop_start_sec`/`loop_end_sec`) and full-stem vox (`mode`, `warp_grid`).
+## Schemas
+
+| Schema | File | Status |
+|--------|------|--------|
+| `set.json` (1.0) | `set.schema.json` | ✅ validated against real data |
+| `manifest.json` (2.x) | `manifest.schema.json` | ✅ validated against real data |
+| `arrangement_manifest.json` (1) | `arrangement.schema.json` | ✅ validated against real data |
+| `.calib_override.json` | `calib_override.schema.json` | ⚠️ provisional (from FEATURE_INVENTORY spec) |
 
 Permissive (`additionalProperties: true`) for forward-compat, but the load-bearing fields are required.
 
 ## Validator
 ```bash
-python3 schemas/validate.py <file> ...     # auto-detects set vs manifest; exit 0 = all valid
-python3 -m pytest schemas/                 # tests: real set+manifest PASS, malformed fixture FAILs
+python3 schemas/validate.py <file> ...     # auto-detects type; exit 0 = all valid
+python3 -m pytest schemas/                 # 10 tests: real data PASS, malformed FAILs
 ```
 Library: `from validate import validate_file` → `(ok, schema_name, errors)`.
 
-## TODO — author when example data is on hand
-Same pattern (drop a real file in `examples/`, write schema + test):
-- prechop / arrangement manifest (`prechop_manifest.json`)
-- deck-loader v1 manifest
-- `.calib_override.json`
+## Test matrix (10 tests)
+- **set**: `hiphop_danceable.set.json`, `hiphop_v3.set.json`, `full_vocal.set.json` (PASS); `bad.set.json` (expected FAIL)
+- **manifest**: `hiphop_danceable.manifest.json`, `hiphop_v3.manifest.json`, `varying_track.manifest.json` (PASS); `invalid_bpm.manifest.json` (expected FAIL — bpm=0 caught)
+- **arrangement**: `breaks-n-beats.arrangement.json` (PASS)
+- **calib_override**: `sample.calib_override.json` (PASS)
 
 ## CI wiring
 Add `python3 schemas/validate.py <artifacts>` to the `setforge-test` / pre-commit gate, alongside `PYTHONPATH=tools python3 -m forge_device.check_drift`.
