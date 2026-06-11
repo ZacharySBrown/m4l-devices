@@ -1997,6 +1997,34 @@ function updateStatus() {
 var midiBytes1 = [];
 var midiBytes2 = [];
 
+// ── Aftertouch pressure state ──
+// Stores normalized 0–1 pressure per pad (poly AT) or per grid (channel AT).
+// Consumed by the punch-FX system (Phase 1) to drive effect amount.
+// TODO: confirm on hardware — which AT message the Pro MK2 sends in programmer
+// mode (poly key pressure 0xA0, channel pressure 0xD0, or both).
+var padPressure = {};
+
+function handlePolyAftertouch(grid, note, pressure) {
+    var normalized = pressure / 127;
+    padPressure[grid + ":" + note] = normalized;
+    post("setforge-loader: poly-AT grid=" + grid + " note=" + note + " pressure=" + normalized.toFixed(3) + "\n");
+}
+
+function handleChannelPressure(grid, pressure) {
+    var normalized = pressure / 127;
+    padPressure[grid + ":ch"] = normalized;
+    post("setforge-loader: channel-AT grid=" + grid + " pressure=" + normalized.toFixed(3) + "\n");
+}
+
+function getPadPressure(grid, note) {
+    // Poly AT takes precedence; fall back to channel AT for the grid
+    var polyKey = grid + ":" + note;
+    if (padPressure[polyKey] !== undefined) return padPressure[polyKey];
+    var chKey = grid + ":ch";
+    if (padPressure[chKey] !== undefined) return padPressure[chKey];
+    return 0;
+}
+
 // ── Remote command interface (file-based) ──
 // External tools write a command to /tmp/setforge_cmd.txt
 // A polling Task checks for it every 500ms and executes it.
@@ -2076,6 +2104,18 @@ function processMidiByte(b, grid, buffer) {
         // Control Change — used by UAT runner to invoke handleMessage commands
         // deterministically (replaces the flaky /tmp/setforge_cmd.txt poll).
         handleControlChange(buffer[1], buffer[2]);
+        buffer.length = 0;
+        buffer.push(status | channel);
+    } else if (status === 0xA0 && buffer.length >= 3) {
+        // Polyphonic Key Pressure (aftertouch) — 3 bytes: status, note, pressure
+        // TODO: confirm on hardware — Pro MK2 may send this for per-pad pressure
+        handlePolyAftertouch(grid, buffer[1], buffer[2]);
+        buffer.length = 0;
+        buffer.push(status | channel);
+    } else if (status === 0xD0 && buffer.length >= 2) {
+        // Channel Pressure (aftertouch) — 2 bytes: status, pressure
+        // TODO: confirm on hardware — Pro MK2 may send this instead of poly AT
+        handleChannelPressure(grid, buffer[1]);
         buffer.length = 0;
         buffer.push(status | channel);
     }
