@@ -28,7 +28,18 @@
     "presets": { "type": "object", "required": ["bankA", "bankB"], "properties": { "bankA": { "$ref": "#/$defs/bank" }, "bankB": { "$ref": "#/$defs/bank" } } },
     "now_playing": { "type": "array", "items": { "type": "object", "required": ["deck", "stem", "source"], "additionalProperties": true, "properties": { "deck": { "type": "string" }, "stem": { "type": "string" }, "source": { "type": "string" }, "progress": { "type": "number" }, "peaks_ref": { "type": ["string", "null"] } } } },
     "recommendations": { "type": "array", "items": { "type": "object", "required": ["song", "score", "type"], "additionalProperties": true, "properties": { "song": { "type": "string" }, "artist": { "type": "string" }, "bpm": { "type": "number" }, "key": { "type": "string" }, "score": { "type": "number" }, "type": { "enum": ["congruent", "spicy"] }, "action": { "type": "string" } } } },
-    "scenes": { "type": "array", "items": { "type": "object", "required": ["name", "clips"], "additionalProperties": true, "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "color": { "type": ["string", "null"] }, "clips": { "type": "array", "items": { "type": "string" } } } } }
+    "scenes": { "type": "array", "items": { "type": "object", "required": ["name", "clips"], "additionalProperties": true, "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "color": { "type": ["string", "null"] }, "clips": { "type": "array", "items": { "type": "string" } } } } },
+    "arrangement": {
+      "type": "object", "additionalProperties": true,
+      "properties": {
+        "bpm": { "type": "number" },
+        "length_bars": { "type": "number" },
+        "decks": { "type": "object", "properties": { "A": { "type": "object" }, "B": { "type": "object" } } },
+        "placements": { "type": "array", "items": { "type": "object", "required": ["deck", "stem", "start_bar", "len_bars"], "additionalProperties": true } },
+        "scene_markers": { "type": "array", "items": { "type": "object", "required": ["scene_id", "start_bar"], "additionalProperties": true } },
+        "playhead_bar": { "type": "number" }
+      }
+    }
   },
   "$defs": {
     "deck": { "type": "object", "required": ["stems"], "properties": { "stems": { "type": "object", "additionalProperties": { "$ref": "#/$defs/stemstate" } } } },

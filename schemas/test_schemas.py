@@ -74,6 +74,12 @@ def test_arrangement_validates():
     assert ok, errors
 
 
+def test_dual_deck_arrangement_validates():
+    ok, name, errors = validate_file(EX / "dual-deck.arrangement.json")
+    assert name == "arrangement"
+    assert ok, errors
+
+
 # ── Calib override schema ──────────────────────────────────────────
 
 def test_calib_override_validates():

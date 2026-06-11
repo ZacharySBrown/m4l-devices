@@ -12,7 +12,9 @@
     "forge_slug": { "type": "string" },
     "manifest_hash": { "type": "string" },
     "source_audio": { "type": "string" },
-    "chunks": { "type": "array", "items": { "$ref": "#/$defs/chunk" } }
+    "chunks": { "type": "array", "items": { "$ref": "#/$defs/chunk" } },
+    "placements": { "type": "array", "items": { "$ref": "#/$defs/placement" } },
+    "scene_markers": { "type": "array", "items": { "$ref": "#/$defs/scene_marker" } }
   },
   "$defs": {
     "chunk": {
@@ -27,6 +29,31 @@
         "duration_sec": { "type": "number" },
         "source_position_sec": { "type": "number" },
         "stem": { "type": "string" }
+      }
+    },
+    "placement": {
+      "type": "object",
+      "required": ["deck", "stem", "start_bar", "len_bars"],
+      "additionalProperties": true,
+      "properties": {
+        "deck": { "type": "string", "enum": ["A", "B"] },
+        "stem": { "type": "string" },
+        "clip_id": { "type": "string" },
+        "start_bar": { "type": "number", "minimum": 0 },
+        "len_bars": { "type": "number", "exclusiveMinimum": 0 },
+        "source": { "type": "string" },
+        "color": { "type": ["string", "null"] }
+      }
+    },
+    "scene_marker": {
+      "type": "object",
+      "required": ["scene_id", "start_bar"],
+      "additionalProperties": true,
+      "properties": {
+        "scene_id": { "type": "string" },
+        "name": { "type": "string" },
+        "color": { "type": ["string", "null"] },
+        "start_bar": { "type": "number", "minimum": 0 }
       }
     }
   }

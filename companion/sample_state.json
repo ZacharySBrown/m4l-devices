@@ -58,5 +58,23 @@
     { "id": "scene-hook-slam", "name": "Hook Slam", "color": "#F5A623", "clips": ["A·DR1", "B·VX3", "A·OT2"] },
     { "id": "scene-float", "name": "Float", "color": "#34C8E8", "clips": ["B·BS1", "A·VX1", "B·OT2"] },
     { "id": "scene-twin-drums", "name": "Twin Drums", "color": "#B58CFF", "clips": ["A·DR1", "B·DR3"] }
-  ]
+  ],
+  "arrangement": {
+    "bpm": 121.0,
+    "length_bars": 64,
+    "decks": { "A": {}, "B": {} },
+    "placements": [
+      { "deck": "A", "stem": "drums", "clip_id": "sf:A1:drums:0", "start_bar": 0, "len_bars": 8, "source": "A1", "color": "#F5A623" },
+      { "deck": "A", "stem": "bass", "clip_id": "sf:A4:bass:1", "start_bar": 4, "len_bars": 8, "source": "A4", "color": "#FF7A3D" },
+      { "deck": "B", "stem": "drums", "clip_id": "sf:B3:drums:2", "start_bar": 8, "len_bars": 16, "source": "B3", "color": "#8C7BFF" },
+      { "deck": "A", "stem": "other", "clip_id": "sf:A1:other:0", "start_bar": 0, "len_bars": 32, "source": "A1", "color": "#F5A623" },
+      { "deck": "B", "stem": "vox", "clip_id": "sf:B1:vox:0", "start_bar": 16, "len_bars": 8, "source": "B1", "color": "#34C8E8" }
+    ],
+    "scene_markers": [
+      { "scene_id": "scene-hook-slam", "name": "Hook Slam", "color": "#F5A623", "start_bar": 0 },
+      { "scene_id": "scene-float", "name": "Float", "color": "#34C8E8", "start_bar": 16 },
+      { "scene_id": "scene-twin-drums", "name": "Twin Drums", "color": "#B58CFF", "start_bar": 32 }
+    ],
+    "playhead_bar": 17.3
+  }
 }
