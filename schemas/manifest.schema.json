@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "setforge/manifest.schema.json",
+  "title": "Setforge manifest.json (schema_version 2.1)",
+  "type": "object",
+  "required": ["schema_version", "tracks"],
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": { "const": "2.1" },
+    "name": { "type": "string" },
+    "tracks": { "type": "array", "items": { "$ref": "#/$defs/track" } }
+  },
+  "$defs": {
+    "track": {
+      "type": "object",
+      "required": ["id", "bpm", "stems"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": ["string", "integer"] },
+        "bpm": { "type": "number", "exclusiveMinimum": 0 },
+        "downbeat_sec": { "type": "number" },
+        "strategy": { "type": "string" },
+        "bar_grid": { "$ref": "#/$defs/bar_grid" },
+        "stems": { "$ref": "#/$defs/stems" }
+      }
+    },
+    "bar_grid": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "bar_starts": { "type": "array", "items": { "type": "number" } },
+        "global_bpm": { "type": "number" },
+        "source": { "type": "string" },
+        "is_varying": { "type": "boolean" }
+      }
+    },
+    "stems": {
+      "type": "object",
+      "description": "Keyed by stem name (drums/bass/other/vox).",
+      "additionalProperties": { "$ref": "#/$defs/stem" }
+    },
+    "stem": {
+      "type": "object",
+      "required": ["path", "chops"],
+      "additionalProperties": true,
+      "properties": {
+        "path": { "type": "string" },
+        "sha": { "type": "string" },
+        "mode": { "type": "string", "description": "e.g. full_stem (vocals)" },
+        "warp_grid": { "type": "array" },
+        "chops": { "type": "array", "items": { "$ref": "#/$defs/chop" } }
+      }
+    },
+    "chop": {
+      "type": "object",
+      "required": ["chop_path", "loop_start_sec", "loop_end_sec"],
+      "additionalProperties": true,
+      "properties": {
+        "start_sec": { "type": "number" },
+        "length_bars": { "type": "number" },
+        "length_sec": { "type": "number" },
+        "label": { "type": "string" },
+        "kind": { "type": "string" },
+        "energy": { "type": ["number", "string"] },
+        "source": { "type": "string" },
+        "chop_path": { "type": "string" },
+        "loop_start_sec": { "type": "number" },
+        "loop_end_sec": { "type": "number" }
+      }
+    }
+  }
+}

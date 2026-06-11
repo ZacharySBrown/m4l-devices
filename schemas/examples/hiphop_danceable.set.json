@@ -1,0 +1,91 @@
+{
+  "schema_version": "1.0",
+  "name": "hiphop_danceable",
+  "global_tempo": 95.0,
+  "preset_bank_A": [
+    {
+      "track_id": "29679",
+      "scenes": []
+    },
+    {
+      "track_id": "3834",
+      "scenes": []
+    },
+    {
+      "track_id": "4044",
+      "scenes": []
+    },
+    {
+      "track_id": "1834",
+      "scenes": []
+    },
+    {
+      "track_id": "1852",
+      "scenes": []
+    },
+    {
+      "track_id": "4850",
+      "scenes": []
+    },
+    {
+      "track_id": "8051",
+      "scenes": []
+    },
+    {
+      "track_id": "5152",
+      "scenes": []
+    }
+  ],
+  "preset_bank_B": [
+    {
+      "track_id": "5966",
+      "scenes": []
+    },
+    {
+      "track_id": "1919",
+      "scenes": []
+    },
+    {
+      "track_id": "5151",
+      "scenes": []
+    },
+    {
+      "track_id": "90001",
+      "scenes": []
+    },
+    {
+      "track_id": "90002",
+      "scenes": []
+    },
+    {
+      "track_id": "4835",
+      "scenes": []
+    },
+    {
+      "track_id": "2026",
+      "scenes": []
+    },
+    {
+      "track_id": "5285",
+      "scenes": []
+    }
+  ],
+  "setlist": [
+    "29679",
+    "3834",
+    "4044",
+    "1834",
+    "1852",
+    "4850",
+    "8051",
+    "5152",
+    "5966",
+    "1919",
+    "5151",
+    "90001",
+    "90002",
+    "4835",
+    "2026",
+    "5285"
+  ]
+}

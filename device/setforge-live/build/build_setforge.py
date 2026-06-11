@@ -1148,11 +1148,12 @@ LOADER_CONCAT_ORDER = [
 ]
 
 
-def concat_loader_js():
-    """Concatenate src/loader/ modules into a single device-root loader.js.
+def build_loader_js_text():
+    """Pure helper: return the concatenated loader.js text (no file write).
 
-    All source files are ES5 (Max SpiderMonkey). No require/exports stripping
-    needed — files are written concat-ready.
+    Single source of truth for the concat so the L0 drift-guard
+    (forge_device.check_drift) can reproduce it exactly.
+    All source files are ES5 (Max SpiderMonkey); concat-ready, no stripping.
     """
     src_dir = SRC_DIR / "loader"
     parts = []
@@ -1161,18 +1162,24 @@ def concat_loader_js():
     parts.append("//")
     parts.append(f"// Concat order: {', '.join(LOADER_CONCAT_ORDER)}")
     parts.append("")
-
     for filename in LOADER_CONCAT_ORDER:
         filepath = src_dir / filename
         if not filepath.exists():
-            print(f"  ERROR: {filepath} not found")
-            return None
-        content = filepath.read_text(encoding="utf-8")
-        parts.append(content)
+            raise FileNotFoundError(filepath)
+        parts.append(filepath.read_text(encoding="utf-8"))
         parts.append("")  # blank line between files
+    return "\n".join(parts)
+
+
+def concat_loader_js():
+    """Concatenate src/loader/ modules into a single device-root loader.js."""
+    try:
+        out_text = build_loader_js_text()
+    except FileNotFoundError as e:
+        print(f"  ERROR: {e} not found")
+        return None
 
     out_path = OUT_DIR / "loader.js"
-    out_text = "\n".join(parts)
     out_path.write_text(out_text, encoding="utf-8")
 
     import hashlib

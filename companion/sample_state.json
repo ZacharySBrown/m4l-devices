@@ -1,0 +1,55 @@
+{
+  "set": { "name": "Friday Warehouse — Set 1", "bpm": 121.0, "bar": "17.3.1" },
+  "decks": {
+    "A": { "stems": {
+      "drums": { "source": "A1", "song": "Around the World", "artist": "Daft Punk", "key": "8A", "loaded_chops": 8, "live_chop": 2, "progress": 62, "bars_left": 2 },
+      "bass":  { "source": "A4", "song": "Music Sounds Better", "artist": "Stardust", "key": "9A", "loaded_chops": 6, "live_chop": 0, "progress": 62, "bars_left": 2 },
+      "other": { "source": "A1", "song": "Around the World", "artist": "Daft Punk", "key": "8A", "loaded_chops": 8, "live_chop": null, "progress": 0, "bars_left": 0 },
+      "vox":   { "source": "A4", "song": "Music Sounds Better", "artist": "Stardust", "key": "9A", "loaded_chops": 4, "live_chop": null, "progress": 0, "bars_left": 0 }
+    }},
+    "B": { "stems": {
+      "drums": { "source": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "loaded_chops": 8, "live_chop": null, "progress": 0, "bars_left": 0 },
+      "bass":  { "source": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "loaded_chops": 8, "live_chop": null, "progress": 0, "bars_left": 0 },
+      "other": { "source": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "loaded_chops": 7, "live_chop": 2, "progress": 30, "bars_left": 6 },
+      "vox":   { "source": "B1", "song": "Kids", "artist": "MGMT", "key": "8A", "loaded_chops": 5, "live_chop": 0, "progress": 30, "bars_left": 6 }
+    }}
+  },
+  "presets": {
+    "bankA": [
+      { "id": "A1", "song": "Around the World", "artist": "Daft Punk", "key": "8A", "sourcing": ["drums", "other"], "color": "#F5A623" },
+      { "id": "A2", "song": "D.A.N.C.E.", "artist": "Justice", "key": "8A", "sourcing": null, "color": null },
+      { "id": "A3", "song": "Genesis", "artist": "Justice", "key": "5A", "sourcing": null, "color": null },
+      { "id": "A4", "song": "Music Sounds Better", "artist": "Stardust", "key": "9A", "sourcing": ["bass", "vox"], "color": "#FF7A3D" },
+      { "id": "A5", "song": "Da Funk", "artist": "Daft Punk", "key": "6A", "sourcing": null, "color": null },
+      { "id": "A6", "song": null, "artist": null, "key": null, "sourcing": null, "color": null },
+      { "id": "A7", "song": null, "artist": null, "key": null, "sourcing": null, "color": null },
+      { "id": "A8", "song": null, "artist": null, "key": null, "sourcing": null, "color": null }
+    ],
+    "bankB": [
+      { "id": "B1", "song": "Kids", "artist": "MGMT", "key": "8A", "sourcing": ["vox"], "color": "#34C8E8" },
+      { "id": "B2", "song": "Electric Feel", "artist": "MGMT", "key": "11A", "sourcing": null, "color": null },
+      { "id": "B3", "song": "Let It Happen", "artist": "Tame Impala", "key": "11A", "sourcing": ["drums", "bass", "other"], "color": "#8C7BFF" },
+      { "id": "B4", "song": "Time to Pretend", "artist": "MGMT", "key": "7A", "sourcing": null, "color": null },
+      { "id": "B5", "song": null, "artist": null, "key": null, "sourcing": null, "color": null },
+      { "id": "B6", "song": null, "artist": null, "key": null, "sourcing": null, "color": null },
+      { "id": "B7", "song": null, "artist": null, "key": null, "sourcing": null, "color": null },
+      { "id": "B8", "song": null, "artist": null, "key": null, "sourcing": null, "color": null }
+    ]
+  },
+  "now_playing": [
+    { "deck": "A", "stem": "drums", "source": "A1", "progress": 62 },
+    { "deck": "A", "stem": "bass", "source": "A4", "progress": 62 },
+    { "deck": "B", "stem": "other", "source": "B3", "progress": 30 },
+    { "deck": "B", "stem": "vox", "source": "B1", "progress": 30 }
+  ],
+  "recommendations": [
+    { "song": "D.A.N.C.E.", "artist": "Justice", "bpm": 120, "key": "8A", "score": 96, "type": "congruent", "action": "swap onto Deck A" },
+    { "song": "Let It Happen — VOX", "artist": "Tame Impala", "bpm": 120, "key": "11A", "score": 81, "type": "spicy", "action": "over A drums" },
+    { "song": "Music Sounds Better", "artist": "Stardust", "bpm": 123, "key": "9A", "score": 88, "type": "congruent", "action": "cue to Deck B" }
+  ],
+  "scenes": [
+    { "name": "🔥 Hook Slam", "color": "#F5A623", "clips": ["A·DR1", "B·VX3", "A·OT2"] },
+    { "name": "🌊 Float", "color": "#34C8E8", "clips": ["B·BS1", "A·VX1", "B·OT2"] },
+    { "name": "⚡ Twin Drums", "color": "#B58CFF", "clips": ["A·DR1", "B·DR3"] }
+  ]
+}
