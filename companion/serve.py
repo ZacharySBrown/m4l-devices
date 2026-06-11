@@ -311,6 +311,29 @@ def _build_live_state() -> dict | None:
     }
 
 
+def _resolve_clip_wav(clip_id: str) -> str | None:
+    """Resolve a clip_id (e.g. 'sf:A1:drums:2') to a WAV path via inspect data."""
+    inspect = _read_inspect()
+    if not inspect:
+        return None
+    # clip_id format: "sf:<trackId>:<stem>:<chop_index>"
+    parts = clip_id.split(":")
+    if len(parts) < 4 or parts[0] != "sf":
+        return None
+    stem_name = parts[2]
+    try:
+        chop_idx = int(parts[3])
+    except (ValueError, IndexError):
+        return None
+    stems = inspect.get("stems", {})
+    stem_clips = stems.get(stem_name, [])
+    for clip in stem_clips:
+        if clip.get("slot") == chop_idx:
+            chop = clip.get("chop", {})
+            return chop.get("stemPath")
+    return None
+
+
 def get_state() -> dict:
     """Return the companion state. Live data when available, sample fallback."""
     live = _build_live_state()
@@ -332,8 +355,34 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802
         if self.path.rstrip("/") in ("", "/", "/state"):
             self._send(200, get_state())
+        elif self.path.startswith("/peaks"):
+            self._handle_peaks()
         else:
             self._send(404, {"error": "not found", "try": "/state"})
+
+    def _handle_peaks(self):
+        """GET /peaks?clip=<clip_id> → waveform peaks JSON."""
+        from urllib.parse import urlparse, parse_qs
+        from peaks_gen import get_peaks_cached
+
+        parsed = urlparse(self.path)
+        params = parse_qs(parsed.query)
+        clip_id = params.get("clip", [None])[0]
+        if not clip_id:
+            self._send(400, {"error": "missing ?clip= parameter"})
+            return
+
+        # Resolve clip_id → WAV path from the inspect data
+        wav_path = _resolve_clip_wav(clip_id)
+        if not wav_path:
+            self._send(404, {"error": f"clip not found: {clip_id}"})
+            return
+
+        data = get_peaks_cached(clip_id, wav_path)
+        if data is None:
+            self._send(404, {"error": f"could not generate peaks for {clip_id}"})
+            return
+        self._send(200, data)
 
     # read-only: no do_POST/PUT/DELETE
     def log_message(self, *args):  # quiet
