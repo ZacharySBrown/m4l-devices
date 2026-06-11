@@ -52,6 +52,9 @@ step "JS · companion Perform view UAT (window-replacement checklist)" \
 step "JS · companion Curate view UAT (clip select/swap/scenes)" \
   node --test companion/tests/uat_curate.test.mjs
 
+step "JS · companion guards (class coverage + init render)" \
+  node --test companion/tests/render/class_coverage.test.mjs companion/tests/render/init_render.test.mjs
+
 step "PY · companion e2e (server + state + peaks + actions)" \
   python3 -m pytest companion/tests/ -q
 
