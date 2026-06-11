@@ -49,6 +49,9 @@ step "JS · companion render components (surface/now-playing/legend)" \
 step "JS · companion Perform view UAT (window-replacement checklist)" \
   node --test companion/tests/uat_perform.test.mjs
 
+step "JS · companion Curate view UAT (clip select/swap/scenes)" \
+  node --test companion/tests/uat_curate.test.mjs
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "============================================================"

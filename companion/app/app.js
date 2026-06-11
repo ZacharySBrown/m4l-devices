@@ -163,7 +163,9 @@ function init() {
 
 // ── Register views ────────────────────────────────────────────────
 import { renderPerform } from './render/perform.js';
+import { renderCurate } from './render/curate.js';
 registerView('perform', renderPerform);
+registerView('curate', renderCurate);
 
 // Auto-init when DOM is ready
 if (typeof document !== 'undefined') {
