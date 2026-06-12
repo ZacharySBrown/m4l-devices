@@ -28,6 +28,7 @@ function createRecordingEnv() {
   const env = {
     autowatch: 0, inlets: 0, outlets: 0, inlet: 0,
     Task: function(fn) { this.fn = fn; this.schedule = function() {}; this.cancel = function() {}; },
+    SF_VERBOSE: true,
     post: function() { log.push(Array.prototype.slice.call(arguments).join('')); },
     outlet: function() {},
     messagename: '',

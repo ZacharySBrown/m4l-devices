@@ -884,6 +884,15 @@ autowatch = 1;
 inlets = 3;   // 0: Grid 1 MIDI, 1: Grid 2 MIDI, 2: messages/UI
 outlets = 4;  // 0: Grid 1 MIDI out, 1: Grid 2 MIDI out, 2: LiveAPI, 3: status
 
+// Console verbosity gate (M4L guideline: minimize Max Console output).
+// SF_VERBOSE is undefined in Max (→ silent); test harness sets it true.
+function dbg(s) { if (typeof SF_VERBOSE !== "undefined" && SF_VERBOSE) { post(s); } }
+
+// Patcher handle — lets JS color panel UI objects directly (live preset glow).
+// Guarded: null in the headless test harness (no real patcher).
+var SF_PATCHER = null;
+try { SF_PATCHER = this.patcher || null; } catch (e) { SF_PATCHER = null; }
+
 // ── Surface instance (created by launchpad-surface.js dispatcher) ──
 var surface = createSurface("mk2");
 
@@ -1504,7 +1513,7 @@ var WARP_MODES = { drums: 0, bass: 0, other: 4, vox: 4 };
 function initLiveApi() {
     try {
         liveApi = new LiveAPI("live_set");
-        post("setforge-loader: LiveAPI ready, tracks=" + liveApi.get("tracks").length + "\n");
+        dbg("setforge-loader: LiveAPI ready, tracks=" + liveApi.get("tracks").length + "\n");
     } catch (e) {
         post("setforge-loader: LiveAPI init failed: " + e + "\n");
     }
@@ -1556,7 +1565,7 @@ function ensureStemTracks() {
                 continue;
             }
         } else {
-            post("setforge-loader: found track '" + trackName + "' at index " + trackIdx + "\n");
+            dbg("setforge-loader: found track '" + trackName + "' at index " + trackIdx + "\n");
         }
 
         stemTrackIndices[stem] = trackIdx;
@@ -1586,7 +1595,7 @@ function ensureStemTracks() {
                 continue;
             }
         } else {
-            post("setforge-loader: found deck-X track '" + trackName + "' at index " + trackIdx + "\n");
+            dbg("setforge-loader: found deck-X track '" + trackName + "' at index " + trackIdx + "\n");
         }
 
         stemTrackIndicesX[stem] = trackIdx;
@@ -1615,7 +1624,7 @@ function ensureStemTracks() {
                 continue;
             }
         } else {
-            post("setforge-loader: found deck-Y track '" + trackName + "' at index " + trackIdx + "\n");
+            dbg("setforge-loader: found deck-Y track '" + trackName + "' at index " + trackIdx + "\n");
         }
 
         stemTrackIndicesY[stem] = trackIdx;
@@ -1666,6 +1675,23 @@ function loadClipsToSlotSet(presetIdx, offset) {
     post("setforge-loader: loading clips for " + slot.trackId + " into set " +
          (offset === 0 ? "A" : "B") + " (slots " + offset + "-" + (offset + 7) + ")\n");
 
+    // Clear all slots in this bank range (offset..offset+7) on every stem
+    // track BEFORE creating new clips. This prevents stale clips from a
+    // previous preset bleeding through when the new preset uses fewer slots.
+    for (var cs = 0; cs < STEM_NAMES.length; cs++) {
+        var clearTrack = stemTrackIds[STEM_NAMES[cs]];
+        if (!clearTrack) continue;
+        for (var ci = 0; ci < SLOTS_PER_BANK; ci++) {
+            try {
+                var clearApi = new LiveAPI(clearTrack + " clip_slots " + (offset + ci));
+                var clearHas = clearApi.get("has_clip");
+                if (clearHas && clearHas.toString() === "1") {
+                    clearApi.call("delete_clip");
+                }
+            } catch (_) {}
+        }
+    }
+
     for (var s = 0; s < STEM_NAMES.length; s++) {
         var stem = STEM_NAMES[s];
         var chopList = slot.chops[stem];
@@ -1684,13 +1710,6 @@ function loadClipsToSlotSet(presetIdx, offset) {
 
             try {
                 var csApi = new LiveAPI(csPath);
-
-                try {
-                    var hasClip = csApi.get("has_clip");
-                    if (hasClip && hasClip.toString() === "1") {
-                        csApi.call("delete_clip");
-                    }
-                } catch (_) {}
 
                 csApi.call("create_audio_clip", String(chop.stemPath));
 
@@ -2225,7 +2244,7 @@ function stagePreset(presetIdx) {
     stagingReady = false;
     var loaded = loadClipsToSlotSet(presetIdx, stagingSetOffset());
     stagingReady = (loaded > 0);
-    post("setforge-loader: staging " + (stagingReady ? "ready" : "failed") +
+    dbg("setforge-loader: staging " + (stagingReady ? "ready" : "failed") +
          " for preset " + presetIdx + "\n");
 
     // Defer warp marker fix for staged clips too
@@ -2398,7 +2417,7 @@ function hfsToPosix(p) {
 
 function loadSet(path) {
     path = hfsToPosix(path);
-    post("setforge-loader: loading set from " + path + "\n");
+    dbg("setforge-loader: loading set from " + path + "\n");
 
     try {
         var setFile = new File(path, "r");
@@ -2406,7 +2425,13 @@ function loadSet(path) {
             post("setforge-loader: cannot open set file: " + path + "\n");
             return;
         }
-        var setStr = setFile.readstring(setFile.eof);
+        // Chunked read — Max's readstring caps at ~64KB; a non-chunked read of a
+        // large file (e.g. someone points this at a .manifest.json) truncates it
+        // and JSON.parse throws a cryptic SyntaxError.
+        var setStr = "";
+        while (setFile.position < setFile.eof) {
+            setStr += setFile.readstring(16384);
+        }
         setFile.close();
         setData = JSON.parse(setStr);
 
@@ -2426,7 +2451,7 @@ function loadSet(path) {
             mStr += mFile.readstring(chunkSize);
         }
         mFile.close();
-        post("setforge-loader: manifest read " + mStr.length + " chars\n");
+        dbg("setforge-loader: manifest read " + mStr.length + " chars\n");
         manifest = JSON.parse(mStr);
 
         // Resolve relative paths in the manifest against the set directory.
@@ -2449,7 +2474,7 @@ function loadSet(path) {
         // Remember this path for autowatch re-load
         saveLastSetPath(path);
 
-        post("setforge-loader: set loaded (" + (manifest.tracks ? manifest.tracks.length : 0) + " tracks)\n");
+        dbg("setforge-loader: set loaded (" + (manifest.tracks ? manifest.tracks.length : 0) + " tracks)\n");
         dumpState();
     } catch (e) {
         post("setforge-loader: load error: " + e + "\n");
@@ -2857,6 +2882,74 @@ function updateStatus() {
     outlet(3, "set", "status-scene", "active scene: " +
         (lastTriggeredScene >= 0 ? String.fromCharCode(65 + lastTriggeredScene) : "\u2014"));
     outlet(3, "set", "status-fxtarget", "fx target: " + fxTarget);
+    updatePanelPresets();
+}
+
+// Live preset glow: color each panel preset button by its loaded source color
+// (active slot = brightest). Empty slots keep the static per-bank tint.
+// Direct getnamed/message — guarded so it no-ops headlessly.
+// Cache the panel preset objects (getnamed once) so the refresh tick is cheap.
+var _sfPresetObjs = null;
+function sfPresetObj(i) {
+    if (!SF_PATCHER || typeof SF_PATCHER.getnamed !== "function") return null;
+    if (!_sfPresetObjs) {
+        _sfPresetObjs = [];
+        for (var k = 0; k < TOTAL_SLOTS; k++) {
+            var b = (k < SLOTS_PER_BANK) ? "A" : "B";
+            var o = null;
+            try { o = SF_PATCHER.getnamed("preset_" + b + ((k % SLOTS_PER_BANK) + 1)); } catch (e) {}
+            _sfPresetObjs.push(o);
+        }
+    }
+    return _sfPresetObjs[i];
+}
+
+function updatePanelPresets() {
+    if (!SF_PATCHER || typeof SF_PATCHER.getnamed !== "function") return;
+    var TINT = { A: [0.961, 0.651, 0.137], B: [0.204, 0.784, 0.910] };
+    for (var i = 0; i < presetSlots.length; i++) {
+        var slot = presetSlots[i];
+        var bank = (i < SLOTS_PER_BANK) ? "A" : "B";
+        var obj = sfPresetObj(i);
+        if (!obj) continue;
+        // "loaded" = the slot has a track. Use trackId (stable) rather than the
+        // transient state, which flickers through stage/commit and was making the
+        // fill vanish a moment after activation.
+        var loaded = !!slot.trackId;
+        // Active = the live preset on either deck (one per bank — always-dual).
+        var active = (i === lastActiveBankA) || (i === lastActiveBankB) ||
+                     (i === loadedDecks.deckX) || (i === loadedDecks.deckY) ||
+                     (slot.state === "loaded_active");
+        var c, bgA, bdA;
+        if (loaded) {
+            var rgb = presetColor(i);
+            c = [rgb[0] / 127, rgb[1] / 127, rgb[2] / 127];
+            bgA = active ? 0.72 : 0.30;   // filled when loaded; brightest when active
+            bdA = active ? 1.0 : 0.6;
+        } else {
+            c = TINT[bank]; bgA = 0.05; bdA = 0.22;
+        }
+        try {
+            obj.message("bgcolor", c[0], c[1], c[2], bgA);
+            obj.message("bordercolor", c[0], c[1], c[2], bdA);
+        } catch (e) {}
+    }
+}
+
+// Re-assert preset colors on a fast tick. live.text is a parameter object, so
+// Live repaints it from its STORED color on hover — wiping the runtime color.
+// Re-applying restores it within a frame (no-op when already correct).
+var sfColorTask = null;
+function startColorRefresh() {
+    if (typeof Task === "undefined") return;
+    try {
+        if (sfColorTask) sfColorTask.cancel();
+        sfColorTask = new Task(function() {
+            updatePanelPresets();
+            sfColorTask.schedule(80);
+        });
+        sfColorTask.schedule(80);
+    } catch (e) {}
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2934,7 +3027,7 @@ function startCmdPoll() {
         cmdPollTask.schedule(500);
     });
     cmdPollTask.schedule(500);
-    post("setforge-loader: command poll started (/tmp/setforge_cmd.txt)\n");
+    dbg("setforge-loader: command poll started (/tmp/setforge_cmd.txt)\n");
 }
 
 function msg_int(v) {
@@ -3171,7 +3264,7 @@ function handleRightSideButtonPress(rightIdx) {
         dualSongLastPress = now;
     } else if (func === "DECK_SETUP") {
         staging.stagingHeld = true;
-        post("setforge-loader: staging mode entered\n");
+        dbg("setforge-loader: staging mode entered\n");
         // Light the side button bright white per spec §5.1
         surface.queueRgbNote(1, SIDE_BUTTONS_RIGHT[rightIdx], [127, 127, 127]);
         updateAllPadColors();
@@ -3189,7 +3282,7 @@ function handleRightSideButtonRelease(rightIdx) {
         }
     } else if (func === "DECK_SETUP") {
         staging.stagingHeld = false;
-        post("setforge-loader: staging mode exited\n");
+        dbg("setforge-loader: staging mode exited\n");
         // Dim the side button back down — color reflects staging state
         surface.queueRgbNote(1, SIDE_BUTTONS_RIGHT[rightIdx], deckSetupIdleColor());
         updateAllPadColors();
@@ -3589,7 +3682,7 @@ function onStageDeck(deck, slotIndex) {
             sendSurfaceRgb(1);
         });
         revertTask.schedule(500);
-        post("setforge-loader: staging " + deck + " failed — empty slot " + slotIndex + "\n");
+        dbg("setforge-loader: staging " + deck + " failed — empty slot " + slotIndex + "\n");
         return;
     }
 
@@ -4743,14 +4836,14 @@ function doInit() {
 function bang() {
     if (deviceReady) return;
     deviceReady = true;
-    post("setforge-loader: device ready (model=" + surface.model + ", single-grid=" + singleGridMode + ")\n");
+    dbg("setforge-loader: device ready (model=" + surface.model + ", single-grid=" + singleGridMode + ")\n");
     initLiveApi();
 
     // Enter programmer mode via surface
     var enterCmd = surface.enterProgrammerMode();
     if (enterCmd) {
         outlet(0, enterCmd);
-        post("setforge-loader: sent programmer mode enter\n");
+        dbg("setforge-loader: sent programmer mode enter\n");
     }
 
     updateAllPadColors();
@@ -4796,6 +4889,12 @@ try {
 } catch (e) {
     post("setforge-loader: deferred cmdPoll failed: " + e + "\n");
 }
+
+// Keep the live preset glow asserted against Live's hover-repaint.
+try {
+    var colorStartTask = new Task(function() { startColorRefresh(); });
+    colorStartTask.schedule(1500);
+} catch (e) {}
 
 post("setforge-loader.js loaded (surface=" + surface.model + ")\n");
 

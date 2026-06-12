@@ -41,6 +41,8 @@ function createMaxEnv() {
       this.cancel = function() {};
     },
 
+    SF_VERBOSE: true,
+
     post: function() {
       const msg = Array.prototype.slice.call(arguments).join('');
       log.push(msg);

@@ -27,6 +27,7 @@ function createMockLiveEnv() {
   };
 
   const env = {
+    SF_VERBOSE: true,
     post: function() { log.push(Array.prototype.slice.call(arguments).join('')); },
     outlet: function() {},
     LiveAPI: function(p) {

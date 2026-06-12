@@ -1329,22 +1329,40 @@ _SF_ACCENT = {
 }
 
 
-def _sf_panel(obj_id, rect, color, rounded=0.0):
+def _sf_panel(obj_id, rect, color, rounded=0.0, background=0):
+    # background=1 → Max's BACKGROUND LAYER: renders behind all foreground
+    # live.* controls (the correct way to put a panel behind the UI; a
+    # foreground panel paints over the controls and blacks the device out).
+    extras = {"mode": 0, "bgfillcolor_type": "color",
+              "bgfillcolor_color": color, "border": 0.0,
+              "bordercolor": _SF["line"], "rounded": rounded}
+    if background:
+        extras["background"] = 1
     return P.box(obj_id, "panel", rect=rect, presentation=True, presentation_rect=rect,
-                 numinlets=1, numoutlets=0, outlettype=[""],
-                 extras={"mode": 0, "bgfillcolor_type": "color",
-                         "bgfillcolor_color": color, "border": 0.0,
-                         "bordercolor": _SF["line"], "rounded": rounded})
+                 numinlets=1, numoutlets=0, outlettype=[""], extras=extras)
 
 
-def _sf_text(obj_id, text, rect, color, fontsize=11.0, fontface=0):
+# Faceplate image assets live on the HOST (devices load on the host machine),
+# so reference the host path explicitly (fpic resolves it at load time).
+_SF_HOST_ASSETS = "/Users/zak/zacharysbrown/m4l-devices/device/setforge-live/assets"
+
+
+def _sf_fpic(obj_id, rect, filename):
+    return P.box(obj_id, "fpic", rect=rect, presentation=True, presentation_rect=rect,
+                 numinlets=1, numoutlets=1, outlettype=[""],
+                 extras={"pic": _SF_HOST_ASSETS + "/" + filename, "embed": 0,
+                         "background": 1})
+
+
+def _sf_text(obj_id, text, rect, color, fontsize=11.0, fontface=0, justify=0):
     return P.box(obj_id, "comment", rect=rect, presentation=True, presentation_rect=rect,
                  numinlets=1, numoutlets=0, outlettype=[""],
                  extras={"text": text, "fontsize": fontsize, "textcolor": color,
-                         "fontname": "Arial", "fontface": fontface})
+                         "fontname": "Arial", "fontface": fontface,
+                         "textjustification": justify})
 
 
-def style_unified_panel(p, accent_key, name, status="CONNECTED"):
+def style_unified_panel(p, accent_key, name, status="CONNECTED", faceplate=None):
     """Apply the unified Setforge look to a built device patcher.
 
     Accent stripe + ID header (LED · SETFORGE · device name) + recolored
@@ -1355,9 +1373,11 @@ def style_unified_panel(p, accent_key, name, status="CONNECTED"):
     accent = _SF_ACCENT[accent_key]
     pat = p["patcher"]
     boxes = pat["boxes"]
-    W = float(pat.get("devicewidth", 800.0))
+    W = float(pat.get("devicewidth", 600.0))
     HEADER = 30.0
 
+    # Shift content down for the header band; skin live.text translucent (crisp
+    # vector borders, glow shows through); recolor comments muted.
     pres = [b["box"] for b in boxes if b["box"].get("presentation") == 1]
     for bx in pres:
         pr = bx.get("presentation_rect")
@@ -1366,32 +1386,134 @@ def style_unified_panel(p, accent_key, name, status="CONNECTED"):
         mc = bx.get("maxclass")
         vn = bx.get("varname", "")
         if mc == "live.text":
-            if vn in ("load", "place", "export", "save", "snapshot"):
-                bx["bgcolor"] = accent; bx["textcolor"] = _SF["ink"]
-                bx["bgoncolor"] = accent; bx["textoncolor"] = _SF["ink"]
-            elif vn in ("eject", "panic"):
-                bx["bgcolor"] = _SF["darkbtn"]; bx["textcolor"] = _SF["red"]
-                bx["bordercolor"] = _SF["red"]
-            else:
-                bx["bgcolor"] = _SF["darkbtn"]; bx["textcolor"] = _SF["txt"]
-                bx["bgoncolor"] = accent; bx["textoncolor"] = _SF["ink"]
+            if any(k in vn for k in ("eject", "panic", "revert")):       # danger
+                bx["bgcolor"] = [1.0, 0.42, 0.42, 0.05]
+                bx["bordercolor"] = [1.0, 0.42, 0.42, 0.7]
+                bx["textcolor"] = _SF["red"]
+                bx["bgoncolor"] = [1.0, 0.42, 0.42, 0.3]
+            elif any(k in vn for k in ("load", "place", "export", "save", "validated")):  # primary
+                bx["bgcolor"] = [accent[0], accent[1], accent[2], 0.8]
+                bx["bordercolor"] = [accent[0], accent[1], accent[2], 0.95]
+                bx["textcolor"] = _SF["ink"]
+                bx["bgoncolor"] = list(accent)
+            else:                                                         # default
+                bx["bgcolor"] = [accent[0], accent[1], accent[2], 0.10]
+                bx["bordercolor"] = [accent[0], accent[1], accent[2], 0.45]
+                bx["textcolor"] = _SF["txt"]
+                bx["bgoncolor"] = [accent[0], accent[1], accent[2], 0.45]
         elif mc == "live.comment":
             bx["textcolor"] = _SF["muted"]
 
     maxy = max((bx["presentation_rect"][1] + bx["presentation_rect"][3]
-                for bx in pres if bx.get("presentation_rect")), default=HEADER + 120)
-    H = max(maxy + 10.0, HEADER + 60.0)
+                for bx in pres if bx.get("presentation_rect")), default=HEADER + 100)
+    H = max(maxy + 8.0, 172.0)
 
-    deco = [
-        _sf_panel("sf-bg", (0, 0, W, H), _SF["bg"]),
-        _sf_panel("sf-header", (0, 0, W, HEADER), _SF["darkbtn"]),
-        _sf_panel("sf-stripe", (0, 0, 6, H), accent),
-        _sf_panel("sf-led", (16, 11, 9, 9), _SF["green"], rounded=9.0),
-        _sf_text("sf-status", status, (W - 112, 9, 104, 14), _SF["muted"], 9.0),
-        _sf_text("sf-brand", "SETFORGE", (32, 3, 90, 12), _SF["muted"], 8.0),
-        _sf_text("sf-name", name, (32, 12, 280, 17), accent, 14.0, 1),
+    deco = ([_sf_fpic("sf-glow", (0, 0, W, H), faceplate)] if faceplate else
+            [_sf_panel("sf-bg", (0, 0, W, H), _SF["bg"], background=1),
+             _sf_panel("sf-stripe", (0, 0, 4, H), accent, background=1)])
+    txt = [
+        _sf_text("sf-co-brand", "Setforge", (16, 6, 120, 12), _SF["muted"], 7.5),
+        _sf_text("sf-co-name", name, (16, 15, 260, 18), accent, 15.0, 1),
+        _sf_text("sf-co-conn", status, (W - 168, 11, 152, 14), _SF["muted"], 9.0, 0, 2),
     ]
     boxes[0:0] = deco
+    boxes.extend(txt)
+    return p
+
+
+def relayout_and_skin_loader(p, faceplate):
+    """Loader-specific layout redesign (zak's notes): drop the dead set-chooser
+    dropdown + the never-wired status readouts, make the PRESET GRID the hero,
+    tidy the action toolbar, skin with the faceplate. All functional objects +
+    wiring preserved (we only delete already-dead controls + reposition/recolor).
+    """
+    accent = _SF_ACCENT["A"]
+    pat = p["patcher"]; boxes = pat["boxes"]
+    # Compact, Live-native scale: narrower device + smaller controls.
+    pat["devicewidth"] = 540.0
+    W = 540.0
+    FACE_H = 172  # fill the M4L device-height floor (no gray strip)
+
+    # 1) remove dead presentation controls + any patchlines touching them.
+    dead = {"umenu-set", "status-bankA", "status-bankB", "status-active",
+            "status-scene", "status-tempo", "status-fxtarget"}
+    boxes[:] = [b for b in boxes if b["box"].get("id") not in dead]
+    pat["lines"] = [l for l in pat["lines"]
+                    if l["patchline"]["source"][0] not in dead
+                    and l["patchline"]["destination"][0] not in dead]
+
+    # 2) reposition kept controls — compact toolbar + hero preset grid.
+    # Grid system: 16px left/right margins, equal-width toolbar buttons (h20),
+    # right-aligned utility cluster, even vertical rhythm.
+    # Compact (540 wide): all buttons a uniform 58×20.
+    pos = {
+        "browse": (16, 50, 58, 20), "load": (80, 50, 58, 20),
+        "reload": (144, 50, 58, 20), "eject": (208, 50, 58, 20),
+        "master_bypass": (376, 51, 18, 18), "save": (402, 50, 58, 20),
+        "panic": (466, 50, 58, 20),
+    }
+    for col in range(8):
+        pos["preset_A%d" % (col + 1)] = (16 + col * 64, 100, 58, 20)
+        pos["preset_B%d" % (col + 1)] = (16 + col * 64, 134, 58, 20)
+    for b in boxes:
+        bx = b["box"]; vn = bx.get("varname", "")
+        if vn in pos:
+            bx["presentation_rect"] = list(pos[vn])
+            bx["fontsize"] = 9.0 if vn.startswith("preset_") else 10.0
+
+    # 3) skin live.text → TRANSLUCENT backplate + crisp vector border (sharp on
+    #    retina; lets the glow behind bleed through). Capitalized labels.
+    labels = {"browse": "Browse…", "load": "Load", "reload": "Reload",
+              "eject": "Eject", "save": "Save", "panic": "Panic"}
+    for b in boxes:
+        bx = b["box"]
+        if bx.get("maxclass") != "live.text":
+            continue
+        vn = bx.get("varname", "")
+        if vn in labels:
+            for k in ("text", "texton", "textoff"):
+                bx[k] = labels[vn]
+        if vn == "load":
+            bx["bgcolor"] = [accent[0], accent[1], accent[2], 0.82]
+            bx["bordercolor"] = [accent[0], accent[1], accent[2], 0.95]
+            bx["textcolor"] = _SF["ink"]; bx["bgoncolor"] = list(accent)
+        elif vn in ("eject", "panic"):
+            bx["bgcolor"] = [1.0, 0.42, 0.42, 0.05]
+            bx["bordercolor"] = [1.0, 0.42, 0.42, 0.72]
+            bx["textcolor"] = _SF["red"]; bx["bgoncolor"] = [1.0, 0.42, 0.42, 0.30]
+        elif vn.startswith("preset_A"):           # bank A → amber tint
+            bx["bgcolor"] = [0.961, 0.651, 0.137, 0.07]
+            bx["bordercolor"] = [0.961, 0.651, 0.137, 0.32]
+            bx["textcolor"] = _SF["txt"]
+            bx["bgoncolor"] = [0.961, 0.651, 0.137, 0.55]
+        elif vn.startswith("preset_B"):           # bank B → cyan tint
+            bx["bgcolor"] = [0.204, 0.784, 0.910, 0.07]
+            bx["bordercolor"] = [0.204, 0.784, 0.910, 0.32]
+            bx["textcolor"] = _SF["txt"]
+            bx["bgoncolor"] = [0.204, 0.784, 0.910, 0.55]
+        else:
+            bx["bgcolor"] = [1.0, 1.0, 1.0, 0.05]
+            bx["bordercolor"] = [1.0, 1.0, 1.0, 0.13]
+            bx["textcolor"] = _SF["txt"]
+            bx["bgoncolor"] = [accent[0], accent[1], accent[2], 0.35]
+
+    # 4) crisp vector text (comments) + a faint translucent preset-group card.
+    txt = [
+        _sf_text("sf-co-brand", "Setforge", (16, 6, 120, 12), _SF["muted"], 7.5),
+        _sf_text("sf-co-name", "Loader", (16, 15, 200, 18), accent, 15.0, 1),
+        _sf_text("sf-co-conn", "Connected", (364, 11, 160, 14), _SF["muted"], 9.0, 0, 2),
+        _sf_text("sf-co-byp", "Bypass", (300, 53, 66, 12), _SF["muted"], 8.0, 0, 2),
+        _sf_text("sf-co-pre", "Presets", (16, 88, 80, 12), [0.42, 0.46, 0.53, 1.0], 8.0),
+        _sf_text("sf-co-ver", "v0.1.0", (444, 160, 80, 10), [0.34, 0.38, 0.45, 1.0], 7.0, 0, 2),
+    ]
+    card = _sf_panel("sf-pre-card", (12, 94, 516, 66), [1.0, 1.0, 1.0, 0.022],
+                     rounded=9.0, background=1)
+
+    # 5) soft GLOW image (background layer, behind everything — blur invisible on
+    #    a soft gradient); crisp vector text on top.
+    glow = _sf_fpic("sf-glow", (0, 0, W, FACE_H), faceplate)
+    boxes[0:0] = [glow, card]
+    boxes.extend(txt)
     return p
 
 
@@ -1403,7 +1525,7 @@ def main():
     # ── Build loader ──
     print("\n▸ Building setforge-loader...")
     loader_patcher = build_loader()
-    style_unified_panel(loader_patcher, "A", "LOADER", "CONNECTED")
+    relayout_and_skin_loader(loader_patcher, "loader-faceplate.png")
     print("  Verifying patcher...")
     loader_ok = verify_patcher("setforge-loader", loader_patcher)
 
@@ -1428,7 +1550,7 @@ def main():
     # Skip patcher verifiers — MIDI effect has no plugin~/plugout~ by design
     print("\n▸ Building setforge-grid (MIDI effect)...")
     grid_patcher = build_grid()
-    style_unified_panel(grid_patcher, "B", "GRID", "BRIDGED")
+    style_unified_panel(grid_patcher, "B", "Grid", "Bridged", faceplate="grid-faceplate.png")
     grid_ok = True
 
     maxpat_path = OUT_DIR / "setforge-grid.maxpat"
@@ -1445,7 +1567,7 @@ def main():
     # ── Build calibrator ──
     print("\n▸ Building setforge-calibrate...")
     cal_patcher = build_calibrator()
-    style_unified_panel(cal_patcher, "green", "CALIBRATE", "READY")
+    style_unified_panel(cal_patcher, "green", "Calibrate", "Ready", faceplate="calibrate-faceplate.png")
     print("  Verifying patcher...")
     cal_ok = verify_patcher("setforge-calibrate", cal_patcher)
 
@@ -1466,7 +1588,7 @@ def main():
     # ── Build arranger ──
     print("\n▸ Building setforge-arranger...")
     arr_patcher = build_arranger()
-    style_unified_panel(arr_patcher, "purple", "ARRANGER", "READY")
+    style_unified_panel(arr_patcher, "purple", "Arranger", "Ready", faceplate="arranger-faceplate.png")
     print("  Verifying patcher...")
     arr_ok = verify_patcher("setforge-arranger", arr_patcher)
 
