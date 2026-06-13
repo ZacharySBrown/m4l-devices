@@ -48,10 +48,10 @@ var MODIFIERS = ["HOLD", "MUTE", "SOLO", "REV", "STUT", "HALF", "DBL", "KILL"];
 // Launch quantization (Live enum values)
 var LAUNCH_QUANT = { "1/16": 4, "1/8": 5, "1/4": 6, "1/2": 7, "1bar": 8 };
 var ROW_QUANT = {
-    drums: LAUNCH_QUANT["1/16"],
+    drums: LAUNCH_QUANT["1bar"],
     bass:  LAUNCH_QUANT["1bar"],
-    other: LAUNCH_QUANT["1/4"],
-    vox:   LAUNCH_QUANT["1/2"]
+    other: LAUNCH_QUANT["1bar"],
+    vox:   LAUNCH_QUANT["1bar"]
 };
 
 // Side button function assignments (single-grid mode, left side top-to-bottom)
@@ -367,6 +367,7 @@ function sendSurfaceRgb(grid) {
 
 var presetSlots = [];
 var activeSlotIndex = -1;
+var pendingFixTask = null;  // global ref so we can cancel stale fixWarpMarkers
 
 function initPresetBanks() {
     presetSlots = [];
@@ -1002,10 +1003,13 @@ function loadPresetToDeckY(presetIdx) {
     }
 
     // Deferred warp fix for deck Y tracks
-    var fixTask = new Task(function() {
-        fixWarpMarkersOnTracks(presetIdx, 0, stemTrackIdsY);
+    var pi = presetIdx;
+    if (pendingFixTask) pendingFixTask.cancel();
+    pendingFixTask = new Task(function() {
+        if (activeSlotIndex !== pi) return;
+        fixWarpMarkersOnTracks(pi, 0, stemTrackIdsY);
     });
-    fixTask.schedule(4000);
+    pendingFixTask.schedule(4000);
 
     return totalLoaded;
 }
@@ -1028,10 +1032,13 @@ function loadPresetToDeckX(presetIdx) {
         totalLoaded += loaded;
     }
 
-    var fixTask = new Task(function() {
-        fixWarpMarkersOnTracks(presetIdx, 0, stemTrackIdsX);
+    var pi = presetIdx;
+    if (pendingFixTask) pendingFixTask.cancel();
+    pendingFixTask = new Task(function() {
+        if (activeSlotIndex !== pi) return;
+        fixWarpMarkersOnTracks(pi, 0, stemTrackIdsX);
     });
-    fixTask.schedule(4000);
+    pendingFixTask.schedule(4000);
 
     return totalLoaded;
 }
@@ -1041,10 +1048,13 @@ function loadClipsForPreset(presetIdx) {
     loadClipsToSlotSet(presetIdx, offset);
     // Defer warp marker adjustment — Live needs time to analyze new clips
     // before we can read and move its auto-generated markers.
-    var fixTask = new Task(function() {
-        fixWarpMarkers(presetIdx, offset);
+    var pi = presetIdx, off = offset;
+    if (pendingFixTask) pendingFixTask.cancel();
+    pendingFixTask = new Task(function() {
+        if (activeSlotIndex !== pi) return;
+        fixWarpMarkers(pi, off);
     });
-    fixTask.schedule(4000); // 4 seconds for Live to finish analysis (long clips need more time)
+    pendingFixTask.schedule(4000);
 }
 
 // Write taste's cleaned per-bar warp grid into a (warped) vocal clip via the
@@ -1380,10 +1390,13 @@ function stagePreset(presetIdx) {
 
     // Defer warp marker fix for staged clips too
     var offset = stagingSetOffset();
-    var fixTask = new Task(function() {
-        fixWarpMarkers(presetIdx, offset);
+    var pi = presetIdx, off = offset;
+    if (pendingFixTask) pendingFixTask.cancel();
+    pendingFixTask = new Task(function() {
+        if (activeSlotIndex !== pi) return;
+        fixWarpMarkers(pi, off);
     });
-    fixTask.schedule(2000);
+    pendingFixTask.schedule(2000);
 }
 
 function commitStagedPreset() {
@@ -2631,10 +2644,12 @@ function onPerRowReassign(slotIndex) {
 
             // Deferred warp fix for just this stem
             (function(s, si, o, tp) {
-                var fixTask = new Task(function() {
+                if (pendingFixTask) pendingFixTask.cancel();
+                pendingFixTask = new Task(function() {
+                    if (activeSlotIndex !== si) return;
                     fixWarpMarkersForStem(s, si, o, tp);
                 });
-                fixTask.schedule(4000);
+                pendingFixTask.schedule(4000);
             })(stem, slotIndex, activeSetOffset(), trackPath);
 
             // Hot-swap: if a chop is held in this row, migrate it
