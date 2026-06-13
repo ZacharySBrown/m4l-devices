@@ -264,6 +264,10 @@ export async function renderLibrary(el, state) {
   if (!_mounted) {
     _mounted = true;
     await Promise.all([_fetchLibrary(), _fetchSets()]);
+    _render(el);
+    return;
   }
-  _render(el);
+  // Don't re-render on state polls — library has its own data sources.
+  // Only render on first mount or explicit _rerender() calls.
+  if (!_rerenderEl) _render(el);
 }

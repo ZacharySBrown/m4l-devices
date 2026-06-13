@@ -244,26 +244,46 @@ def _build_live_state() -> dict | None:
     else:
         preset_label = f"B{active_idx - 8 + 1}"
 
-    # Build deck stems with clip_id and peaks_ref
+    # Build deck stems with clip_id, peaks_ref, chop details, and now_playing
     deck_stems = {}
     now_playing = []
+
+    # Also load manifest for chop labels
+    manifest_chops = {}
+    if manifest:
+        for mt in manifest.get("tracks", []):
+            if str(mt.get("id", "")) == active_track_id:
+                for sn in STEM_NAMES:
+                    sd = mt.get("stems", {}).get(sn, {})
+                    manifest_chops[sn] = sd.get("chops", [])
+                break
+
     for stem_name in STEM_NAMES:
         stem_clips = stems_data.get(stem_name, [])
         loaded_chops = len(stem_clips)
 
-        live_chop = None
-        progress = 0
-        clip_id = None
-        peaks_ref = None
+        # Build clip_id from first clip (for waveform peaks)
+        clip_id = f"sf:{active_track_id}:{stem_name}:0" if loaded_chops > 0 else None
+        peaks_ref = f"/peaks?clip={clip_id}" if clip_id else None
 
-        # Find the first clip with a chop path for peaks
-        if stem_clips:
-            for ci, clip in enumerate(stem_clips):
-                chop = clip.get("chop", {})
-                if chop.get("stemPath"):
-                    clip_id = f"sf:{active_track_id}:{stem_name}:{ci}"
-                    peaks_ref = f"/peaks?clip={clip_id}"
-                    break
+        # Build chop list with labels from manifest
+        m_chops = manifest_chops.get(stem_name, [])
+        chop_details = []
+        for ci, clip in enumerate(stem_clips):
+            chop = clip.get("chop", {})
+            label = chop.get("label", "")
+            kind = chop.get("kind", "")
+            # Fall back to manifest chop data
+            if not label and ci < len(m_chops):
+                label = m_chops[ci].get("label", f"chop {ci}")
+                kind = m_chops[ci].get("kind", "")
+            length_beats = clip.get("length", 0)
+            bars = round(length_beats / 4) if length_beats else 0
+            chop_details.append({
+                "idx": ci, "label": label or f"chop {ci}",
+                "kind": kind, "bars": bars,
+                "clip_id": f"sf:{active_track_id}:{stem_name}:{ci}",
+            })
 
         stem_entry = {
             "source": preset_label,
@@ -271,13 +291,24 @@ def _build_live_state() -> dict | None:
             "artist": active_meta.get("artist"),
             "key": active_meta.get("key"),
             "loaded_chops": loaded_chops,
-            "live_chop": live_chop,
-            "progress": progress,
+            "live_chop": None,
+            "progress": 0,
             "bars_left": 0,
             "clip_id": clip_id,
             "peaks_ref": peaks_ref,
+            "chops": chop_details,
         }
         deck_stems[stem_name] = stem_entry
+
+        # Add to now_playing (show all loaded stems for the active preset)
+        if loaded_chops > 0:
+            now_playing.append({
+                "deck": active_set,
+                "stem": stem_name,
+                "source": preset_label,
+                "progress": 0,
+                "peaks_ref": peaks_ref,
+            })
 
     # Build the active deck
     active_deck_data = {"stems": deck_stems}
@@ -353,25 +384,54 @@ def _build_live_state() -> dict | None:
 
 
 def _resolve_clip_wav(clip_id: str) -> str | None:
-    """Resolve a clip_id (e.g. 'sf:A1:drums:2') to a WAV path via inspect data."""
-    inspect = _read_inspect()
-    if not inspect:
-        return None
-    # clip_id format: "sf:<trackId>:<stem>:<chop_index>"
+    """Resolve a clip_id (e.g. 'sf:90011:drums:2') to a WAV path.
+
+    Tries inspect data first, falls back to manifest chop_path,
+    then falls back to raw stem file in cache.
+    """
     parts = clip_id.split(":")
     if len(parts) < 4 or parts[0] != "sf":
         return None
+    track_id = parts[1]
     stem_name = parts[2]
     try:
         chop_idx = int(parts[3])
     except (ValueError, IndexError):
         return None
-    stems = inspect.get("stems", {})
-    stem_clips = stems.get(stem_name, [])
-    for clip in stem_clips:
-        if clip.get("slot") == chop_idx:
-            chop = clip.get("chop", {})
-            return chop.get("stemPath")
+
+    # 1. Try inspect data
+    inspect = _read_inspect()
+    if inspect:
+        stems = inspect.get("stems", {})
+        stem_clips = stems.get(stem_name, [])
+        if chop_idx < len(stem_clips):
+            chop = stem_clips[chop_idx].get("chop", {})
+            sp = chop.get("stemPath")
+            if sp and os.path.exists(sp):
+                return sp
+
+    # 2. Try manifest chop_path
+    manifest_path = MANIFEST_CACHE / f"{track_id}.json"
+    if manifest_path.exists():
+        try:
+            with open(manifest_path) as f:
+                m = json.load(f)
+            chops = m.get("stems", {}).get(stem_name, {}).get("chops", [])
+            if chop_idx < len(chops):
+                cp = chops[chop_idx].get("chop_path", "")
+                if cp and os.path.exists(cp):
+                    return cp
+        except Exception:
+            pass
+
+    # 3. Try raw stem WAV from cache
+    stem_cache = Path.home() / ".cache" / "setforge" / "stems" / track_id
+    if stem_cache.exists():
+        stem_file = stem_name if stem_name != "vox" else "vocals"
+        candidates = list(stem_cache.rglob(f"{stem_file}.wav"))
+        if candidates:
+            return str(candidates[0])
+
     return None
 
 
@@ -389,10 +449,131 @@ def get_state() -> dict:
     return json.loads(SAMPLE.read_text(encoding="utf-8"))
 
 
-# ── Library / search / forge / assemble endpoints ──────────────────
+# ── Setlist timeline (Arrange view) ────────────────────────────────
 
 MANIFEST_CACHE = Path.home() / ".cache" / "setforge" / "manifests"
 SETS_DIR = Path.home() / ".cache" / "setforge" / "sets"
+
+LEGEND_PALETTE_FULL = LEGEND_PALETTE + LEGEND_PALETTE  # 16 slots
+
+
+def _build_setlist_timeline() -> dict | None:
+    """Build sequential setlist timeline from the loaded set's manifest."""
+    set_data, manifest = _load_set_manifest()
+    if not set_data or not manifest:
+        return None
+
+    conn = None
+    if TASTE_DB.exists():
+        try:
+            conn = sqlite3.connect(str(TASTE_DB))
+            conn.row_factory = sqlite3.Row
+        except Exception:
+            pass
+
+    setlist = set_data.get("setlist", [])
+    manifest_tracks = {str(t.get("id", "")): t for t in manifest.get("tracks", [])}
+
+    tracks = []
+    cumulative_bar = 0
+    for i, tid_str in enumerate(setlist):
+        mt = manifest_tracks.get(tid_str, {})
+        bpm = mt.get("bpm", 0)
+        bar_grid = mt.get("bar_grid", {})
+        bar_starts = bar_grid.get("bar_starts", [])
+        bar_count = len(bar_starts) if bar_starts else (
+            int(mt.get("downbeat_sec", 0) * bpm / 240) or 64)
+
+        # Get metadata from DB
+        meta = {}
+        if conn:
+            row = conn.execute(
+                "SELECT artist, title, camelot FROM tracks WHERE id=?",
+                (int(tid_str),)).fetchone()
+            if row:
+                meta = {"artist": row["artist"], "title": row["title"],
+                        "key": row["camelot"]}
+
+        # Build chop info per stem
+        stems_info = {}
+        for stem_name in STEM_NAMES:
+            stem_key = stem_name
+            stem_data = mt.get("stems", {}).get(stem_key, {})
+            chops = stem_data.get("chops", [])
+            stems_info[stem_name] = [{
+                "idx": ci,
+                "label": c.get("label", f"chop {ci}"),
+                "kind": c.get("kind", ""),
+                "bars": round(c.get("length_sec", 0) * bpm / 240) or 1,
+            } for ci, c in enumerate(chops)]
+
+        preset_id = f"A{i+1}" if i < 8 else f"B{i-7}"
+        tracks.append({
+            "track_id": tid_str,
+            "title": meta.get("title", f"Track {tid_str}"),
+            "artist": meta.get("artist", ""),
+            "preset_id": preset_id,
+            "color": LEGEND_PALETTE_FULL[i % len(LEGEND_PALETTE_FULL)],
+            "bpm": bpm,
+            "camelot": meta.get("key", ""),
+            "start_bar": cumulative_bar,
+            "bar_count": bar_count,
+            "stems": stems_info,
+        })
+        cumulative_bar += bar_count
+
+    if conn:
+        conn.close()
+
+    return {
+        "set_name": set_data.get("name", "Unknown"),
+        "total_bars": cumulative_bar,
+        "tracks": tracks,
+    }
+
+
+def _get_track_chops(track_id: str) -> dict:
+    """Get chop details for a track from its manifest."""
+    mf = MANIFEST_CACHE / f"{track_id}.json"
+    if not mf.exists():
+        return {"error": f"no manifest for track {track_id}"}
+    try:
+        with open(mf) as f:
+            m = json.load(f)
+        conn = None
+        meta = {}
+        if TASTE_DB.exists():
+            conn = sqlite3.connect(str(TASTE_DB))
+            conn.row_factory = sqlite3.Row
+            meta = _track_metadata(conn, track_id)
+            conn.close()
+        bpm = m.get("bpm", 0)
+        stems = {}
+        for sn in STEM_NAMES:
+            sd = m.get("stems", {}).get(sn, {})
+            chops = sd.get("chops", [])
+            stems[sn] = [{
+                "idx": i,
+                "label": c.get("label", f"chop {i}"),
+                "kind": c.get("kind", ""),
+                "bars": round(c.get("length_sec", 0) * bpm / 240) or 1,
+                "length_sec": round(c.get("length_sec", 0), 2),
+                "clip_id": f"sf:{track_id}:{sn}:{i}",
+                "peaks_ref": f"/peaks?clip=sf:{track_id}:{sn}:{i}",
+            } for i, c in enumerate(chops)]
+        return {
+            "track_id": track_id,
+            "title": meta.get("title", f"Track {track_id}"),
+            "artist": meta.get("artist", ""),
+            "key": meta.get("key", ""),
+            "bpm": bpm,
+            "stems": stems,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ── Library / search / forge / assemble endpoints ──────────────────
 
 
 def _search_tracks(query: str, limit: int = 30) -> list[dict]:
@@ -583,6 +764,12 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, {"sets": _list_sets()})
         elif path == "/forge-status" or path == "/forge-status/":
             self._send(200, dict(_forge_status))
+        elif path == "/setlist-timeline" or path == "/setlist-timeline/":
+            tl = _build_setlist_timeline()
+            self._send(200, tl or {"set_name": "No set loaded", "total_bars": 0, "tracks": []})
+        elif path.startswith("/track-chops"):
+            tid = params.get("id", [None])[0]
+            self._send(200, _get_track_chops(tid) if tid else {"error": "need ?id="})
         elif path == "/" or path == "":
             self._serve_file("index.html")
         elif path.startswith("/") and not path.startswith("/action"):
