@@ -214,9 +214,11 @@ function init() {
 import { renderPerform } from './render/perform.js';
 import { renderCurate } from './render/curate.js';
 import { renderArrangement } from './render/arrangement.js';
+import { renderLibrary } from './render/library.js';
 registerView('perform', renderPerform);
 registerView('curate', renderCurate);
 registerView('arrange', renderArrangement);
+registerView('library', renderLibrary);
 
 // Auto-init when DOM is ready
 if (typeof document !== 'undefined') {

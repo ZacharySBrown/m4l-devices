@@ -23,9 +23,11 @@ SAMPLE = HERE / "sample_state.json"
 INSPECT_PATH = Path("/tmp/setforge_inspect.json")
 LAST_SET_PATH = Path("/tmp/setforge_last_set.txt")
 
-# Taste engine
-TASTE_DIR = Path.home() / "zacharysbrown" / "taste"
-TASTE_DB = TASTE_DIR / "setforge.db"
+# Taste engine — use env vars, fall back to canonical paths
+TASTE_DB = Path(os.environ.get("SETFORGE_DB",
+                str(Path.home() / ".cache" / "setforge" / "db" / "setforge.db")))
+TASTE_DIR = Path(os.environ.get("TASTE_REPO",
+                 str(Path.home() / "SETFORGE_TEST" / "taste")))
 
 # Stable source-legend palette (8 colors, one per preset slot per bank)
 LEGEND_PALETTE = [
@@ -39,12 +41,12 @@ STEM_NAMES = ("drums", "bass", "other", "vox")
 # ── Live data helpers ──────────────────────────────────────────────
 
 def _read_inspect() -> dict | None:
-    """Read the loader's inspect JSON if it exists and is fresh (<30s)."""
+    """Read the loader's inspect JSON if it exists and is fresh (<5min)."""
     if not INSPECT_PATH.exists():
         return None
     try:
         age = time.time() - INSPECT_PATH.stat().st_mtime
-        if age > 30:
+        if age > 300:
             return None
         with open(INSPECT_PATH) as f:
             return json.load(f)
@@ -165,6 +167,26 @@ def _get_recommendations(conn: sqlite3.Connection,
 
 # ── Main state builder ─────────────────────────────────────────────
 
+def _load_set_manifest() -> tuple[dict | None, dict | None]:
+    """Load the set.json and manifest.json from the last loaded set path."""
+    try:
+        if not LAST_SET_PATH.exists():
+            return None, None
+        set_path = Path(LAST_SET_PATH.read_text().strip())
+        if not set_path.exists():
+            return None, None
+        with open(set_path) as f:
+            set_data = json.load(f)
+        manifest_path = set_path.parent / f"{set_data['name']}.manifest.json"
+        manifest = None
+        if manifest_path.exists():
+            with open(manifest_path) as f:
+                manifest = json.load(f)
+        return set_data, manifest
+    except Exception:
+        return None, None
+
+
 def _build_live_state() -> dict | None:
     """Build companion state from live data. Returns None if Live is down."""
     inspect = _read_inspect()
@@ -183,15 +205,19 @@ def _build_live_state() -> dict | None:
     # Transport
     transport = _osc_transport()
 
-    # Read set name from last_set.txt
+    # Load set + manifest for all-preset metadata
+    set_data, manifest = _load_set_manifest()
+
+    # Read set name
     set_name = "Unknown Set"
-    try:
-        if LAST_SET_PATH.exists():
+    if set_data:
+        set_name = set_data.get("name", "Unknown Set").replace("_", " ").title()
+    elif LAST_SET_PATH.exists():
+        try:
             raw = LAST_SET_PATH.read_text().strip()
-            # Extract set name from path: .../hiphop_danceable_v2/hiphop_danceable.set.json
             set_name = Path(raw).stem.replace(".set", "").replace("_", " ").title()
-    except Exception:
-        pass
+        except Exception:
+            pass
 
     # Active preset info
     active_idx = inspect.get("preset_index", 0)
@@ -199,12 +225,18 @@ def _build_live_state() -> dict | None:
     active_track_id = str(inspect.get("track_id", ""))
     active_bpm = inspect.get("track_bpm") or transport["bpm"]
 
-    # Get metadata from taste DB
-    meta = _track_metadata(conn, active_track_id) if conn else {}
+    # Build a track_id → metadata lookup from the manifest + DB
+    setlist = set_data.get("setlist", []) if set_data else []
+    track_meta_cache = {}
+    for tid_str in setlist:
+        if conn:
+            track_meta_cache[tid_str] = _track_metadata(conn, tid_str)
+
+    active_meta = track_meta_cache.get(active_track_id,
+                    _track_metadata(conn, active_track_id) if conn else {})
 
     # Build stem info from inspect
     stems_data = inspect.get("stems", {})
-    active_deck = active_set  # "A" or "B"
 
     # Determine preset label: A1-A8 or B1-B8
     if active_idx < 8:
@@ -212,78 +244,86 @@ def _build_live_state() -> dict | None:
     else:
         preset_label = f"B{active_idx - 8 + 1}"
 
-    # Build deck stems
+    # Build deck stems with clip_id and peaks_ref
     deck_stems = {}
     now_playing = []
     for stem_name in STEM_NAMES:
         stem_clips = stems_data.get(stem_name, [])
         loaded_chops = len(stem_clips)
 
-        # Check if any clip is playing via OSC (need track index)
         live_chop = None
         progress = 0
+        clip_id = None
+        peaks_ref = None
 
-        deck_stems[stem_name] = {
+        # Find the first clip with a chop path for peaks
+        if stem_clips:
+            for ci, clip in enumerate(stem_clips):
+                chop = clip.get("chop", {})
+                if chop.get("stemPath"):
+                    clip_id = f"sf:{active_track_id}:{stem_name}:{ci}"
+                    peaks_ref = f"/peaks?clip={clip_id}"
+                    break
+
+        stem_entry = {
             "source": preset_label,
-            "song": meta.get("title"),
-            "artist": meta.get("artist"),
-            "key": meta.get("key"),
+            "song": active_meta.get("title"),
+            "artist": active_meta.get("artist"),
+            "key": active_meta.get("key"),
             "loaded_chops": loaded_chops,
             "live_chop": live_chop,
             "progress": progress,
             "bars_left": 0,
+            "clip_id": clip_id,
+            "peaks_ref": peaks_ref,
         }
+        deck_stems[stem_name] = stem_entry
 
     # Build the active deck
     active_deck_data = {"stems": deck_stems}
 
     # Build the other deck (empty if not in dual-song)
-    empty_stems = {}
-    for stem_name in STEM_NAMES:
-        empty_stems[stem_name] = {
-            "source": None,
-            "song": None,
-            "artist": None,
-            "key": None,
-            "loaded_chops": 0,
-            "live_chop": None,
-            "progress": 0,
-            "bars_left": 0,
-        }
-    other_deck_data = {"stems": empty_stems}
+    empty_stem = {"source": None, "song": None, "artist": None, "key": None,
+                  "loaded_chops": 0, "live_chop": None, "progress": 0,
+                  "bars_left": 0, "clip_id": None, "peaks_ref": None}
+    other_deck_data = {"stems": {s: dict(empty_stem) for s in STEM_NAMES}}
 
     if active_set == "A":
         decks = {"A": active_deck_data, "B": other_deck_data}
     else:
         decks = {"A": other_deck_data, "B": active_deck_data}
 
-    # Build presets (8 per bank)
+    # Build presets — populate ALL from setlist, highlight active
     bank_a = []
     bank_b = []
-    # The active preset gets sourcing + color
     for i in range(8):
         pid = f"A{i + 1}"
-        p = {"id": pid, "song": None, "artist": None, "key": None,
-             "sourcing": None, "color": None}
-        if active_set == "A" and active_idx == i:
-            p["song"] = meta.get("title")
-            p["artist"] = meta.get("artist")
-            p["key"] = meta.get("key")
-            p["sourcing"] = list(STEM_NAMES)
-            p["color"] = LEGEND_PALETTE[i]
-        bank_a.append(p)
+        tid_str = setlist[i] if i < len(setlist) else None
+        meta = track_meta_cache.get(tid_str, {}) if tid_str else {}
+        is_active = (active_set == "A" and active_idx == i)
+        bank_a.append({
+            "id": pid,
+            "song": meta.get("title"),
+            "artist": meta.get("artist"),
+            "key": meta.get("key"),
+            "sourcing": list(STEM_NAMES) if is_active else None,
+            "color": LEGEND_PALETTE[i] if (meta.get("title") or is_active) else None,
+        })
 
     for i in range(8):
         pid = f"B{i + 1}"
-        p = {"id": pid, "song": None, "artist": None, "key": None,
-             "sourcing": None, "color": None}
-        if active_set == "B" and (active_idx - 8) == i:
-            p["song"] = meta.get("title")
-            p["artist"] = meta.get("artist")
-            p["key"] = meta.get("key")
-            p["sourcing"] = list(STEM_NAMES)
-            p["color"] = LEGEND_PALETTE[i]
-        bank_b.append(p)
+        si = 8 + i
+        tid_str = setlist[si] if si < len(setlist) else None
+        meta = track_meta_cache.get(tid_str, {}) if tid_str else {}
+        is_active = (active_set == "B" and active_idx == si)
+        bank_b.append({
+            "id": pid,
+            "song": meta.get("title"),
+            "artist": meta.get("artist"),
+            "key": meta.get("key"),
+            "sourcing": list(STEM_NAMES) if is_active else None,
+            "color": LEGEND_PALETTE[i] if (meta.get("title") or is_active) else None,
+        })
 
     # Recommendations from taste engine
     seed_ids = []
@@ -302,6 +342,7 @@ def _build_live_state() -> dict | None:
             "name": set_name,
             "bpm": round(active_bpm, 2),
             "bar": "1.1.1",
+            "is_playing": transport.get("is_playing", False),
         },
         "decks": decks,
         "presets": {"bankA": bank_a, "bankB": bank_b},
@@ -348,6 +389,162 @@ def get_state() -> dict:
     return json.loads(SAMPLE.read_text(encoding="utf-8"))
 
 
+# ── Library / search / forge / assemble endpoints ──────────────────
+
+MANIFEST_CACHE = Path.home() / ".cache" / "setforge" / "manifests"
+SETS_DIR = Path.home() / ".cache" / "setforge" / "sets"
+
+
+def _search_tracks(query: str, limit: int = 30) -> list[dict]:
+    """Search the taste DB by artist/title. Returns lightweight results."""
+    if not TASTE_DB.exists():
+        return []
+    conn = sqlite3.connect(str(TASTE_DB))
+    conn.row_factory = sqlite3.Row
+    q = f"%{query}%"
+    rows = conn.execute(
+        "SELECT id, artist, title, camelot, stem_bpm, tempo, local_path "
+        "FROM tracks WHERE (title LIKE ? OR artist LIKE ?) AND "
+        "(local_path IS NOT NULL OR stem_bpm IS NOT NULL) "
+        "ORDER BY CASE WHEN stem_bpm IS NOT NULL THEN 0 ELSE 1 END, artist "
+        "LIMIT ?",
+        (q, q, limit)).fetchall()
+    results = []
+    for r in rows:
+        tid = r["id"]
+        manifest_exists = (MANIFEST_CACHE / f"{tid}.json").exists()
+        results.append({
+            "id": tid,
+            "artist": r["artist"] or "",
+            "title": r["title"] or "",
+            "key": r["camelot"] or "",
+            "bpm": r["stem_bpm"] or r["tempo"] or 0,
+            "has_audio": bool(r["local_path"]),
+            "processed": manifest_exists,
+        })
+    conn.close()
+    return results
+
+
+def _get_library() -> list[dict]:
+    """List all processed tracks (those with manifests in cache)."""
+    if not MANIFEST_CACHE.exists():
+        return []
+    conn = None
+    if TASTE_DB.exists():
+        conn = sqlite3.connect(str(TASTE_DB))
+        conn.row_factory = sqlite3.Row
+    tracks = []
+    for mf in sorted(MANIFEST_CACHE.glob("*.json")):
+        try:
+            with open(mf) as f:
+                m = json.load(f)
+            tid = m.get("id", mf.stem)
+            bpm = m.get("bpm", 0)
+            strategy = m.get("strategy", "default")
+            n_chops = sum(len(m.get("stems", {}).get(s, {}).get("chops", []))
+                          for s in ("drums", "bass", "other", "vox"))
+            meta = {}
+            if conn:
+                row = conn.execute(
+                    "SELECT artist, title, camelot FROM tracks WHERE id=?",
+                    (int(tid),)).fetchone()
+                if row:
+                    meta = {"artist": row["artist"], "title": row["title"],
+                            "key": row["camelot"]}
+            tracks.append({
+                "id": int(tid),
+                "artist": meta.get("artist", ""),
+                "title": meta.get("title", ""),
+                "key": meta.get("key", ""),
+                "bpm": bpm,
+                "strategy": strategy,
+                "chops": n_chops,
+            })
+        except Exception:
+            continue
+    if conn:
+        conn.close()
+    return tracks
+
+
+def _list_sets() -> list[dict]:
+    """List all assembled sets."""
+    sets = []
+    if not SETS_DIR.exists():
+        return sets
+    for d in sorted(SETS_DIR.iterdir()):
+        if not d.is_dir():
+            continue
+        set_json = d / f"{d.name}.set.json"
+        if set_json.exists():
+            try:
+                with open(set_json) as f:
+                    s = json.load(f)
+                sets.append({
+                    "name": s.get("name", d.name),
+                    "tracks": len(s.get("setlist", [])),
+                    "tempo": s.get("global_tempo", 0),
+                    "path": str(set_json),
+                })
+            except Exception:
+                continue
+    return sets
+
+
+# Background forge-track runner
+_forge_status = {"running": False, "track_id": None, "log": [], "result": None}
+
+
+def _run_forge_track_bg(file: str = None, track_id: int = None,
+                        strategy: str = None):
+    """Run forge-track in a background thread."""
+    import threading
+
+    def _run():
+        _forge_status["running"] = True
+        _forge_status["log"] = []
+        _forge_status["result"] = None
+
+        def log_fn(msg):
+            _forge_status["log"].append(msg)
+
+        try:
+            sys.path.insert(0, str(TASTE_DIR))
+            from taste.forge_track import run_forge_track
+            from taste.schema import connect
+            conn = connect(str(TASTE_DB))
+            result = run_forge_track(conn, file=file, track_id=track_id,
+                                     strategy=strategy, force=False, log=log_fn)
+            conn.close()
+            _forge_status["result"] = result
+        except Exception as e:
+            _forge_status["log"].append(f"ERROR: {e}")
+            _forge_status["result"] = None
+        finally:
+            _forge_status["running"] = False
+
+    t = threading.Thread(target=_run, daemon=True)
+    t.start()
+
+
+def _run_assemble_set(name: str, track_ids: list[int],
+                      tempo: float = None) -> dict:
+    """Run assemble-set synchronously (it's instant)."""
+    try:
+        sys.path.insert(0, str(TASTE_DIR))
+        from taste.assemble_set import assemble_set
+        from taste.schema import connect
+        conn = connect(str(TASTE_DB))
+        logs = []
+        set_path = assemble_set(conn, name, track_ids,
+                                global_tempo=tempo, log=lambda m: logs.append(m))
+        conn.close()
+        return {"ok": True, "set_path": set_path, "log": logs}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: dict) -> None:
         payload = json.dumps(body).encode("utf-8")
@@ -365,13 +562,27 @@ class Handler(BaseHTTPRequestHandler):
     APP_DIR = HERE / "app"
 
     def do_GET(self):  # noqa: N802
-        path = self.path.split("?")[0]
+        from urllib.parse import urlparse, parse_qs
+        parsed = urlparse(self.path)
+        path = parsed.path
+        params = parse_qs(parsed.query)
+
         if path == "/state" or path == "/state/":
             self._send(200, get_state())
         elif path == "/arrangement" or path == "/arrangement/":
             self._send(200, _get_arrangement_slice())
         elif path.startswith("/peaks"):
             self._handle_peaks()
+        elif path == "/search" or path == "/search/":
+            q = params.get("q", [""])[0]
+            limit = int(params.get("limit", [30])[0])
+            self._send(200, {"results": _search_tracks(q, limit)})
+        elif path == "/library" or path == "/library/":
+            self._send(200, {"tracks": _get_library()})
+        elif path == "/sets" or path == "/sets/":
+            self._send(200, {"sets": _list_sets()})
+        elif path == "/forge-status" or path == "/forge-status/":
+            self._send(200, dict(_forge_status))
         elif path == "/" or path == "":
             self._serve_file("index.html")
         elif path.startswith("/") and not path.startswith("/action"):
@@ -425,10 +636,49 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, data)
 
     def do_POST(self):  # noqa: N802
-        if self.path.rstrip("/") == "/action":
+        path = self.path.rstrip("/")
+        if path == "/action":
             self._handle_action()
+        elif path == "/forge-track":
+            self._handle_forge_track()
+        elif path == "/assemble-set":
+            self._handle_assemble_set()
         else:
-            self._send(404, {"error": "not found", "try": "POST /action"})
+            self._send(404, {"error": "not found"})
+
+    def _handle_forge_track(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (json.JSONDecodeError, ValueError):
+            self._send(400, {"ok": False, "error": "invalid JSON"}); return
+        if _forge_status["running"]:
+            self._send(409, {"ok": False, "error": "forge-track already running",
+                             "track_id": _forge_status.get("track_id")})
+            return
+        track_id = body.get("track_id")
+        file = body.get("file")
+        strategy = body.get("strategy")
+        if not track_id and not file:
+            self._send(400, {"ok": False, "error": "need track_id or file"}); return
+        _forge_status["track_id"] = track_id
+        _run_forge_track_bg(file=file, track_id=track_id, strategy=strategy)
+        self._send(202, {"ok": True, "status": "started",
+                         "poll": "/forge-status"})
+
+    def _handle_assemble_set(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            body = json.loads(self.rfile.read(length).decode("utf-8"))
+        except (json.JSONDecodeError, ValueError):
+            self._send(400, {"ok": False, "error": "invalid JSON"}); return
+        name = body.get("name")
+        track_ids = body.get("track_ids", [])
+        tempo = body.get("tempo")
+        if not name or not track_ids:
+            self._send(400, {"ok": False, "error": "need name and track_ids"}); return
+        result = _run_assemble_set(name, track_ids, tempo)
+        self._send(200 if result.get("ok") else 400, result)
 
     def _handle_action(self):
         from actions import dispatch_action
